@@ -1,26 +1,25 @@
-export class JournalEntry {
-  constructor({ year, category, postings }) {
-    const checkCount = () => {
-      if (postings.length === 2) {
-        return;
-      }
-      throw new Error(
-        `category=${category} postings=${JSON.stringify(postings)} count=${postings.length} expected=2`
-      );
-    };
-    const checkBalance = () => {
-      const t = postings.reduce((s, p) => s + p.amount, 0);
-      if (Math.abs(t) <= 0.005) {
-        return;
-      }
-      throw new Error(
-        `category=${category} postings=${JSON.stringify(postings)} total=${t} expected=0`
-      );
-    };
-    checkCount();
-    checkBalance();
-    this.year = year;
-    this.category = category;
-    this.postings = postings;
-  }
+import { Base } from './Base.js';
+
+export class JournalEntry extends Base {
+    constructor({ year, category, postings }) {
+        super();
+        this.year = year;
+        this.category = category;
+        this.postings = postings;
+        const checkCount = () => {
+            if (postings.length === 2) {
+                return;
+            }
+            throw new Error(`count=${postings.length} expected=2 ${this}`);
+        };
+        const checkBalance = () => {
+            const t = postings.reduce((s, p) => s + p.amount, 0);
+            if (Math.abs(t) <= 0.005) {
+                return;
+            }
+            throw new Error(`total=${t} expected=0 ${this}`);
+        };
+        checkCount();
+        checkBalance();
+    }
 }
