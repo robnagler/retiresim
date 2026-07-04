@@ -1,8 +1,9 @@
 import { Base } from './Base.js';
 
 export class Bookkeeper extends Base {
-    constructor() {
+    constructor({ accounts }) {
         super();
+        this.accounts = [...accounts].sort((x, y) => x.priority - y.priority);
         this.journal = [];
     }
 
@@ -18,20 +19,33 @@ export class Bookkeeper extends Base {
             .reduce((s, p) => s + p.amount, 0);
     }
 
-    reconcile(year, accounts) {
-        const checkAccount = (name, account) => {
-            const e = this.balanceChange(name, year);
-            const a = account.endingBalance - account.beginningBalance;
-            if (Math.abs(e - a) <= 0.005) {
+    runYear(year) {
+        const b = this._snapshot();
+        for (const a of this.accounts) {
+            a.runYear({ year, bookkeeper: this });
+        }
+        this._reconcile(year, b, this._snapshot());
+    }
+
+    _snapshot() {
+        const rv = {};
+        for (const a of this.accounts) {
+            rv[a.name] = a.balance;
+        }
+        return rv;
+    }
+
+    _reconcile(year, beginning, ending) {
+        const checkAccount = (account) => {
+            const c = this.balanceChange(account.name, year);
+            const d = ending[account.name] - beginning[account.name];
+            if (Math.abs(c - d) <= 0.005) {
                 return;
             }
-            throw new Error(
-                `account=${name} year=${year} ledgerChange=${e} accountChange=${a} ` +
-                `beginningBalance=${account.beginningBalance} endingBalance=${account.endingBalance}`
-            );
+            throw new Error(`year=${year} ledgerChange=${c} accountChange=${d} ${account}`);
         };
-        for (const [name, account] of Object.entries(accounts)) {
-            checkAccount(name, account);
+        for (const a of this.accounts) {
+            checkAccount(a);
         }
     }
 }

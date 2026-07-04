@@ -1,9 +1,14 @@
 import { Base } from './Base.js';
+import { JournalEntry } from './JournalEntry.js';
+import { Posting } from './Posting.js';
 
 export class Account extends Base {
-    constructor({ balance }) {
+    constructor({ name, balance, rate, priority = 0 }) {
         super();
+        this.name = name;
         this.balance = balance;
+        this.rate = rate;
+        this.priority = priority;
     }
 
     grow(rate) {
@@ -26,5 +31,19 @@ export class Account extends Base {
         checkSufficient();
         this.balance -= amount;
         return this.balance;
+    }
+
+    runYear({ year, bookkeeper }) {
+        const a = this.balance;
+        this.grow(this.rate);
+        const g = this.balance - a;
+        bookkeeper.post(new JournalEntry({
+            year,
+            category: 'growth',
+            postings: [
+                new Posting({ account: this.name, amount: g }),
+                new Posting({ account: 'UnrealizedGrowth', amount: -g }),
+            ],
+        }));
     }
 }

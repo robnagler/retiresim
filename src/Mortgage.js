@@ -1,11 +1,12 @@
 import { Account } from './Account.js';
+import { JournalEntry } from './JournalEntry.js';
+import { Posting } from './Posting.js';
 
 const MONTHS_PER_YEAR = 12;
 
 export class Mortgage extends Account {
-    constructor({ balance, rate, monthlyPayment }) {
-        super({ balance });
-        this.rate = rate;
+    constructor({ name, balance, rate, monthlyPayment, priority }) {
+        super({ name, balance, rate, priority });
         this.monthlyPayment = monthlyPayment;
         const r = rate / MONTHS_PER_YEAR;
         this.growthFactor = (1 + r) ** MONTHS_PER_YEAR;
@@ -25,5 +26,17 @@ export class Mortgage extends Account {
         rv.interest = this.monthlyPayment * MONTHS_PER_YEAR - rv.principal;
         this.withdraw(rv.principal);
         return rv;
+    }
+
+    runYear({ year, bookkeeper }) {
+        const { principal } = this.makePayment();
+        bookkeeper.post(new JournalEntry({
+            year,
+            category: 'mortgagePrincipal',
+            postings: [
+                new Posting({ account: this.name, amount: -principal }),
+                new Posting({ account: 'MortgagePrincipalPaid', amount: principal }),
+            ],
+        }));
     }
 }

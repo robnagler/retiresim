@@ -21,6 +21,6 @@ test('withdraw decreases the balance', () => {
 });
 
 test('withdraw throws when amount exceeds balance', () => {
-    const a = new Account({ balance: 1000 });
-    assert.throws(() => a.withdraw(1001), /amount=1001 class=Account balance=1000/);
+    const a = new Account({ name: 'Test', balance: 1000 });
+    assert.throws(() => a.withdraw(1001), /amount=1001 class=Account name=Test balance=1000/);
 });
