@@ -1,10 +1,4 @@
-### rnfinance
-
-Financial tools
-
-Learn more at https://github.com/robnagler/rnfinance.
-
-Documentation: https://rnfinance.readthedocs.io
+### Financial tools
 
 #### License
 
