@@ -5,7 +5,7 @@ import { Posting } from './Posting.js';
 export class TraditionalIra extends Account {
     constructor({ name, balance, rate, priority, config }) {
         super({ name, balance, rate, priority });
-        this.config = config;
+        this.config = config.get(this.constructor.name);
     }
 
     withdraw(amount) {
@@ -15,7 +15,7 @@ export class TraditionalIra extends Account {
 
     runYear({ year, bookkeeper }) {
         super.runYear({ year, bookkeeper });
-        const amount = this.config.withdrawal(this.name, year);
+        const amount = this.config.withdraw;
         this.withdraw(amount);
         bookkeeper.post(new JournalEntry({
             year,
