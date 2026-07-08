@@ -5,9 +5,11 @@ import { Account } from '../src/Account.js';
 import { Mortgage } from '../src/Mortgage.js';
 import { JournalEntry } from '../src/JournalEntry.js';
 import { Posting } from '../src/Posting.js';
+import { Config } from '../src/Config.js';
 
 test('runYear grows an account and reconciles', () => {
-    const account = new Account({ name: 'Taxable', balance: 1000, rate: 0.05, priority: 0 });
+    const config = new Config({ Account: { balance: 1000 } });
+    const account = new Account({ name: 'Taxable', rate: 0.05, priority: 0, config });
     const bookkeeper = new Bookkeeper({ accounts: [account] });
     bookkeeper.runYear(2026);
     assert.equal(account.balance, 1050);
@@ -15,7 +17,8 @@ test('runYear grows an account and reconciles', () => {
 });
 
 test('runYear pays down a mortgage and reconciles', () => {
-    const mortgage = new Mortgage({ name: 'Mortgage', balance: 200000, rate: 0.06, monthlyPayment: 1200, priority: 0 });
+    const config = new Config({ Mortgage: { balance: 200000 } });
+    const mortgage = new Mortgage({ name: 'Mortgage', rate: 0.06, monthlyPayment: 1200, priority: 0, config });
     const bookkeeper = new Bookkeeper({ accounts: [mortgage] });
     bookkeeper.runYear(2026);
     const change = mortgage.balance - 200000;
@@ -24,7 +27,8 @@ test('runYear pays down a mortgage and reconciles', () => {
 });
 
 test('runYear throws when the journal does not match an account change', () => {
-    const account = new Account({ name: 'Taxable', balance: 1000, rate: 0.05, priority: 0 });
+    const config = new Config({ Account: { balance: 1000 } });
+    const account = new Account({ name: 'Taxable', rate: 0.05, priority: 0, config });
     const bookkeeper = new Bookkeeper({ accounts: [account] });
     bookkeeper.post(new JournalEntry({
         year: 2026,

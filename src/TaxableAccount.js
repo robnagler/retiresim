@@ -1,8 +1,8 @@
 import { Account } from './Account.js';
 
 export class TaxableAccount extends Account {
-    constructor({ name, balance, rate, priority, basis }) {
-        super({ name, balance, rate, priority });
+    constructor({ name, rate, priority, basis, config }) {
+        super({ name, rate, priority, config });
         this.basis = basis;
         this._checkBasis();
     }

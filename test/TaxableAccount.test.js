@@ -1,23 +1,27 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TaxableAccount } from '../src/TaxableAccount.js';
+import { Config } from '../src/Config.js';
 
 test('deposit increases balance and basis equally', () => {
-    const a = new TaxableAccount({ name: 'Taxable', balance: 1000, basis: 600 });
+    const config = new Config({ TaxableAccount: { balance: 1000 } });
+    const a = new TaxableAccount({ name: 'Taxable', basis: 600, config });
     a.deposit(200);
     assert.equal(a.balance, 1200);
     assert.equal(a.basis, 800);
 });
 
 test('grow increases balance but not basis', () => {
-    const a = new TaxableAccount({ name: 'Taxable', balance: 1000, basis: 600 });
+    const config = new Config({ TaxableAccount: { balance: 1000 } });
+    const a = new TaxableAccount({ name: 'Taxable', basis: 600, config });
     a.grow(0.1);
     assert.equal(a.balance, 1100);
     assert.equal(a.basis, 600);
 });
 
 test('withdraw reduces balance and basis proportionally and returns realized gain', () => {
-    const a = new TaxableAccount({ name: 'Taxable', balance: 1000, basis: 600 });
+    const config = new Config({ TaxableAccount: { balance: 1000 } });
+    const a = new TaxableAccount({ name: 'Taxable', basis: 600, config });
     const rv = a.withdraw(500);
     assert.equal(rv.balance, 500);
     assert.equal(rv.basisUsed, 300);
@@ -27,8 +31,9 @@ test('withdraw reduces balance and basis proportionally and returns realized gai
 });
 
 test('constructor throws when basis exceeds balance', () => {
+    const config = new Config({ TaxableAccount: { balance: 1000 } });
     assert.throws(
-        () => new TaxableAccount({ name: 'Taxable', balance: 1000, basis: 1001 }),
+        () => new TaxableAccount({ name: 'Taxable', basis: 1001, config }),
         /basis=1001/,
     );
 });

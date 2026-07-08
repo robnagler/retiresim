@@ -4,10 +4,12 @@ import { Simulator } from '../src/Simulator.js';
 import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Account } from '../src/Account.js';
 import { Mortgage } from '../src/Mortgage.js';
+import { Config } from '../src/Config.js';
 
 test('run grows an account and pays down a mortgage over multiple years, reconciling every year', () => {
-    const account = new Account({ name: 'Taxable', balance: 1000, rate: 0.05, priority: 0 });
-    const mortgage = new Mortgage({ name: 'Mortgage', balance: 200000, rate: 0.06, monthlyPayment: 1200, priority: 1 });
+    const config = new Config({ Account: { balance: 1000 }, Mortgage: { balance: 200000 } });
+    const account = new Account({ name: 'Taxable', rate: 0.05, priority: 0, config });
+    const mortgage = new Mortgage({ name: 'Mortgage', rate: 0.06, monthlyPayment: 1200, priority: 1, config });
     const bookkeeper = new Bookkeeper({ accounts: [account, mortgage] });
     const simulator = new Simulator({ bookkeeper, startYear: 2026, endYear: 2030 });
 
@@ -26,7 +28,8 @@ test('run grows an account and pays down a mortgage over multiple years, reconci
 });
 
 test('run throws immediately if a single year fails to reconcile', () => {
-    const account = new Account({ name: 'Taxable', balance: 1000, rate: 0.05, priority: 0 });
+    const config = new Config({ Account: { balance: 1000 } });
+    const account = new Account({ name: 'Taxable', rate: 0.05, priority: 0, config });
     const bookkeeper = new Bookkeeper({ accounts: [account] });
     const simulator = new Simulator({ bookkeeper, startYear: 2026, endYear: 2026 });
     account.runYear = () => {

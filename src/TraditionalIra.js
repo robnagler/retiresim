@@ -3,11 +3,6 @@ import { JournalEntry } from './JournalEntry.js';
 import { Posting } from './Posting.js';
 
 export class TraditionalIra extends Account {
-    constructor({ name, balance, rate, priority, config }) {
-        super({ name, balance, rate, priority });
-        this.config = config.get(this.constructor.name);
-    }
-
     withdraw(amount) {
         const balance = super.withdraw(amount);
         return { balance, income: amount };
