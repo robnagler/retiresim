@@ -1,12 +1,6 @@
-import { Base } from './Base.js';
+import { Account } from './Account.js';
 
-export class TaxCalculator extends Base {
-    constructor({ config }) {
-        super();
-        this.cfg = config.get(this.constructor.name);
-        this.owed = this.cfg.startingTax;
-    }
-
+export class TaxCalculator extends Account {
     federal(income) {
         let rv = 0;
         let p = 0;
@@ -31,9 +25,12 @@ export class TaxCalculator extends Base {
         return rv;
     }
 
-    settle(income) {
-        const d = this.owed;
-        this.owed = this.calculate(income).total;
-        return d;
+    runYear({ year, bookkeeper }) {
+        const income = bookkeeper.balanceChange('OrdinaryIncome', year);
+        this.balance = this.calculate(income).total;
+    }
+
+    due() {
+        return { account: this.name, amount: this.balance };
     }
 }

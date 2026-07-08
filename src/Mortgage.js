@@ -25,7 +25,12 @@ export class Mortgage extends Account {
         const rv = { principal: computePrincipal() };
         rv.interest = this.monthlyPayment * MONTHS_PER_YEAR - rv.principal;
         this.withdraw(rv.principal);
+        this.interest = rv.interest;
         return rv;
+    }
+
+    due() {
+        return { account: 'MortgageInterest', amount: this.interest };
     }
 
     runYear({ year, bookkeeper }) {
