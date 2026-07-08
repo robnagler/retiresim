@@ -10,7 +10,7 @@ export class TraditionalIra extends Account {
 
     runYear({ year, bookkeeper }) {
         super.runYear({ year, bookkeeper });
-        const amount = this.config.withdraw;
+        const amount = this.cfg.withdraw;
         this.withdraw(amount);
         bookkeeper.post(new JournalEntry({
             year,

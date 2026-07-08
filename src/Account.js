@@ -10,7 +10,7 @@ export class Account extends Base {
         this.balance = c.balance;
         this.rate = rate;
         this.priority = priority;
-        this.config = c;
+        this.cfg = c;
     }
 
     grow(rate) {
