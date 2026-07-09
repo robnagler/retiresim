@@ -92,7 +92,7 @@ test('runYear produces the total owed by all spenders, then spends it per catego
                 {
                     name: 'Tax',
                     class: 'TaxCalculator',
-                    balance: 3000,
+                    balance: -3000,
                     federalBrackets: [{ rate: 0.10, upTo: null }],
                     stateRate: 0.044,
                 },
@@ -103,8 +103,10 @@ test('runYear produces the total owed by all spenders, then spends it per catego
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage, TaxCalculator, LivingExpense, Cash } });
     const account = bookkeeper.accounts.find((a) => a.name === 'Account');
     const mortgage = bookkeeper.accounts.find((a) => a.name === 'Mortgage');
+    const tax = bookkeeper.accounts.find((a) => a.name === 'Tax');
     const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
     mortgage.makePayment();
+    tax.runYear({ year: 2026, bookkeeper });
 
     cash.runYear({ year: 2026, bookkeeper });
 

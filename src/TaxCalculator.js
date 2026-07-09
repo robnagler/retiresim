@@ -28,19 +28,32 @@ export class TaxCalculator extends Account {
     }
 
     runYear({ year, bookkeeper }) {
-        const income = bookkeeper.balanceChange('OrdinaryIncome', year);
+        this.owed = -this.balance;
         const a = this.balance;
-        this.balance = this.calculate(income).total;
+        this.balance = 0;
         const d = this.balance - a;
         bookkeeper.post(new JournalEntry({
             year,
-            category: 'tax',
+            category: 'taxPaid',
+            source: new Posting({ account: 'TaxAccrued', amount: -d }),
+            dest: new Posting({ account: this.name, amount: d }),
+        }));
+    }
+
+    prepareNextYear({ year, bookkeeper }) {
+        const income = bookkeeper.balanceChange('OrdinaryIncome', year);
+        const a = this.balance;
+        this.balance = -this.calculate(income).total;
+        const d = this.balance - a;
+        bookkeeper.post(new JournalEntry({
+            year,
+            category: 'taxAccrued',
             source: new Posting({ account: 'TaxAccrued', amount: -d }),
             dest: new Posting({ account: this.name, amount: d }),
         }));
     }
 
     due() {
-        return { account: 'TaxPaid', amount: this.balance };
+        return { account: 'TaxPaid', amount: this.owed };
     }
 }

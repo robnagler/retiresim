@@ -10,7 +10,7 @@ import { Posting } from '../src/Posting.js';
 const config = new Config({
     Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
     Tax: {
-        balance: 5000,
+        balance: -5000,
         federalBrackets: [
             { rate: 0.10, upTo: 10000 },
             { rate: 0.12, upTo: 40000 },
@@ -45,10 +45,22 @@ test('calculate returns federal, state, and total', () => {
 
 test('balance starts from the configured opening value, like any account', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
-    assert.equal(c.balance, 5000);
+    assert.equal(c.balance, -5000);
 });
 
-test('runYear sets balance from this year\'s posted ordinary income and returns nothing', () => {
+test('runYear posts last year\'s liability (the current balance) as owed, then clears the balance to zero', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+
+    const rv = c.runYear({ year: 2026, bookkeeper });
+
+    assert.equal(rv, undefined);
+    assert.equal(c.owed, 5000);
+    assert.equal(c.balance, 0);
+    assert.equal(bookkeeper.balanceChange('Tax', 2026), 5000);
+});
+
+test('prepareNextYear sets balance to a negative liability from this year\'s posted ordinary income and returns nothing', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
     bookkeeper.post(new JournalEntry({
@@ -58,14 +70,16 @@ test('runYear sets balance from this year\'s posted ordinary income and returns 
         dest: new Posting({ account: 'OrdinaryIncome', amount: 60000 }),
     }));
 
-    const rv = c.runYear({ year: 2026, bookkeeper });
+    const rv = c.prepareNextYear({ year: 2026, bookkeeper });
 
     assert.equal(rv, undefined);
-    assert.equal(c.balance, c.calculate(60000).total);
-    assert.equal(bookkeeper.balanceChange('Tax', 2026), c.balance - 5000);
+    assert.equal(c.balance, -c.calculate(60000).total);
+    assert.equal(bookkeeper.balanceChange('Tax', 2026), c.balance - (-5000));
 });
 
-test('due returns a distinct paid-tax account, not the account\'s own name, and the amount owed', () => {
+test('due returns a distinct paid-tax account, not the account\'s own name, and the amount runYear stashed as owed', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+    c.runYear({ year: 2026, bookkeeper });
     assert.deepEqual(c.due(), { account: 'TaxPaid', amount: 5000 });
 });
