@@ -11,3 +11,9 @@ test('get returns undefined when nothing is stored under a name', () => {
     const c = new Config({ TraditionalIra: { withdraw: 300 } });
     assert.equal(c.get('Other'), undefined);
 });
+
+test('set stores data under a name for later get calls', () => {
+    const c = new Config({});
+    c.set('TraditionalIra', { withdraw: 300 });
+    assert.deepEqual(c.get('TraditionalIra'), { withdraw: 300 });
+});

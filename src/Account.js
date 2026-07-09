@@ -7,7 +7,6 @@ export class Account extends Base {
         super({ name, config });
         this.balance = this.cfg.balance;
         this.rate = this.cfg.rate;
-        this.priority = this.cfg.priority ?? 0;
     }
 
     grow(rate) {
@@ -39,10 +38,8 @@ export class Account extends Base {
         bookkeeper.post(new JournalEntry({
             year,
             category: 'growth',
-            postings: [
-                new Posting({ account: this.name, amount: g }),
-                new Posting({ account: 'UnrealizedGrowth', amount: -g }),
-            ],
+            source: new Posting({ account: 'UnrealizedGrowth', amount: -g }),
+            dest: new Posting({ account: this.name, amount: g }),
         }));
     }
 }

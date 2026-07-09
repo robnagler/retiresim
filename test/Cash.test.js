@@ -10,66 +10,70 @@ import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Config } from '../src/Config.js';
 
 const buildConfig = () => new Config({
-    Bookkeeper: { accountClasses: ['Taxable', 'TradIra'] },
-    Taxable: { class: 'Account', balance: 1000, rate: 0 },
-    TradIra: { class: 'TraditionalIra', balance: 5000, rate: 0 },
-    Cash: { balance: 0, withdrawalOrder: ['Taxable', 'TradIra'] },
+    Cash: {
+        balance: 0,
+        withdrawalOrder: [
+            { name: 'Account', balance: 1000, rate: 0 },
+            { name: 'TraditionalIra', balance: 5000, rate: 0 },
+        ],
+        spendingOrder: [],
+    },
 });
 
 test('produce withdraws from accounts in withdrawalOrder and posts a journal entry per source', () => {
     const config = buildConfig();
-    const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra } });
-    const [taxable, tradIra] = bookkeeper.accounts;
-    const cash = new Cash({ name: 'Cash', config, accounts: [taxable, tradIra] });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra, Cash } });
+    const [account, tradIra] = bookkeeper.accounts;
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
 
     const rv = cash.produce({ amount: 1500, year: 2026, bookkeeper });
 
     assert.deepEqual(rv, [
-        { account: 'Taxable', amount: 1000 },
-        { account: 'TradIra', amount: 500 },
+        { account: 'Account', amount: 1000 },
+        { account: 'TraditionalIra', amount: 500 },
     ]);
-    assert.equal(taxable.balance, 0);
+    assert.equal(account.balance, 0);
     assert.equal(tradIra.balance, 4500);
     assert.equal(cash.balance, 1500);
-    assert.equal(bookkeeper.balanceChange('Taxable', 2026), -1000);
-    assert.equal(bookkeeper.balanceChange('TradIra', 2026), -500);
+    assert.equal(bookkeeper.balanceChange('Account', 2026), -1000);
+    assert.equal(bookkeeper.balanceChange('TraditionalIra', 2026), -500);
     assert.equal(bookkeeper.balanceChange('Cash', 2026), 1500);
 });
 
 test('produce stops early once the amount is fully covered by earlier accounts', () => {
     const config = buildConfig();
-    const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra } });
-    const [taxable, tradIra] = bookkeeper.accounts;
-    const cash = new Cash({ name: 'Cash', config, accounts: [taxable, tradIra] });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra, Cash } });
+    const [account, tradIra] = bookkeeper.accounts;
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
 
     const rv = cash.produce({ amount: 400, year: 2026, bookkeeper });
 
-    assert.deepEqual(rv, [{ account: 'Taxable', amount: 400 }]);
-    assert.equal(taxable.balance, 600);
+    assert.deepEqual(rv, [{ account: 'Account', amount: 400 }]);
+    assert.equal(account.balance, 600);
     assert.equal(tradIra.balance, 5000);
     assert.equal(cash.balance, 400);
 });
 
 test('produce throws when accounts in withdrawalOrder cannot cover the amount', () => {
     const config = new Config({
-        Bookkeeper: { accountClasses: ['Taxable'] },
-        Taxable: { class: 'Account', balance: 1000, rate: 0 },
-        Cash: { balance: 0, withdrawalOrder: ['Taxable'] },
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'Account', balance: 1000, rate: 0 }],
+            spendingOrder: [],
+        },
     });
-    const bookkeeper = new Bookkeeper({ config, classes: { Account } });
-    const [taxable] = bookkeeper.accounts;
-    const cash = new Cash({ name: 'Cash', config, accounts: [taxable] });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
 
     assert.throws(() => cash.produce({ amount: 1500, year: 2026, bookkeeper }), /shortfall=500/);
 });
 
 test('spend withdraws from cash and posts a journal entry to the expense category', () => {
     const config = new Config({
-        Bookkeeper: { accountClasses: [] },
-        Cash: { balance: 1500, withdrawalOrder: [] },
+        Cash: { balance: 1500, withdrawalOrder: [], spendingOrder: [] },
     });
-    const cash = new Cash({ name: 'Cash', config, accounts: [] });
-    const bookkeeper = new Bookkeeper({ config, classes: {} });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
 
     cash.spend({ amount: 600, account: 'MortgageInterest', year: 2026, bookkeeper });
 
@@ -80,42 +84,44 @@ test('spend withdraws from cash and posts a journal entry to the expense categor
 
 test('runYear produces the total owed by all spenders, then spends it per category', () => {
     const config = new Config({
-        Bookkeeper: { accountClasses: ['Taxable'] },
-        Taxable: { class: 'Account', balance: 20000, rate: 0 },
-        Mortgage: { balance: 200000, rate: 0.06, monthlyPayment: 1200 },
-        Tax: {
-            balance: 3000,
-            federalBrackets: [{ rate: 0.10, upTo: null }],
-            stateRate: 0.044,
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'Account', balance: 20000, rate: 0 }],
+            spendingOrder: [
+                { name: 'Mortgage', balance: -200000, rate: 0.06, monthlyPayment: 1200 },
+                {
+                    name: 'Tax',
+                    class: 'TaxCalculator',
+                    balance: 3000,
+                    federalBrackets: [{ rate: 0.10, upTo: null }],
+                    stateRate: 0.044,
+                },
+                { name: 'LivingExpense', balance: 2000, rate: 0.025 },
+            ],
         },
-        LivingExpense: { balance: 2000, rate: 0.025 },
-        Cash: { balance: 0, withdrawalOrder: ['Taxable'] },
     });
-    const bookkeeper = new Bookkeeper({ config, classes: { Account } });
-    const [taxable] = bookkeeper.accounts;
-    const mortgage = new Mortgage({ name: 'Mortgage', config });
-    const tax = new TaxCalculator({ name: 'Tax', config });
-    const livingExpense = new LivingExpense({ name: 'LivingExpense', config });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage, TaxCalculator, LivingExpense, Cash } });
+    const account = bookkeeper.accounts.find((a) => a.name === 'Account');
+    const mortgage = bookkeeper.accounts.find((a) => a.name === 'Mortgage');
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
     mortgage.makePayment();
-    const cash = new Cash({ name: 'Cash', config, accounts: [taxable], spenders: [mortgage, tax, livingExpense] });
 
     cash.runYear({ year: 2026, bookkeeper });
 
     const total = mortgage.interest + 3000 + 2000;
-    assert.equal(taxable.balance, 20000 - total);
+    assert.equal(account.balance, 20000 - total);
     assert.equal(cash.balance, 0);
     assert.equal(bookkeeper.balanceChange('MortgageInterest', 2026), mortgage.interest);
-    assert.equal(bookkeeper.balanceChange('Tax', 2026), 3000);
-    assert.equal(bookkeeper.balanceChange('LivingExpense', 2026), 2000);
+    assert.equal(bookkeeper.balanceChange('TaxPaid', 2026), 3000);
+    assert.equal(bookkeeper.balanceChange('LivingExpensePaid', 2026), 2000);
 });
 
 test('spend can carry cash negative -- produce brings it back to reconcile', () => {
     const config = new Config({
-        Bookkeeper: { accountClasses: [] },
-        Cash: { balance: 100, withdrawalOrder: [] },
+        Cash: { balance: 100, withdrawalOrder: [], spendingOrder: [] },
     });
-    const cash = new Cash({ name: 'Cash', config, accounts: [] });
-    const bookkeeper = new Bookkeeper({ config, classes: {} });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
 
     cash.spend({ amount: 600, account: 'MortgageInterest', year: 2026, bookkeeper });
 

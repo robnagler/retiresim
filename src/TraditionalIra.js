@@ -15,10 +15,8 @@ export class TraditionalIra extends Account {
         bookkeeper.post(new JournalEntry({
             year,
             category: 'traditionalIraWithdrawal',
-            postings: [
-                new Posting({ account: this.name, amount: -amount }),
-                new Posting({ account: 'OrdinaryIncome', amount }),
-            ],
+            source: new Posting({ account: this.name, amount: -amount }),
+            dest: new Posting({ account: 'OrdinaryIncome', amount }),
         }));
     }
 }

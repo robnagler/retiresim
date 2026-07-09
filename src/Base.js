@@ -1,15 +1,16 @@
 export class Base {
     constructor({ name, config } = {}) {
-        if (name) {
-            this.name = name;
-        }
+        this.name = name ?? this.constructor.name;
         if (config) {
-            this.cfg = config.get(this.name ?? this.constructor.name);
+            this.cfg = config.get(this.name);
         }
     }
 
     toString() {
-        const f = Object.entries(this).map(([k, v]) => `${k}=${v}`).join(' ');
-        return `class=${this.constructor.name} ${f}`;
+        const f = Object.entries(this)
+            .filter(([k]) => k !== 'name' && k !== 'cfg')
+            .map(([k, v]) => `${k}=${v}`)
+            .join(' ');
+        return `class=${this.constructor.name} name=${this.name} ${f}`;
     }
 }

@@ -3,12 +3,16 @@ import { Base } from './Base.js';
 export class Bookkeeper extends Base {
     constructor({ config, classes }) {
         super({ config });
-        const accounts = this.cfg.accountClasses.map((name) => {
-            const c = config.get(name);
-            const t = classes[c.class ?? name];
-            return new t({ name, config });
-        });
-        this.accounts = accounts.sort((x, y) => x.priority - y.priority);
+        const cash = config.get('Cash');
+        const build = (entry) => {
+            config.set(entry.name, entry);
+            const t = classes[entry.class ?? entry.name];
+            return new t({ name: entry.name, config });
+        };
+        const withdrawal = cash.withdrawalOrder.map(build);
+        const spending = cash.spendingOrder.map(build);
+        const cashAccount = new classes.Cash({ config, accounts: withdrawal, spenders: spending });
+        this.accounts = [...withdrawal, ...spending, cashAccount];
         this.journal = [];
     }
 
@@ -19,7 +23,7 @@ export class Bookkeeper extends Base {
     balanceChange(account, year) {
         return this.journal
             .filter((j) => j.year === year)
-            .flatMap((j) => j.postings)
+            .flatMap((j) => [j.source, j.dest])
             .filter((p) => p.account === account)
             .reduce((s, p) => s + p.amount, 0);
     }

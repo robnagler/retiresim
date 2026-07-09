@@ -1,17 +1,15 @@
 import { Base } from './Base.js';
 
 export class JournalEntry extends Base {
-    constructor({ year, category, postings }) {
+    constructor({ year, category, source, dest }) {
         super();
         this.year = year;
         this.category = category;
-        this.postings = postings;
-        if (postings.length !== 2) {
-            throw new Error(`not two postings=${postings}`);
-        }
-        const t = postings.reduce((s, p) => s + p.amount, 0);
+        this.source = source;
+        this.dest = dest;
+        const t = source.amount + dest.amount;
         if (Math.abs(t) > 0.005) {
-            throw new Error(`non-zero sum=${t} postings=${postings}`);
+            throw new Error(`non-zero sum=${t} source=${source} dest=${dest}`);
         }
     }
 }

@@ -1,4 +1,6 @@
 import { Account } from './Account.js';
+import { JournalEntry } from './JournalEntry.js';
+import { Posting } from './Posting.js';
 
 export class TaxCalculator extends Account {
     federal(income) {
@@ -27,10 +29,18 @@ export class TaxCalculator extends Account {
 
     runYear({ year, bookkeeper }) {
         const income = bookkeeper.balanceChange('OrdinaryIncome', year);
+        const a = this.balance;
         this.balance = this.calculate(income).total;
+        const d = this.balance - a;
+        bookkeeper.post(new JournalEntry({
+            year,
+            category: 'tax',
+            source: new Posting({ account: 'TaxAccrued', amount: -d }),
+            dest: new Posting({ account: this.name, amount: d }),
+        }));
     }
 
     due() {
-        return { account: this.name, amount: this.balance };
+        return { account: 'TaxPaid', amount: this.balance };
     }
 }

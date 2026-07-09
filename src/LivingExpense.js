@@ -2,6 +2,6 @@ import { Account } from './Account.js';
 
 export class LivingExpense extends Account {
     due() {
-        return { account: this.name, amount: this.balance };
+        return { account: 'LivingExpensePaid', amount: this.balance };
     }
 }

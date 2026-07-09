@@ -15,8 +15,8 @@ export class Mortgage extends Account {
 
     makePayment() {
         const computePrincipal = () => {
-            const b = this.balance * this.growthFactor - this.yearlyPayment;
-            const rv = this.balance - b;
+            const b = this.balance * this.growthFactor + this.yearlyPayment;
+            const rv = b - this.balance;
             if (rv >= 0) {
                 return rv;
             }
@@ -24,7 +24,7 @@ export class Mortgage extends Account {
         };
         const rv = { principal: computePrincipal() };
         rv.interest = this.monthlyPayment * MONTHS_PER_YEAR - rv.principal;
-        this.withdraw(rv.principal);
+        this.deposit(rv.principal);
         this.interest = rv.interest;
         return rv;
     }
@@ -38,10 +38,8 @@ export class Mortgage extends Account {
         bookkeeper.post(new JournalEntry({
             year,
             category: 'mortgagePrincipal',
-            postings: [
-                new Posting({ account: this.name, amount: -principal }),
-                new Posting({ account: 'MortgagePrincipalPaid', amount: principal }),
-            ],
+            source: new Posting({ account: 'MortgagePrincipalPaid', amount: -principal }),
+            dest: new Posting({ account: this.name, amount: principal }),
         }));
     }
 }

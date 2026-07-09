@@ -27,17 +27,15 @@ export class Cash extends Account {
         bookkeeper.post(new JournalEntry({
             year,
             category: 'spend',
-            postings: [
-                new Posting({ account: this.name, amount: -amount }),
-                new Posting({ account, amount }),
-            ],
+            source: new Posting({ account: this.name, amount: -amount }),
+            dest: new Posting({ account, amount }),
         }));
     }
 
     produce({ amount, year, bookkeeper }) {
         const rv = [];
         let r = amount;
-        for (const n of this.cfg.withdrawalOrder) {
+        for (const { name: n } of this.cfg.withdrawalOrder) {
             if (r <= 0) {
                 break;
             }
@@ -51,10 +49,8 @@ export class Cash extends Account {
             bookkeeper.post(new JournalEntry({
                 year,
                 category: `${source.constructor.name}Withdrawal`,
-                postings: [
-                    new Posting({ account: source.name, amount: -w }),
-                    new Posting({ account: this.name, amount: w }),
-                ],
+                source: new Posting({ account: source.name, amount: -w }),
+                dest: new Posting({ account: this.name, amount: w }),
             }));
             rv.push({ account: n, amount: w });
             r -= w;

@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { TaxCalculator } from '../src/TaxCalculator.js';
 import { Config } from '../src/Config.js';
 import { Bookkeeper } from '../src/Bookkeeper.js';
+import { Cash } from '../src/Cash.js';
 import { JournalEntry } from '../src/JournalEntry.js';
 import { Posting } from '../src/Posting.js';
 
 const config = new Config({
-    Bookkeeper: { accountClasses: [] },
+    Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
     Tax: {
         balance: 5000,
         federalBrackets: [
@@ -49,23 +50,22 @@ test('balance starts from the configured opening value, like any account', () =>
 
 test('runYear sets balance from this year\'s posted ordinary income and returns nothing', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
-    const bookkeeper = new Bookkeeper({ config, classes: {} });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
     bookkeeper.post(new JournalEntry({
         year: 2026,
         category: 'income',
-        postings: [
-            new Posting({ account: 'OrdinaryIncome', amount: 60000 }),
-            new Posting({ account: 'TradIra', amount: -60000 }),
-        ],
+        source: new Posting({ account: 'TradIra', amount: -60000 }),
+        dest: new Posting({ account: 'OrdinaryIncome', amount: 60000 }),
     }));
 
     const rv = c.runYear({ year: 2026, bookkeeper });
 
     assert.equal(rv, undefined);
     assert.equal(c.balance, c.calculate(60000).total);
+    assert.equal(bookkeeper.balanceChange('Tax', 2026), c.balance - 5000);
 });
 
-test('due returns the account name and the amount owed', () => {
+test('due returns a distinct paid-tax account, not the account\'s own name, and the amount owed', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
-    assert.deepEqual(c.due(), { account: 'Tax', amount: 5000 });
+    assert.deepEqual(c.due(), { account: 'TaxPaid', amount: 5000 });
 });
