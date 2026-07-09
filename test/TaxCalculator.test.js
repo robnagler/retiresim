@@ -7,7 +7,8 @@ import { JournalEntry } from '../src/JournalEntry.js';
 import { Posting } from '../src/Posting.js';
 
 const config = new Config({
-    TaxCalculator: {
+    Bookkeeper: { accountClasses: [] },
+    Tax: {
         balance: 5000,
         federalBrackets: [
             { rate: 0.10, upTo: 10000 },
@@ -48,7 +49,7 @@ test('balance starts from the configured opening value, like any account', () =>
 
 test('runYear sets balance from this year\'s posted ordinary income and returns nothing', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
-    const bookkeeper = new Bookkeeper({ accounts: [] });
+    const bookkeeper = new Bookkeeper({ config, classes: {} });
     bookkeeper.post(new JournalEntry({
         year: 2026,
         category: 'income',

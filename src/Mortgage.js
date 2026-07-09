@@ -5,10 +5,10 @@ import { Posting } from './Posting.js';
 const MONTHS_PER_YEAR = 12;
 
 export class Mortgage extends Account {
-    constructor({ name, rate, monthlyPayment, priority, config }) {
-        super({ name, rate, priority, config });
-        this.monthlyPayment = monthlyPayment;
-        const r = rate / MONTHS_PER_YEAR;
+    constructor({ name, config }) {
+        super({ name, config });
+        this.monthlyPayment = this.cfg.monthlyPayment;
+        const r = this.rate / MONTHS_PER_YEAR;
         this.growthFactor = (1 + r) ** MONTHS_PER_YEAR;
         this.yearlyPayment = this.monthlyPayment * ((this.growthFactor - 1) / r);
     }

@@ -7,11 +7,15 @@ import { Mortgage } from '../src/Mortgage.js';
 import { Config } from '../src/Config.js';
 
 test('run grows an account and pays down a mortgage over multiple years, reconciling every year', () => {
-    const config = new Config({ Account: { balance: 1000 }, Mortgage: { balance: 200000 } });
-    const account = new Account({ name: 'Taxable', rate: 0.05, priority: 0, config });
-    const mortgage = new Mortgage({ name: 'Mortgage', rate: 0.06, monthlyPayment: 1200, priority: 1, config });
-    const bookkeeper = new Bookkeeper({ accounts: [account, mortgage] });
-    const simulator = new Simulator({ bookkeeper, startYear: 2026, endYear: 2030 });
+    const config = new Config({
+        Bookkeeper: { accountClasses: ['Taxable', 'Mortgage'] },
+        Taxable: { class: 'Account', balance: 1000, rate: 0.05, priority: 0 },
+        Mortgage: { balance: 200000, rate: 0.06, monthlyPayment: 1200, priority: 1 },
+        Simulator: { startYear: 2026, endYear: 2030 },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage } });
+    const [account, mortgage] = bookkeeper.accounts;
+    const simulator = new Simulator({ bookkeeper, config });
 
     simulator.run();
 
@@ -28,10 +32,14 @@ test('run grows an account and pays down a mortgage over multiple years, reconci
 });
 
 test('run throws immediately if a single year fails to reconcile', () => {
-    const config = new Config({ Account: { balance: 1000 } });
-    const account = new Account({ name: 'Taxable', rate: 0.05, priority: 0, config });
-    const bookkeeper = new Bookkeeper({ accounts: [account] });
-    const simulator = new Simulator({ bookkeeper, startYear: 2026, endYear: 2026 });
+    const config = new Config({
+        Bookkeeper: { accountClasses: ['Taxable'] },
+        Taxable: { class: 'Account', balance: 1000, rate: 0.05, priority: 0 },
+        Simulator: { startYear: 2026, endYear: 2026 },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account } });
+    const simulator = new Simulator({ bookkeeper, config });
+    const account = bookkeeper.accounts[0];
     account.runYear = () => {
         account.balance += 999;
     };

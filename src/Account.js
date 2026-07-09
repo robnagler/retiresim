@@ -3,14 +3,11 @@ import { JournalEntry } from './JournalEntry.js';
 import { Posting } from './Posting.js';
 
 export class Account extends Base {
-    constructor({ name, rate, priority = 0, config }) {
-        super();
-        this.name = name;
-        const c = config.get(this.constructor.name);
-        this.balance = c.balance;
-        this.rate = rate;
-        this.priority = priority;
-        this.cfg = c;
+    constructor({ name, config }) {
+        super({ name, config });
+        this.balance = this.cfg.balance;
+        this.rate = this.cfg.rate;
+        this.priority = this.cfg.priority ?? 0;
     }
 
     grow(rate) {

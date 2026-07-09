@@ -5,7 +5,7 @@ import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Config } from '../src/Config.js';
 
 test('withdraw treats the entire amount as taxable income', () => {
-    const config = new Config({ TraditionalIra: { balance: 1000, withdraw: 400 } });
+    const config = new Config({ TradIra: { balance: 1000, withdraw: 400 } });
     const a = new TraditionalIra({ name: 'TradIra', config });
     const rv = a.withdraw(400);
     assert.equal(rv.balance, 600);
@@ -14,26 +14,31 @@ test('withdraw treats the entire amount as taxable income', () => {
 });
 
 test('withdraw throws when amount exceeds balance', () => {
-    const config = new Config({ TraditionalIra: { balance: 1000, withdraw: 1001 } });
+    const config = new Config({ TradIra: { balance: 1000, withdraw: 1001 } });
     const a = new TraditionalIra({ name: 'TradIra', config });
-    assert.throws(() => a.withdraw(1001), /amount=1001 class=TraditionalIra name=TradIra balance=1000/);
+    assert.throws(() => a.withdraw(1001), /amount=1001.*balance=1000/);
 });
 
 test('runYear grows the balance then withdraws the configured amount and reconciles', () => {
-    const config = new Config({ TraditionalIra: { balance: 1000, withdraw: 300 } });
-    const a = new TraditionalIra({ name: 'TradIra', rate: 0.05, config });
-    const bookkeeper = new Bookkeeper({ accounts: [a] });
+    const config = new Config({
+        Bookkeeper: { accountClasses: ['TradIra'] },
+        TradIra: { class: 'TraditionalIra', balance: 1000, rate: 0.05, withdraw: 300 },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra } });
 
     bookkeeper.runYear(2026);
 
+    const a = bookkeeper.accounts[0];
     assert.equal(a.balance, 1000 * 1.05 - 300);
     assert.equal(bookkeeper.balanceChange('TradIra', 2026), a.balance - 1000);
 });
 
 test('runYear throws when no withdrawal amount is configured', () => {
-    const config = new Config({ TraditionalIra: { balance: 1000 } });
-    const a = new TraditionalIra({ name: 'TradIra', rate: 0.05, config });
-    const bookkeeper = new Bookkeeper({ accounts: [a] });
+    const config = new Config({
+        Bookkeeper: { accountClasses: ['TradIra'] },
+        TradIra: { class: 'TraditionalIra', balance: 1000, rate: 0.05 },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra } });
 
     assert.throws(() => bookkeeper.runYear(2026), /amount=undefined/);
 });

@@ -4,24 +4,24 @@ import { TaxableAccount } from '../src/TaxableAccount.js';
 import { Config } from '../src/Config.js';
 
 test('deposit increases balance and basis equally', () => {
-    const config = new Config({ TaxableAccount: { balance: 1000 } });
-    const a = new TaxableAccount({ name: 'Taxable', basis: 600, config });
+    const config = new Config({ Taxable: { balance: 1000, basis: 600 } });
+    const a = new TaxableAccount({ name: 'Taxable', config });
     a.deposit(200);
     assert.equal(a.balance, 1200);
     assert.equal(a.basis, 800);
 });
 
 test('grow increases balance but not basis', () => {
-    const config = new Config({ TaxableAccount: { balance: 1000 } });
-    const a = new TaxableAccount({ name: 'Taxable', basis: 600, config });
+    const config = new Config({ Taxable: { balance: 1000, basis: 600 } });
+    const a = new TaxableAccount({ name: 'Taxable', config });
     a.grow(0.1);
     assert.equal(a.balance, 1100);
     assert.equal(a.basis, 600);
 });
 
 test('withdraw reduces balance and basis proportionally and returns realized gain', () => {
-    const config = new Config({ TaxableAccount: { balance: 1000 } });
-    const a = new TaxableAccount({ name: 'Taxable', basis: 600, config });
+    const config = new Config({ Taxable: { balance: 1000, basis: 600 } });
+    const a = new TaxableAccount({ name: 'Taxable', config });
     const rv = a.withdraw(500);
     assert.equal(rv.balance, 500);
     assert.equal(rv.basisUsed, 300);
@@ -31,9 +31,9 @@ test('withdraw reduces balance and basis proportionally and returns realized gai
 });
 
 test('constructor throws when basis exceeds balance', () => {
-    const config = new Config({ TaxableAccount: { balance: 1000 } });
+    const config = new Config({ Taxable: { balance: 1000, basis: 1001 } });
     assert.throws(
-        () => new TaxableAccount({ name: 'Taxable', basis: 1001, config }),
+        () => new TaxableAccount({ name: 'Taxable', config }),
         /basis=1001/,
     );
 });

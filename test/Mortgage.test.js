@@ -4,8 +4,8 @@ import { Mortgage } from '../src/Mortgage.js';
 import { Config } from '../src/Config.js';
 
 test('makePayment amortizes principal and interest for one year', () => {
-    const config = new Config({ Mortgage: { balance: 200000 } });
-    const m = new Mortgage({ rate: 0.06, monthlyPayment: 1200, config });
+    const config = new Config({ Mortgage: { balance: 200000, rate: 0.06, monthlyPayment: 1200 } });
+    const m = new Mortgage({ config });
     const rv = m.makePayment();
     assert.ok(rv.principal > 0);
     assert.ok(rv.interest > 0);
@@ -14,15 +14,15 @@ test('makePayment amortizes principal and interest for one year', () => {
 });
 
 test('makePayment stores interest for due() to report', () => {
-    const config = new Config({ Mortgage: { balance: 200000 } });
-    const m = new Mortgage({ rate: 0.06, monthlyPayment: 1200, config });
+    const config = new Config({ Mortgage: { balance: 200000, rate: 0.06, monthlyPayment: 1200 } });
+    const m = new Mortgage({ config });
     const rv = m.makePayment();
     assert.equal(m.interest, rv.interest);
     assert.deepEqual(m.due(), { account: 'MortgageInterest', amount: rv.interest });
 });
 
 test('makePayment throws when payment does not cover interest', () => {
-    const config = new Config({ Mortgage: { balance: 200000 } });
-    const m = new Mortgage({ rate: 0.06, monthlyPayment: 100, config });
+    const config = new Config({ Mortgage: { balance: 200000, rate: 0.06, monthlyPayment: 100 } });
+    const m = new Mortgage({ config });
     assert.throws(() => m.makePayment(), /class=Mortgage/);
 });

@@ -3,8 +3,8 @@ import { JournalEntry } from './JournalEntry.js';
 import { Posting } from './Posting.js';
 
 export class Cash extends Account {
-    constructor({ name, rate = 0, priority, config, accounts, spenders }) {
-        super({ name, rate, priority, config });
+    constructor({ name, config, accounts, spenders }) {
+        super({ name, config });
         this.accounts = accounts;
         this.spenders = spenders;
     }

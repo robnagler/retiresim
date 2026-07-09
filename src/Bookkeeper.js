@@ -1,9 +1,14 @@
 import { Base } from './Base.js';
 
 export class Bookkeeper extends Base {
-    constructor({ accounts }) {
-        super();
-        this.accounts = [...accounts].sort((x, y) => x.priority - y.priority);
+    constructor({ config, classes }) {
+        super({ config });
+        const accounts = this.cfg.accountClasses.map((name) => {
+            const c = config.get(name);
+            const t = classes[c.class ?? name];
+            return new t({ name, config });
+        });
+        this.accounts = accounts.sort((x, y) => x.priority - y.priority);
         this.journal = [];
     }
 
@@ -33,6 +38,19 @@ export class Bookkeeper extends Base {
             rv[a.name] = a.balance;
         }
         return rv;
+    }
+
+    report() {
+        const w = Math.max(...this.accounts.map((a) => a.name.length), 'Account'.length, 'Total'.length);
+        const line = (name, balance) => `${name.padEnd(w)}  ${balance.padStart(12)}`;
+        const rv = [line('Account', 'Balance')];
+        let t = 0;
+        for (const a of this.accounts) {
+            rv.push(line(a.name, a.balance.toFixed(0)));
+            t += a.balance;
+        }
+        rv.push(line('Total', t.toFixed(0)));
+        return rv.join('\n');
     }
 
     _reconcile(year, beginning, ending) {
