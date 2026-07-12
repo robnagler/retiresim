@@ -14,7 +14,7 @@ const buildConfig = () => new Config({
         balance: 0,
         withdrawalOrder: [
             { name: 'Account', balance: 1000, rate: 0 },
-            { name: 'TraditionalIra', balance: 5000, rate: 0 },
+            { name: 'TraditionalIra', balance: 5000, rate: 0, birthYear: 2000 },
         ],
         spendingOrder: [],
     },

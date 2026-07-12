@@ -1,15 +1,5 @@
 import { Account } from './Account.js';
 
-const rmdStartAge = (birthYear) => {
-    if (birthYear <= 1950) {
-        return 72;
-    }
-    if (birthYear <= 1959) {
-        return 73;
-    }
-    return 75;
-};
-
 // IRS Uniform Lifetime Table (Table III), in effect for distribution
 // calendar years 2022-2026 (26 CFR 1.401(a)(9)-9(c)).
 const LIFE_EXPECTANCY_FACTOR = {
@@ -24,16 +14,30 @@ const LIFE_EXPECTANCY_FACTOR = {
 const MAX_AGE_FACTOR = 2.0; // age 120 and older
 
 export class TraditionalIra extends Account {
+    constructor({ name, config }) {
+        super({ name, config });
+        const startAge = (birthYear) => {
+            if (birthYear == null) {
+                throw new Error(`birthYear must not be null ${this}`);
+            }
+            if (birthYear <= 1950) {
+                return 72;
+            }
+            if (birthYear <= 1959) {
+                return 73;
+            }
+            return 75;
+        };
+        this.startAge = startAge(this.cfg.birthYear);
+    }
+
     // Required Minimum Distribution, called by Cash.earn() before any
     // account's growth runs this year, so this.balance is still the
     // prior year-end balance the IRS formula requires. 0 before the
     // RMD start age.
     earn(year) {
-        if (this.cfg.birthYear == null) {
-            return null;
-        }
         const age = year - this.cfg.birthYear;
-        if (age < rmdStartAge(this.cfg.birthYear)) {
+        if (age < this.startAge) {
             return null;
         }
         const amount = this.balance / (LIFE_EXPECTANCY_FACTOR[age] ?? MAX_AGE_FACTOR);
