@@ -12,6 +12,7 @@ const LIFE_EXPECTANCY_FACTOR = {
     114: 3.0, 115: 2.9, 116: 2.8, 117: 2.7, 118: 2.5, 119: 2.3,
 };
 const MAX_AGE_FACTOR = 2.0; // age 120 and older
+const MAX_REASONABLE_AGE = 120;
 
 export class TraditionalIra extends Account {
     constructor({ name, config }) {
@@ -42,10 +43,17 @@ export class TraditionalIra extends Account {
     // RMD start age.
     earn(year) {
         const age = year - this.cfg.birthYear;
+        this.checkAge(age);
         if (age < this.startAge) {
             return null;
         }
         return this.distribute(this.balance / (LIFE_EXPECTANCY_FACTOR[age] ?? MAX_AGE_FACTOR));
+    }
+
+    checkAge(age) {
+        if (!(age >= 0 && age <= MAX_REASONABLE_AGE)) {
+            throw new Error(`age=${age} not reasonable ${this}`);
+        }
     }
 
     distribute(amount) {

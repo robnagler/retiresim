@@ -43,3 +43,33 @@ test('inherited before 2020 (pre-SECURE-Act stretch), earn uses the beneficiary\
     assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 100000 / factor);
     assert.equal(bookkeeper.balanceChange('Cash', 2026), 100000 / factor);
 });
+
+test('the year a pre-2020 IRA was inherited, before its first distribution year, earn returns no distribution', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, rate: 0.05, inheritedYear: 2009, birthYear: 1970 }],
+            spendingOrder: [],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, Cash } });
+
+    bookkeeper.runYear(2009);
+
+    const a = bookkeeper.accounts[0];
+    assert.equal(a.balance, 100000 * 1.05);
+    assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2009), 0);
+});
+
+test('earn throws when the year is before the account was inherited', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, rate: 0, inheritedYear: 2009, birthYear: 1970 }],
+            spendingOrder: [],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, Cash } });
+
+    assert.throws(() => bookkeeper.runYear(2008), /year=2008 before inheritedYear=2009/);
+});

@@ -1,6 +1,6 @@
 import { TraditionalIra } from './TraditionalIra.js';
 
-const YEARS_TO_DISTRIBUTE = 10;
+const SECURE_ACT_DISTRIBUTION_PERIOD = 10;
 const SECURE_ACT_YEAR = 2020; // 10-year rule applies to inheritances in this year or later
 
 // IRS Single Life Expectancy Table (Table I), in effect for distribution
@@ -52,6 +52,7 @@ export class NonSpousalInheritedIra extends TraditionalIra {
         if (this.preSecureAct) {
             this.firstDistributionYear = this.cfg.inheritedYear + 1;
             const age = this.firstDistributionYear - this.cfg.birthYear;
+            this.checkAge(age);
             this.initialFactor = SINGLE_LIFE_EXPECTANCY_FACTOR[age] ?? MIN_FACTOR;
         }
     }
@@ -61,11 +62,17 @@ export class NonSpousalInheritedIra extends TraditionalIra {
     }
 
     earn(year) {
+        if (year < this.cfg.inheritedYear) {
+            throw new Error(`year=${year} before inheritedYear=${this.cfg.inheritedYear} ${this}`);
+        }
         if (this.preSecureAct) {
+            if (year < this.firstDistributionYear) {
+                return null;
+            }
             const factor = Math.max(MIN_FACTOR, this.initialFactor - (year - this.firstDistributionYear));
             return this.distribute(this.balance / factor);
         }
-        const deadline = this.cfg.inheritedYear + YEARS_TO_DISTRIBUTE;
+        const deadline = this.cfg.inheritedYear + SECURE_ACT_DISTRIBUTION_PERIOD;
         const yearsRemaining = deadline - year + 1;
         if (yearsRemaining <= 0) {
             throw new Error(`balance=${this.balance} not fully distributed by deadline=${deadline} ${this}`);

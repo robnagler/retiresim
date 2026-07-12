@@ -41,3 +41,16 @@ test('once age qualifies, Cash takes the RMD from the prior year-end balance, be
     assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 1000);
     assert.equal(bookkeeper.balanceChange('Cash', 2026), 1000);
 });
+
+test('earn throws when the computed age is not reasonable', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'TraditionalIra', balance: 1000, rate: 0, birthYear: 2030 }],
+            spendingOrder: [],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra, Cash } });
+
+    assert.throws(() => bookkeeper.runYear(2026), /age=-4 not reasonable/);
+});
