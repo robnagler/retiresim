@@ -36,7 +36,7 @@ test('once age qualifies, Cash takes the RMD from the prior year-end balance, be
     bookkeeper.runYear(2026);
 
     const a = bookkeeper.accounts[0];
-    assert.equal(a.balance, 23700 * 1.05 - 1000);
+    assert.equal(a.balance, (23700 - 1000) * 1.05);
     assert.equal(bookkeeper.balanceChange('TraditionalIra', 2026), a.balance - 23700);
     assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 1000);
     assert.equal(bookkeeper.balanceChange('Cash', 2026), 1000);

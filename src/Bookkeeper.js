@@ -14,8 +14,9 @@ export class Bookkeeper extends Base {
         const withdrawal = cash.withdrawalOrder.map(build);
         const spending = cash.spendingOrder.map(build);
         const income = (cash.incomeOrder ?? []).map(build);
-        const cashAccount = new classes.Cash({ config, accounts: withdrawal, spenders: spending, earners: income });
-        this.accounts = [...withdrawal, ...spending, ...income, cashAccount];
+        this.earners = [...withdrawal, ...income];
+        this.cash = new classes.Cash({ config, accounts: withdrawal, spenders: spending });
+        this.accounts = [...withdrawal, ...spending, ...income, this.cash];
         this.journal = [];
     }
 
@@ -42,6 +43,7 @@ export class Bookkeeper extends Base {
 
     runYear(year) {
         const b = this._snapshot();
+        this.cash.earn(this.earners, year, this);
         for (const a of this.accounts) {
             a.runYear({ year, bookkeeper: this });
         }

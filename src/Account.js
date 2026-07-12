@@ -7,6 +7,10 @@ export class Account extends Base {
         this.rate = this.cfg.rate;
     }
 
+    earn(year) {
+        return null;
+    }
+
     grow(rate) {
         this.balance += this.balance * rate;
         return this.balance;

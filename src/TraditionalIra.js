@@ -24,22 +24,20 @@ const LIFE_EXPECTANCY_FACTOR = {
 const MAX_AGE_FACTOR = 2.0; // age 120 and older
 
 export class TraditionalIra extends Account {
-    runYear({ year, bookkeeper }) {
-        this.priorBalance = this.balance;
-        super.runYear({ year, bookkeeper });
-    }
-
-    // Required Minimum Distribution: the balance as of the prior year-end
-    // (before this year's growth), divided by the IRS life expectancy
-    // factor for the age turned this year. 0 before the RMD start age.
-    rmd(year) {
+    // Required Minimum Distribution, called by Cash.earn() before any
+    // account's growth runs this year, so this.balance is still the
+    // prior year-end balance the IRS formula requires. 0 before the
+    // RMD start age.
+    earn(year) {
         if (this.cfg.birthYear == null) {
-            return 0;
+            return null;
         }
         const age = year - this.cfg.birthYear;
         if (age < rmdStartAge(this.cfg.birthYear)) {
-            return 0;
+            return null;
         }
-        return this.priorBalance / (LIFE_EXPECTANCY_FACTOR[age] ?? MAX_AGE_FACTOR);
+        const amount = this.balance / (LIFE_EXPECTANCY_FACTOR[age] ?? MAX_AGE_FACTOR);
+        this.withdraw(amount);
+        return { account: 'OrdinaryIncome', amount, source: this.name };
     }
 }

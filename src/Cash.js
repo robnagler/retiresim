@@ -1,27 +1,13 @@
 import { Account } from './Account.js';
 
 export class Cash extends Account {
-    constructor({ name, config, accounts, spenders, earners }) {
+    constructor({ name, config, accounts, spenders }) {
         super({ name, config });
         this.accounts = accounts;
         this.spenders = spenders;
-        this.earners = earners;
     }
 
     runYear({ year, bookkeeper }) {
-        for (const source of this.accounts) {
-            if (!source.rmd) {
-                continue;
-            }
-            const amount = source.rmd(year);
-            if (amount > 0) {
-                this.requiredDistribution({ source, amount, year, bookkeeper });
-            }
-        }
-        const e = this.earners.map((earner) => earner.earn());
-        for (const x of e) {
-            this.earn({ amount: x.amount, account: x.account, year, bookkeeper });
-        }
         const d = this.spenders.map((spender) => spender.due());
         for (const x of d) {
             this.spend({ amount: x.amount, account: x.account, year, bookkeeper });
@@ -34,17 +20,18 @@ export class Cash extends Account {
         this.produce({ amount: -this.balance, year, bookkeeper });
     }
 
-    earn({ amount, account, year, bookkeeper }) {
-        this.deposit(amount);
-        bookkeeper.simplePost(year, 'earn', 'IncomeEarned', this.name, amount);
-        bookkeeper.simplePost(year, 'earn', 'IncomeEarned', account, amount);
-    }
-
-    requiredDistribution({ source, amount, year, bookkeeper }) {
-        source.withdraw(amount);
-        this.deposit(amount);
-        bookkeeper.simplePost(year, `${source.constructor.name}Rmd`, source.name, this.name, amount);
-        bookkeeper.simplePost(year, `${source.constructor.name}Rmd`, 'IncomeEarned', 'OrdinaryIncome', amount);
+    earn(earners, year, bookkeeper) {
+        const post = (e) => {
+            this.deposit(e.amount);
+            bookkeeper.simplePost(year, 'earn', e.source ?? 'IncomeEarned', this.name, e.amount);
+            bookkeeper.simplePost(year, 'earn', 'IncomeEarned', e.account, e.amount);
+        };
+        for (const earner of earners) {
+            const e = earner.earn(year);
+            if (e && e.amount > 0) {
+                post(e);
+            }
+        }
     }
 
     withdraw(amount) {

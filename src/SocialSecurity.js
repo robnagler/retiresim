@@ -6,7 +6,7 @@ export class SocialSecurity extends Account {
         this.amount = this.cfg.amount;
     }
 
-    earn() {
+    earn(year) {
         return { account: 'OrdinaryIncome', amount: this.amount };
     }
 }
