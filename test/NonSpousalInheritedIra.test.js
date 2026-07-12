@@ -1,0 +1,45 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { NonSpousalInheritedIra } from '../src/NonSpousalInheritedIra.js';
+import { Bookkeeper } from '../src/Bookkeeper.js';
+import { Cash } from '../src/Cash.js';
+import { Config } from '../src/Config.js';
+
+test('inherited in 2020 or later, earn distributes the balance straight-line over the years remaining until the 10-year deadline, taxable like a TraditionalIra', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 25000, rate: 0, inheritedYear: 2021 }],
+            spendingOrder: [],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, Cash } });
+
+    // deadline = 2031, 2026 has 6 years remaining (2026..2031 inclusive)
+    bookkeeper.runYear(2026);
+
+    const a = bookkeeper.accounts[0];
+    assert.equal(a.balance, 25000 - 25000 / 6);
+    assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 25000 / 6);
+    assert.equal(bookkeeper.balanceChange('Cash', 2026), 25000 / 6);
+});
+
+test('inherited before 2020 (pre-SECURE-Act stretch), earn uses the beneficiary\'s own life expectancy, reduced by one each year since the first distribution year', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, rate: 0, inheritedYear: 2009, birthYear: 1970 }],
+            spendingOrder: [],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, Cash } });
+
+    // first distribution year 2010, age 40 -> factor 45.7, reduced by 16 years (2026-2010) -> 29.7
+    bookkeeper.runYear(2026);
+
+    const factor = 45.7 - 16;
+    const a = bookkeeper.accounts[0];
+    assert.equal(a.balance, 100000 - 100000 / factor);
+    assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 100000 / factor);
+    assert.equal(bookkeeper.balanceChange('Cash', 2026), 100000 / factor);
+});

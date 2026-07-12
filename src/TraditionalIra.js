@@ -16,31 +16,42 @@ const MAX_AGE_FACTOR = 2.0; // age 120 and older
 export class TraditionalIra extends Account {
     constructor({ name, config }) {
         super({ name, config });
-        const startAge = (birthYear) => {
-            if (birthYear == null) {
-                throw new Error(`birthYear must not be null ${this}`);
-            }
-            if (birthYear <= 1950) {
-                return 72;
-            }
-            if (birthYear <= 1959) {
-                return 73;
-            }
-            return 75;
-        };
-        this.startAge = startAge(this.cfg.birthYear);
+        this.startAge = this.computeStartAge();
+    }
+
+    // Loop invariant: birthYear never changes across years, so the RMD
+    // start age only needs computing once. Overridden by InheritedIra,
+    // which doesn't use birthYear-based RMDs at all.
+    computeStartAge() {
+        const birthYear = this.cfg.birthYear;
+        if (birthYear == null) {
+            throw new Error(`birthYear must not be null ${this}`);
+        }
+        if (birthYear <= 1950) {
+            return 72;
+        }
+        if (birthYear <= 1959) {
+            return 73;
+        }
+        return 75;
     }
 
     // Required Minimum Distribution, called by Cash.earn() before any
     // account's growth runs this year, so this.balance is still the
-    // prior year-end balance the IRS formula requires. 0 before the
+    // prior year-end balance the IRS formula requires. null before the
     // RMD start age.
     earn(year) {
         const age = year - this.cfg.birthYear;
         if (age < this.startAge) {
             return null;
         }
-        const amount = this.balance / (LIFE_EXPECTANCY_FACTOR[age] ?? MAX_AGE_FACTOR);
+        return this.distribute(this.balance / (LIFE_EXPECTANCY_FACTOR[age] ?? MAX_AGE_FACTOR));
+    }
+
+    distribute(amount) {
+        if (amount <= 0) {
+            return null;
+        }
         this.withdraw(amount);
         return { account: 'OrdinaryIncome', amount, source: this.name };
     }

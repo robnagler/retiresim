@@ -1,10 +1,12 @@
 import { Account } from './Account.js';
 
 export class RothIra extends Account {
-    runYear({ year, bookkeeper }) {
-        super.runYear({ year, bookkeeper });
+    earn(year) {
         const amount = this.cfg.withdraw;
+        if (!amount) {
+            return null;
+        }
         this.withdraw(amount);
-        bookkeeper.simplePost(year, 'rothIraWithdrawal', this.name, 'RothWithdrawal', amount);
+        return { account: 'RothWithdrawal', amount, source: this.name };
     }
 }

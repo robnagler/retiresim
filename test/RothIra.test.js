@@ -5,7 +5,7 @@ import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Cash } from '../src/Cash.js';
 import { Config } from '../src/Config.js';
 
-test('runYear withdrawal is not taxable -- does not post to OrdinaryIncome', () => {
+test('earn withdrawal is not taxable -- does not post to OrdinaryIncome, and lands in Cash', () => {
     const config = new Config({
         Cash: {
             balance: 0,
@@ -19,4 +19,5 @@ test('runYear withdrawal is not taxable -- does not post to OrdinaryIncome', () 
 
     assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 0);
     assert.equal(bookkeeper.balanceChange('RothWithdrawal', 2026), 300);
+    assert.equal(bookkeeper.balanceChange('Cash', 2026), 300);
 });
