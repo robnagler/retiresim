@@ -2,6 +2,7 @@ import { Bookkeeper } from './Bookkeeper.js';
 import { Simulator } from './Simulator.js';
 import { TaxableAccount } from './TaxableAccount.js';
 import { TraditionalIra } from './TraditionalIra.js';
+import { RothIra } from './RothIra.js';
 import { Mortgage } from './Mortgage.js';
 import { LivingExpense } from './LivingExpense.js';
 import { TaxCalculator } from './TaxCalculator.js';
@@ -14,6 +15,7 @@ import { Config } from './Config.js';
 const classes = {
     TaxableAccount,
     TraditionalIra,
+    RothIra,
     Mortgage,
     LivingExpense,
     TaxCalculator,
@@ -29,7 +31,8 @@ const config = new Config({
         balance: 0,
         withdrawalOrder: [
             { name: 'TaxableAccount', balance: 500000, rate: 0.06, basis: 300000 },
-            { name: 'TraditionalIra', balance: 800000, rate: 0.06, withdraw: 40000 },
+            { name: 'TraditionalIra', balance: 800000, rate: 0.06, birthYear: 1955 },
+            { name: 'RothIra', balance: 200000, rate: 0.06, withdraw: 0 },
         ],
         incomeOrder: [
             { name: 'Salary', balance: 0, rate: 0, amount: 150000 },

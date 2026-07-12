@@ -1,6 +1,4 @@
 import { Account } from './Account.js';
-import { JournalEntry } from './JournalEntry.js';
-import { Posting } from './Posting.js';
 
 export class Cash extends Account {
     constructor({ name, config, accounts, spenders, earners }) {
@@ -11,6 +9,15 @@ export class Cash extends Account {
     }
 
     runYear({ year, bookkeeper }) {
+        for (const source of this.accounts) {
+            if (!source.rmd) {
+                continue;
+            }
+            const amount = source.rmd(year);
+            if (amount > 0) {
+                this.requiredDistribution({ source, amount, year, bookkeeper });
+            }
+        }
         const e = this.earners.map((earner) => earner.earn());
         for (const x of e) {
             this.earn({ amount: x.amount, account: x.account, year, bookkeeper });
@@ -29,18 +36,15 @@ export class Cash extends Account {
 
     earn({ amount, account, year, bookkeeper }) {
         this.deposit(amount);
-        bookkeeper.post(new JournalEntry({
-            year,
-            category: 'earn',
-            source: new Posting({ account: 'IncomeEarned', amount: -amount }),
-            dest: new Posting({ account: this.name, amount }),
-        }));
-        bookkeeper.post(new JournalEntry({
-            year,
-            category: 'earn',
-            source: new Posting({ account: 'IncomeEarned', amount: -amount }),
-            dest: new Posting({ account, amount }),
-        }));
+        bookkeeper.simplePost(year, 'earn', 'IncomeEarned', this.name, amount);
+        bookkeeper.simplePost(year, 'earn', 'IncomeEarned', account, amount);
+    }
+
+    requiredDistribution({ source, amount, year, bookkeeper }) {
+        source.withdraw(amount);
+        this.deposit(amount);
+        bookkeeper.simplePost(year, `${source.constructor.name}Rmd`, source.name, this.name, amount);
+        bookkeeper.simplePost(year, `${source.constructor.name}Rmd`, 'IncomeEarned', 'OrdinaryIncome', amount);
     }
 
     withdraw(amount) {
@@ -50,12 +54,7 @@ export class Cash extends Account {
 
     spend({ amount, account, year, bookkeeper }) {
         this.withdraw(amount);
-        bookkeeper.post(new JournalEntry({
-            year,
-            category: 'spend',
-            source: new Posting({ account: this.name, amount: -amount }),
-            dest: new Posting({ account, amount }),
-        }));
+        bookkeeper.simplePost(year, 'spend', this.name, account, amount);
     }
 
     produce({ amount, year, bookkeeper }) {
@@ -72,12 +71,7 @@ export class Cash extends Account {
             }
             source.withdraw(w);
             this.deposit(w);
-            bookkeeper.post(new JournalEntry({
-                year,
-                category: `${source.constructor.name}Withdrawal`,
-                source: new Posting({ account: source.name, amount: -w }),
-                dest: new Posting({ account: this.name, amount: w }),
-            }));
+            bookkeeper.simplePost(year, `${source.constructor.name}Withdrawal`, source.name, this.name, w);
             rv.push({ account: n, amount: w });
             r -= w;
         }

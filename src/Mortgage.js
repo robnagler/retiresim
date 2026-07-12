@@ -1,6 +1,4 @@
 import { Account } from './Account.js';
-import { JournalEntry } from './JournalEntry.js';
-import { Posting } from './Posting.js';
 
 const MONTHS_PER_YEAR = 12;
 
@@ -34,12 +32,6 @@ export class Mortgage extends Account {
     }
 
     runYear({ year, bookkeeper }) {
-        const { principal } = this.makePayment();
-        bookkeeper.post(new JournalEntry({
-            year,
-            category: 'mortgagePrincipal',
-            source: new Posting({ account: 'MortgagePrincipalPaid', amount: -principal }),
-            dest: new Posting({ account: this.name, amount: principal }),
-        }));
+        bookkeeper.simplePost(year, 'mortgagePrincipal', 'MortgagePrincipalPaid', this.name, this.makePayment().principal);
     }
 }

@@ -1,6 +1,4 @@
 import { Base } from './Base.js';
-import { JournalEntry } from './JournalEntry.js';
-import { Posting } from './Posting.js';
 
 export class Account extends Base {
     constructor({ name, config }) {
@@ -34,12 +32,6 @@ export class Account extends Base {
     runYear({ year, bookkeeper }) {
         const a = this.balance;
         this.grow(this.rate);
-        const g = this.balance - a;
-        bookkeeper.post(new JournalEntry({
-            year,
-            category: 'growth',
-            source: new Posting({ account: 'UnrealizedGrowth', amount: -g }),
-            dest: new Posting({ account: this.name, amount: g }),
-        }));
+        bookkeeper.simplePost(year, 'growth', 'UnrealizedGrowth', this.name, this.balance - a);
     }
 }

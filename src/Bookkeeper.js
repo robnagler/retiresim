@@ -1,4 +1,6 @@
 import { Base } from './Base.js';
+import { JournalEntry } from './JournalEntry.js';
+import { Posting } from './Posting.js';
 
 export class Bookkeeper extends Base {
     constructor({ config, classes }) {
@@ -19,6 +21,15 @@ export class Bookkeeper extends Base {
 
     post(journalEntry) {
         this.journal.push(journalEntry);
+    }
+
+    simplePost(year, category, source, dest, amount) {
+        this.post(new JournalEntry({
+            year,
+            category,
+            source: new Posting({ account: source, amount: -amount }),
+            dest: new Posting({ account: dest, amount }),
+        }));
     }
 
     balanceChange(account, year) {

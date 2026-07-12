@@ -5,26 +5,11 @@ import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Cash } from '../src/Cash.js';
 import { Config } from '../src/Config.js';
 
-test('withdraw treats the entire amount as taxable income', () => {
-    const config = new Config({ TraditionalIra: { balance: 1000, withdraw: 400 } });
-    const a = new TraditionalIra({ config });
-    const rv = a.withdraw(400);
-    assert.equal(rv.balance, 600);
-    assert.equal(rv.income, 400);
-    assert.equal(a.balance, 600);
-});
-
-test('withdraw throws when amount exceeds balance', () => {
-    const config = new Config({ TraditionalIra: { balance: 1000, withdraw: 1001 } });
-    const a = new TraditionalIra({ config });
-    assert.throws(() => a.withdraw(1001), /amount=1001.*balance=1000/);
-});
-
-test('runYear grows the balance then withdraws the configured amount and reconciles', () => {
+test('below the RMD start age, runYear only grows the balance -- no distribution', () => {
     const config = new Config({
         Cash: {
             balance: 0,
-            withdrawalOrder: [{ name: 'TraditionalIra', balance: 1000, rate: 0.05, withdraw: 300 }],
+            withdrawalOrder: [{ name: 'TraditionalIra', balance: 1000, rate: 0.05, birthYear: 2000 }],
             spendingOrder: [],
         },
     });
@@ -33,19 +18,26 @@ test('runYear grows the balance then withdraws the configured amount and reconci
     bookkeeper.runYear(2026);
 
     const a = bookkeeper.accounts[0];
-    assert.equal(a.balance, 1000 * 1.05 - 300);
-    assert.equal(bookkeeper.balanceChange('TraditionalIra', 2026), a.balance - 1000);
+    assert.equal(a.balance, 1000 * 1.05);
+    assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 0);
+    assert.equal(bookkeeper.balanceChange('Cash', 2026), 0);
 });
 
-test('runYear throws when no withdrawal amount is configured', () => {
+test('once age qualifies, Cash takes the RMD from the prior year-end balance, before growth, and it lands in Cash as ordinary income', () => {
     const config = new Config({
         Cash: {
             balance: 0,
-            withdrawalOrder: [{ name: 'TraditionalIra', balance: 1000, rate: 0.05 }],
+            withdrawalOrder: [{ name: 'TraditionalIra', balance: 23700, rate: 0.05, birthYear: 1950 }],
             spendingOrder: [],
         },
     });
     const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra, Cash } });
 
-    assert.throws(() => bookkeeper.runYear(2026), /amount=undefined/);
+    bookkeeper.runYear(2026);
+
+    const a = bookkeeper.accounts[0];
+    assert.equal(a.balance, 23700 * 1.05 - 1000);
+    assert.equal(bookkeeper.balanceChange('TraditionalIra', 2026), a.balance - 23700);
+    assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 1000);
+    assert.equal(bookkeeper.balanceChange('Cash', 2026), 1000);
 });
