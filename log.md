@@ -1,5 +1,20 @@
 # Log
 
+## 2026-07-14
+
+* 18:48:40 **Prompt**: "gckp added test.sh"
+* 18:48:13 **Prompt**: "do a colrm" (rejected a cat -A verification tool call first)
+* 18:47:40 **Prompt**: "strip the utf8 while your at it"
+* 18:47:40 **Update**: Updated [test.sh](test.sh) to strip the leading UTF-8 icon column with `colrm 1 2` (after first trying `sed`, which the user rejected). Verified output is pure ASCII: `tests 46` / `pass 46` / `fail 0`.
+* 18:47:09 **Prompt**: "don't chmod +x" (rejected the chmod +x tool call)
+* 18:46:45 **Prompt**: "create test.sh that runs that"
+* 18:46:45 **Update**: Created [test.sh](test.sh) (`npm test 2>&1 | grep` for the tests/pass/fail summary lines).
+* 18:46:18 **Prompt**: "that doesn' toutput anythig. just want to know pass fail count"
+* 18:46:18 **Update**: Explained the default `tap` reporter already prints a `tests`/`pass`/`fail` summary at the end; suggested grepping for it rather than the silent `dot` reporter.
+* 18:45:18 **Prompt**: "is there a way to summarize that"
+* 18:44:47 **Prompt**: "how do you run the tests"
+* 18:44:47 **Update**: Answered: `npm test` (runs `node --test`), equivalent to `node --test test/`.
+
 ## 2026-07-11
 
 * 20:50:28 **Update**: Ran `node --test` (46/46 passing), committed as `272e811` on `main`: "add age/year sanity checks; document inherited-IRA straight-line simplification". Pushed to `origin/main` (`6a99f3c..272e811`).
