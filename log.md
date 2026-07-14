@@ -2,6 +2,7 @@
 
 ## 2026-07-11
 
+* 20:50:28 **Update**: Ran `node --test` (46/46 passing), committed as `272e811` on `main`: "add age/year sanity checks; document inherited-IRA straight-line simplification". Pushed to `origin/main` (`6a99f3c..272e811`).
 * 20:50:08 **Prompt**: "gckp"
 * 20:49:13 **Update**: Added a third entry to [README.md](README.md)'s Assumptions section documenting `NonSpousalInheritedIra`'s straight-line-vs-"at least as fast" simplification from the prior discussion -- notes it stays compliant (straight-line always exceeds the tiny annual life-expectancy minimum) but isn't necessarily tax-optimal, and that strategy choice is deferred to the future Optimizer module.
 * 20:48:51 **Prompt**: "good. just as long as it is documented. put that in the readme.md"
