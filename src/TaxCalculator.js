@@ -33,8 +33,14 @@ export class TaxCalculator extends Account {
         return rv;
     }
 
-    calculate(income) {
-        const rv = { federal: this.federal(income), state: this.state(income) };
+    // Colorado has no preferential capital-gains rate, so gains join
+    // ordinary income in the flat state base; federal keeps them separate
+    // via ltcg()'s stacking.
+    calculate({ ordinaryIncome, gains = 0 }) {
+        const rv = {
+            federal: this.federal(ordinaryIncome) + this.ltcg(ordinaryIncome, gains),
+            state: this.state(ordinaryIncome + gains),
+        };
         rv.total = rv.federal + rv.state;
         return rv;
     }
@@ -47,9 +53,10 @@ export class TaxCalculator extends Account {
     }
 
     prepareNextYear({ year, bookkeeper }) {
-        const income = bookkeeper.balanceChange('OrdinaryIncome', year);
+        const ordinaryIncome = bookkeeper.balanceChange('OrdinaryIncome', year);
+        const gains = bookkeeper.balanceChange('LtcgIncome', year);
         const a = this.balance;
-        this.balance = -this.calculate(income).total;
+        this.balance = -this.calculate({ ordinaryIncome, gains }).total;
         bookkeeper.simplePost(year, 'taxAccrued', 'TaxAccrued', this.name, this.balance - a);
     }
 

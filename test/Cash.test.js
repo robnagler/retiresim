@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Cash } from '../src/Cash.js';
 import { Account } from '../src/Account.js';
 import { TraditionalIra } from '../src/TraditionalIra.js';
+import { TaxableAccount } from '../src/TaxableAccount.js';
 import { Mortgage } from '../src/Mortgage.js';
 import { TaxCalculator } from '../src/TaxCalculator.js';
 import { LivingExpense } from '../src/LivingExpense.js';
@@ -68,6 +69,36 @@ test('produce throws when accounts in withdrawalOrder cannot cover the amount', 
     assert.throws(() => cash.produce({ amount: 1500, year: 2026, bookkeeper }), /shortfall=500/);
 });
 
+test('produce posts the gain portion of a TaxableAccount withdrawal to LtcgIncome, not the full amount', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 10000, rate: 0, basis: 6000 }],
+            spendingOrder: [],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, Cash } });
+    const taxable = bookkeeper.accounts.find((a) => a.name === 'Taxable');
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
+
+    cash.produce({ amount: 5000, year: 2026, bookkeeper });
+
+    // basis fraction is 6000/10000 = 0.6, so basisUsed=3000, gain=2000 on a 5000 withdrawal
+    assert.equal(taxable.balance, 5000);
+    assert.equal(taxable.basis, 3000);
+    assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 2000);
+    assert.equal(bookkeeper.balanceChange('Taxable', 2026), -5000);
+});
+
+test('produce does not post to LtcgIncome for non-TaxableAccount withdrawals', () => {
+    const config = buildConfig();
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra, Cash } });
+
+    bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 1500, year: 2026, bookkeeper });
+
+    assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 0);
+});
+
 test('spend withdraws from cash and posts a journal entry to the expense category', () => {
     const config = new Config({
         Cash: { balance: 1500, withdrawalOrder: [], spendingOrder: [] },
@@ -94,6 +125,7 @@ test('runYear produces the total owed by all spenders, then spends it per catego
                     class: 'TaxCalculator',
                     balance: -3000,
                     federalBrackets: [{ rate: 0.10, upTo: null }],
+                    ltcgBrackets: [{ rate: 0.15, upTo: null }],
                     stateRate: 0.044,
                 },
                 { name: 'LivingExpense', balance: 2000, rate: 0.025 },

@@ -2,6 +2,10 @@
 
 ## 2026-07-15
 
+* 20:48:42 **Prompt**: "gckp 'first pass ltcg tax calculator'"
+* 20:46:55 **Update**: Wired LTCG through the ledger: `Cash.produce()` now posts the `gain` from a `TaxableAccount` withdrawal to a new `LtcgIncome` category (src/Cash.js), `TaxCalculator.calculate()` now takes `{ ordinaryIncome, gains }` instead of a plain number and adds `ltcg()` into federal while folding gains into Colorado's flat state base (no CO preferential rate), and `prepareNextYear()` pulls both `OrdinaryIncome` and `LtcgIncome` from the bookkeeper. Updated existing calculate() call sites/tests to the new object signature, added `ltcgBrackets` to test/Cash.test.js's and src/main.js's Tax configs (both broke without it since main.js has a TaxableAccount in withdrawalOrder), added new tests in TaxCalculator.test.js and Cash.test.js. `bash test.sh`: 54/54 passing; `node src/main.js` runs end-to-end.
+* 19:41:15 **Prompt**: "continue" (resuming the LTCG ledger wire-up)
+* 19:40:18 **Update**: Committed as `db7653f` on `main`: "add TaxCalculator.ltcg for capital gains stacking" (not pushed).
 * 19:40:06 **Prompt**: "wire up" (interrupted mid-investigation) then "actually commit what you have"
 * 19:38:54 **Update**: Added `TaxCalculator.ltcg(ordinaryIncome, gains)` (LTCG stacks on top of ordinary income across bracket boundaries), refactored `federal()` to share a new `_bracketTax(brackets, floor, ceiling)` helper (behavior-preserving), added `ltcgBrackets` to the test config, and added 4 new tests. `bash test.sh`: 50/50 passing. Scope per user: calc method only, isolated and unit-tested like `federal()`/`state()` were -- no wiring of `TaxableAccount` withdrawal gains into the ledger yet (`Cash.produce()` still discards the `gain` it computes).
 * 19:34:03 **Prompt**: "lets' fix taxcalc"

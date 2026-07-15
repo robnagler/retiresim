@@ -57,6 +57,11 @@ const config = new Config({
                     { rate: 0.12, upTo: 40000 },
                     { rate: 0.22, upTo: null },
                 ],
+                ltcgBrackets: [
+                    { rate: 0.00, upTo: 47000 },
+                    { rate: 0.15, upTo: 519000 },
+                    { rate: 0.20, upTo: null },
+                ],
                 stateRate: 0.044,
             },
         ],

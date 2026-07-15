@@ -61,12 +61,20 @@ test('ltcg is zero when there are no gains', () => {
     assert.equal(c.ltcg(50000, 0), 0);
 });
 
-test('calculate returns federal, state, and total', () => {
+test('calculate returns federal, state, and total for ordinary income alone', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
-    const rv = c.calculate(50000);
+    const rv = c.calculate({ ordinaryIncome: 50000 });
     assert.equal(rv.federal, 6800);
     assert.equal(rv.state, 2200);
     assert.equal(rv.total, 9000);
+});
+
+test('calculate adds ltcg into federal and folds gains into the state\'s flat-rate base', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    const rv = c.calculate({ ordinaryIncome: 35000, gains: 10000 });
+    assert.equal(rv.federal, c.federal(35000) + c.ltcg(35000, 10000));
+    assert.equal(rv.state, 45000 * 0.044);
+    assert.equal(rv.total, rv.federal + rv.state);
 });
 
 test('balance starts from the configured opening value, like any account', () => {
@@ -99,8 +107,29 @@ test('prepareNextYear sets balance to a negative liability from this year\'s pos
     const rv = c.prepareNextYear({ year: 2026, bookkeeper });
 
     assert.equal(rv, undefined);
-    assert.equal(c.balance, -c.calculate(60000).total);
+    assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 0 }).total);
     assert.equal(bookkeeper.balanceChange('Tax', 2026), c.balance - (-5000));
+});
+
+test('prepareNextYear also pulls this year\'s posted LtcgIncome into the liability calc', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+    bookkeeper.post(new JournalEntry({
+        year: 2026,
+        category: 'income',
+        source: new Posting({ account: 'TradIra', amount: -60000 }),
+        dest: new Posting({ account: 'OrdinaryIncome', amount: 60000 }),
+    }));
+    bookkeeper.post(new JournalEntry({
+        year: 2026,
+        category: 'ltcg',
+        source: new Posting({ account: 'IncomeEarned', amount: -15000 }),
+        dest: new Posting({ account: 'LtcgIncome', amount: 15000 }),
+    }));
+
+    c.prepareNextYear({ year: 2026, bookkeeper });
+
+    assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 15000 }).total);
 });
 
 test('due returns a distinct paid-tax account, not the account\'s own name, and the amount runYear stashed as owed', () => {
