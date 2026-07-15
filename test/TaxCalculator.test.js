@@ -95,12 +95,20 @@ test('taxableSocialSecurity caps at 85% of benefits far above the high threshold
     assert.equal(c.taxableSocialSecurity(60000, 30000), 0.85 * 30000);
 });
 
-test('calculate returns federal, state, and total for ordinary income alone', () => {
+test('calculate returns federal, state, total, and magi for ordinary income alone', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const rv = c.calculate({ ordinaryIncome: 50000 });
     assert.equal(rv.federal, 6800);
     assert.equal(rv.state, 2200);
     assert.equal(rv.total, 9000);
+    assert.equal(rv.magi, 50000);
+});
+
+test('calculate\'s magi includes gains and taxable Social Security, but not the mortgage/standard deduction', () => {
+    const c = new TaxCalculator({ name: 'Tax', config: configWithSS() });
+    const rv = c.calculate({ ordinaryIncome: 60000, gains: 5000, mortgageInterest: 8000, ssBenefit: 30000 });
+    const taxableSS = c.taxableSocialSecurity(60000, 30000);
+    assert.equal(rv.magi, 60000 + 5000 + taxableSS);
 });
 
 test('calculate adds ltcg into federal and folds gains into the state\'s flat-rate base', () => {
@@ -157,6 +165,17 @@ test('balance starts from the configured opening value, like any account', () =>
     assert.equal(c.balance, -5000);
 });
 
+test('priorYearMagi starts from the configured seed value, defaulting to 0 when unconfigured', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    assert.equal(c.priorYearMagi, 0);
+
+    const seeded = new Config({
+        Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
+        Tax: { balance: -5000, federalBrackets: [{ rate: 0.10, upTo: null }], ltcgBrackets: [], stateRate: 0.044, priorYearMagi: 180000 },
+    });
+    assert.equal(new TaxCalculator({ name: 'Tax', config: seeded }).priorYearMagi, 180000);
+});
+
 test('runYear posts last year\'s liability (the current balance) as owed, then clears the balance to zero', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
@@ -184,6 +203,7 @@ test('prepareNextYear sets balance to a negative liability from this year\'s pos
     assert.equal(rv, undefined);
     assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 0 }).total);
     assert.equal(bookkeeper.balanceChange('Tax', 2026), c.balance - (-5000));
+    assert.equal(c.priorYearMagi, 60000);
 });
 
 test('prepareNextYear also pulls this year\'s posted LtcgIncome into the liability calc', () => {

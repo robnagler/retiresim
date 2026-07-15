@@ -1,6 +1,14 @@
 import { Account } from './Account.js';
 
 export class TaxCalculator extends Account {
+    constructor({ name, config }) {
+        super({ name, config });
+        // Seeds the very first simulated year, before any year's MAGI has
+        // been computed in-model -- mirrors how `balance` seeds the first
+        // year's already-accrued tax liability.
+        this.priorYearMagi = this.cfg.priorYearMagi ?? 0;
+    }
+
     federal(income) {
         return this._bracketTax(this.cfg.federalBrackets, 0, income);
     }
@@ -72,6 +80,10 @@ export class TaxCalculator extends Account {
         const rv = {
             federal: this.federal(taxableFederalOrdinary) + this.ltcg(taxableFederalOrdinary, gains),
             state: this.state(taxableStateOrdinary + gains),
+            // MAGI approximation for IRMAA: total income before the
+            // standard/itemized deduction (which applies after AGI), no
+            // above-the-line adjustments modeled.
+            magi: ordinaryIncome + gains + taxableSS,
         };
         rv.total = rv.federal + rv.state;
         return rv;
@@ -96,14 +108,20 @@ export class TaxCalculator extends Account {
         bookkeeper.simplePost(year, 'taxPaid', 'TaxAccrued', this.name, this.balance - a);
     }
 
+    // IRMAA is really based on MAGI from two years prior; this project
+    // approximates it with a one-year lag, the same simplification already
+    // used for the tax-payment lag (balance/owed below) -- Medicare (not
+    // yet built) will read priorYearMagi for its IRMAA calculation.
     prepareNextYear({ year, bookkeeper }) {
         const ordinaryIncome = bookkeeper.balanceChange('OrdinaryIncome', year);
         const gains = bookkeeper.balanceChange('LtcgIncome', year);
         const mortgageInterest = bookkeeper.balanceChange('MortgageInterestDeduction', year);
         const ssBenefit = bookkeeper.balanceChange('SocialSecurityBenefit', year);
         const a = this.balance;
-        this.balance = -this.calculate({ ordinaryIncome, gains, mortgageInterest, ssBenefit }).total;
+        const calc = this.calculate({ ordinaryIncome, gains, mortgageInterest, ssBenefit });
+        this.balance = -calc.total;
         bookkeeper.simplePost(year, 'taxAccrued', 'TaxAccrued', this.name, this.balance - a);
+        this.priorYearMagi = calc.magi;
     }
 
     due() {
