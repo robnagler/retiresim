@@ -269,35 +269,35 @@ test('prepareNextYear also pulls this year\'s posted SocialSecurityBenefit into 
     assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 0, ssBenefit: 30000 }).total);
 });
 
-test('postTaxCalc posts amount from TaxCalcInput to the given cat', () => {
+test('postAmount posts amount from TaxCalcInput to the given cat', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
 
-    const rv = c.postTaxCalc('OrdinaryIncome', 1000, 2026, bookkeeper);
+    const rv = c.postAmount('OrdinaryIncome', 1000, 2026, bookkeeper);
 
     assert.equal(rv, undefined);
     assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 1000);
     assert.equal(bookkeeper.balanceChange('TaxCalcInput', 2026), -1000);
 });
 
-test('postTaxCalc accepts LtcgIncome, MortgageInterestDeduction, and SocialSecurityBenefit as well as OrdinaryIncome', () => {
+test('postAmount accepts LtcgIncome, MortgageInterestDeduction, and SocialSecurityBenefit as well as OrdinaryIncome', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
 
-    c.postTaxCalc('LtcgIncome', 500, 2026, bookkeeper);
-    c.postTaxCalc('MortgageInterestDeduction', 700, 2026, bookkeeper);
-    c.postTaxCalc('SocialSecurityBenefit', 30000, 2026, bookkeeper);
+    c.postAmount('LtcgIncome', 500, 2026, bookkeeper);
+    c.postAmount('MortgageInterestDeduction', 700, 2026, bookkeeper);
+    c.postAmount('SocialSecurityBenefit', 30000, 2026, bookkeeper);
 
     assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 500);
     assert.equal(bookkeeper.balanceChange('MortgageInterestDeduction', 2026), 700);
     assert.equal(bookkeeper.balanceChange('SocialSecurityBenefit', 2026), 30000);
 });
 
-test('postTaxCalc throws on a cat it does not recognize', () => {
+test('postAmount throws on a cat it does not recognize', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
 
-    assert.throws(() => c.postTaxCalc('RothWithdrawal', 300, 2026, bookkeeper), /cat=RothWithdrawal not recognized/);
+    assert.throws(() => c.postAmount('RothWithdrawal', 300, 2026, bookkeeper), /cat=RothWithdrawal not recognized/);
 });
 
 test('due returns a distinct paid-tax account, not the account\'s own name, and the amount runYear stashed as owed', () => {

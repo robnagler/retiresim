@@ -89,12 +89,12 @@ export class TaxCalculator extends Account {
         return rv;
     }
 
-    // Called via Bookkeeper.postTaxCalc(): records amount under cat so
-    // prepareNextYear() picks it up later via balanceChange(). Only these
-    // categories are recognized today -- anything else is a caller bug,
-    // not a silent no-effect case (RothIra/HsaAccount simply never call
-    // postTaxCalc() at all).
-    postTaxCalc(cat, amount, year, bookkeeper) {
+    // Called directly as bookkeeper.taxCalculator.postAmount(...): records
+    // amount under cat so prepareNextYear() picks it up later via
+    // balanceChange(). Only these categories are recognized today --
+    // anything else is a caller bug, not a silent no-effect case
+    // (RothIra/HsaAccount simply never call postAmount() at all).
+    postAmount(cat, amount, year, bookkeeper) {
         if (cat !== 'OrdinaryIncome' && cat !== 'LtcgIncome' && cat !== 'MortgageInterestDeduction' && cat !== 'SocialSecurityBenefit') {
             throw new Error(`cat=${cat} not recognized ${this}`);
         }

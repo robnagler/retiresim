@@ -80,7 +80,7 @@ test('report dumps each account name and balance as a table', () => {
     assert.match(lines[4], /^Total\s+-199000$/);
 });
 
-test('postTaxCalc routes to the configured TaxCalculator, found among accounts by type', () => {
+test('taxCalculator is found among accounts by type, and its postAmount posts through this bookkeeper', () => {
     const config = new Config({
         Cash: {
             balance: 0,
@@ -97,21 +97,18 @@ test('postTaxCalc routes to the configured TaxCalculator, found among accounts b
     });
     const bookkeeper = new Bookkeeper({ config, classes: { TaxCalculator, Cash } });
 
-    bookkeeper.postTaxCalc('OrdinaryIncome', 1000, 2026);
+    bookkeeper.taxCalculator.postAmount('OrdinaryIncome', 1000, 2026, bookkeeper);
 
     assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 1000);
 });
 
-test('postTaxCalc is a no-op when no TaxCalculator is configured -- lets accounts be tested without a Tax spender', () => {
+test('taxCalculator is undefined when no TaxCalculator is configured -- lets accounts be tested without a Tax spender', () => {
     const config = new Config({
         Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
 
-    const rv = bookkeeper.postTaxCalc('OrdinaryIncome', 1000, 2026);
-
-    assert.equal(rv, undefined);
-    assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 0);
+    assert.equal(bookkeeper.taxCalculator, undefined);
 });
 
 test('runYear throws when the journal does not match an account change', () => {

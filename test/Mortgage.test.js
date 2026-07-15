@@ -27,7 +27,7 @@ test('makePayment throws when payment does not cover interest', () => {
     assert.throws(() => m.makePayment(), /class=Mortgage/);
 });
 
-test('runYear posts principal to the ledger and reports interest to postTaxCalc as MortgageInterestDeduction -- distinct from the MortgageInterest expense category due() uses', () => {
+test('runYear posts principal to the ledger and reports interest to postAmount as MortgageInterestDeduction -- distinct from the MortgagePayment cash-flow category due() uses', () => {
     const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, monthlyPayment: 1200 } });
     const m = new Mortgage({ config });
     const bookkeeper = new FakeBookkeeper();

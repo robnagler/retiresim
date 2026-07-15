@@ -2,7 +2,8 @@ import { Account } from './Account.js';
 
 export class RothIra extends Account {
     // No tax consequence -- earn() draws down the balance but never
-    // reports to bookkeeper.postTaxCalc(), so TaxCalculator never sees it.
+    // reports to bookkeeper.taxCalculator.postAmount(), so TaxCalculator
+    // never sees it.
     earn(year) {
         const amount = this.cfg.withdraw;
         if (!amount) {

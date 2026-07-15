@@ -10,7 +10,7 @@ export class SocialSecurity extends Account {
     // taxable depends on total provisional income for the year, which
     // only TaxCalculator can compute (see TaxCalculator.taxableSocialSecurity()).
     earn(year, bookkeeper) {
-        bookkeeper.postTaxCalc('SocialSecurityBenefit', this.amount, year);
+        bookkeeper.taxCalculator?.postAmount('SocialSecurityBenefit', this.amount, year, bookkeeper);
         return { amount: this.amount };
     }
 }

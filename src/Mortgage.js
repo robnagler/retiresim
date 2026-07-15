@@ -32,7 +32,7 @@ export class Mortgage extends Account {
     // interest aren't separate cash outflows, so due() (which drives
     // Cash's actual withdrawal) reports the total. Mortgage's own balance
     // change is tracked independently via runYear()'s ledger posting;
-    // MortgageInterestDeduction is tracked independently via postTaxCalc().
+    // MortgageInterestDeduction is tracked independently via postAmount().
     due() {
         return { account: 'MortgagePayment', amount: this.principal + this.interest };
     }
@@ -43,6 +43,6 @@ export class Mortgage extends Account {
         // Distinct from the 'MortgageInterest' category due() uses for the
         // actual cash expense -- this one only feeds the tax deduction, so
         // reusing the name would double it in balanceChange('MortgageInterest', ...).
-        bookkeeper.postTaxCalc('MortgageInterestDeduction', rv.interest, year);
+        bookkeeper.taxCalculator?.postAmount('MortgageInterestDeduction', rv.interest, year, bookkeeper);
     }
 }

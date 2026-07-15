@@ -20,7 +20,7 @@ export class TaxableAccount extends Account {
         this.basis -= basisUsed;
         this._checkBasis();
         const gain = amount - basisUsed;
-        bookkeeper.postTaxCalc('LtcgIncome', gain, year);
+        bookkeeper.taxCalculator?.postAmount('LtcgIncome', gain, year, bookkeeper);
         return { balance: this.balance, basisUsed, gain };
     }
 

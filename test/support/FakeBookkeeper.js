@@ -5,13 +5,12 @@ export class FakeBookkeeper {
     constructor() {
         this.ledger = [];
         this.taxCalc = [];
+        this.taxCalculator = {
+            postAmount: (cat, amount, year) => this.taxCalc.push({ cat, amount, year }),
+        };
     }
 
     simplePost(year, category, source, dest, amount) {
         this.ledger.push({ year, category, source, dest, amount });
-    }
-
-    postTaxCalc(cat, amount, year) {
-        this.taxCalc.push({ cat, amount, year });
     }
 }

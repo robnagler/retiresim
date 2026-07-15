@@ -69,7 +69,7 @@ export class TraditionalIra extends Account {
     // shortfall -- both funnel through here.
     withdraw(amount, bookkeeper, year) {
         super.withdraw(amount);
-        bookkeeper.postTaxCalc('OrdinaryIncome', amount, year);
+        bookkeeper.taxCalculator?.postAmount('OrdinaryIncome', amount, year, bookkeeper);
         return this.balance;
     }
 }

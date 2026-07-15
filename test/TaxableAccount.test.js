@@ -32,7 +32,7 @@ test('withdraw reduces balance and basis proportionally and returns realized gai
     assert.equal(a.basis, 300);
 });
 
-test('withdraw reports the gain to bookkeeper.postTaxCalc as LtcgIncome', () => {
+test('withdraw reports the gain to bookkeeper.taxCalculator.postAmount as LtcgIncome', () => {
     const config = new Config({ TaxableAccount: { balance: 1000, basis: 600 } });
     const a = new TaxableAccount({ config });
     const bookkeeper = new FakeBookkeeper();
