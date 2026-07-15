@@ -11,7 +11,7 @@ test('earn posts the full benefit to SocialSecurityBenefit, not OrdinaryIncome, 
         Cash: {
             balance: 0,
             withdrawalOrder: [],
-            incomeOrder: [{ name: 'SocialSecurity', balance: 0, rate: 0, amount: 30000 }],
+            incomeOrder: [{ name: 'SocialSecurity', balance: 0, rate: 0, monthlyAmount: 2500 }],
             spendingOrder: [{
                 name: 'Tax',
                 class: 'TaxCalculator',

@@ -19,15 +19,15 @@ const IRMAA_BRACKETS = [
 export class Medicare extends Account {
     constructor({ name, config }) {
         super({ name, config });
-        this.partBBase = this.cfg.partBBase;
-        // partDMonthly/partGMonthly are billed monthly by the private insurer
-        // (Part D drug plan, Medigap Plan G supplement) -- unlike partBBase,
-        // which is paid to CMS directly and already yearly, same as
-        // everything else in cfg. Kept as raw monthly figures here, same as
-        // Mortgage.monthlyPayment; partDYearly/partGYearly hold the
-        // annualized, inflating amounts runYear() actually uses.
+        // partBMonthly/partDMonthly/partGMonthly are all billed monthly (Part
+        // B to CMS, Part D/Medigap Plan G to private insurers) -- kept as raw
+        // monthly figures here, same as Mortgage.monthlyPayment;
+        // partBYearly/partDYearly/partGYearly hold the annualized, inflating
+        // amounts runYear() actually uses.
+        this.partBMonthly = this.cfg.partBMonthly;
         this.partDMonthly = this.cfg.partDMonthly;
         this.partGMonthly = this.cfg.partGMonthly;
+        this.partBYearly = this.partBMonthly * MONTHS_PER_YEAR;
         this.partDYearly = this.partDMonthly * MONTHS_PER_YEAR;
         this.partGYearly = this.partGMonthly * MONTHS_PER_YEAR;
     }
@@ -49,11 +49,11 @@ export class Medicare extends Account {
     // partGYearly (Medigap) is not run through irmaaSurcharge() -- Medigap
     // premiums aren't income-adjusted, only Part B and Part D are.
     runYear({ year, bookkeeper }) {
-        this.partBBase *= 1 + this.rate;
+        this.partBYearly *= 1 + this.rate;
         this.partDYearly *= 1 + this.rate;
         this.partGYearly *= 1 + this.rate;
         const surcharge = this.irmaaSurcharge(bookkeeper.taxCalculator.magi);
-        this.owed = this.partBBase + this.partDYearly + this.partGYearly + surcharge.partB + surcharge.partD;
+        this.owed = this.partBYearly + this.partDYearly + this.partGYearly + surcharge.partB + surcharge.partD;
     }
 
     due() {

@@ -43,8 +43,8 @@ const config = new Config({
             { name: 'HsaAccount', balance: 40000, rate: 0.06, withdraw: 0 },
         ],
         incomeOrder: [
-            { name: 'Salary', balance: 0, rate: 0, amount: 150000 },
-            { name: 'SocialSecurity', balance: 0, rate: 0, amount: 30000 },
+            { name: 'Salary', balance: 0, rate: 0, monthlyAmount: 12500 },
+            { name: 'SocialSecurity', balance: 0, rate: 0, monthlyAmount: 2500 },
             { name: 'Pension', balance: 0, rate: 0, amount: 20000 },
         ],
         spendingOrder: [
@@ -73,11 +73,11 @@ const config = new Config({
                 name: 'Medicare',
                 balance: 0,
                 rate: 0.05,
-                partBBase: 2100,
-                // partDMonthly/partGMonthly are monthly, unlike everything
-                // else in cfg -- they're billed monthly by the private insurer
-                // (Part D drug plan, Medigap Plan G supplement), same
+                // partBMonthly/partDMonthly/partGMonthly are all monthly,
+                // unlike everything else in cfg -- Part B is billed monthly by
+                // CMS, Part D/Medigap Plan G monthly by private insurers, same
                 // convention as Mortgage.monthlyPayment.
+                partBMonthly: 175,
                 partDMonthly: 50,
                 partGMonthly: 150,
             },
