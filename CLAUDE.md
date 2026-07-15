@@ -1,10 +1,10 @@
-# Retirement Optimizer Project Brief
+# Financial Planner Project Brief
 
 ## Goal
 
-Develop a Javascript retirement simulator and optimizer that produces
+Develop a Javascript financial planning simulator and optimizer that produces
 a financially correct year-by-year simulation and then optimizes
-retirement decisions.
+financial decisions.
 
 Financial correctness takes priority over optimization.
 
