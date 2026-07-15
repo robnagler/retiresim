@@ -74,18 +74,12 @@ const config = new Config({
                 balance: 0,
                 rate: 0.05,
                 partBBase: 2100,
-                partDBase: 600,
-                // Illustrative IRMAA tiers (single filer, rounded) -- real
-                // thresholds/surcharges belong in the gitignored
-                // static/json config, not this example script.
-                irmaaBrackets: [
-                    { upTo: 106000, partB: 0, partD: 0 },
-                    { upTo: 133000, partB: 900, partD: 170 },
-                    { upTo: 167000, partB: 2250, partD: 430 },
-                    { upTo: 200000, partB: 3600, partD: 690 },
-                    { upTo: 500000, partB: 4950, partD: 950 },
-                    { upTo: null, partB: 5400, partD: 1050 },
-                ],
+                // partDMonthly/partGMonthly are monthly, unlike everything
+                // else in cfg -- they're billed monthly by the private insurer
+                // (Part D drug plan, Medigap Plan G supplement), same
+                // convention as Mortgage.monthlyPayment.
+                partDMonthly: 50,
+                partGMonthly: 150,
             },
         ],
     },
