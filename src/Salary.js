@@ -7,7 +7,7 @@ export class Salary extends Account {
     }
 
     earn(year, bookkeeper) {
-        bookkeeper?.postIncome('OrdinaryIncome', this.amount, year);
+        bookkeeper.postIncome('OrdinaryIncome', this.amount, year);
         return { amount: this.amount };
     }
 }
