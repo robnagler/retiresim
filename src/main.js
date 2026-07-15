@@ -63,6 +63,7 @@ const config = new Config({
                     { rate: 0.20, upTo: null },
                 ],
                 stateRate: 0.044,
+                standardDeduction: 29200,
             },
         ],
     },

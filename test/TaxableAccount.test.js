@@ -32,14 +32,14 @@ test('withdraw reduces balance and basis proportionally and returns realized gai
     assert.equal(a.basis, 300);
 });
 
-test('withdraw reports the gain to bookkeeper.postIncome as LtcgIncome', () => {
+test('withdraw reports the gain to bookkeeper.postTaxCalc as LtcgIncome', () => {
     const config = new Config({ TaxableAccount: { balance: 1000, basis: 600 } });
     const a = new TaxableAccount({ config });
     const bookkeeper = new FakeBookkeeper();
 
     a.withdraw(500, bookkeeper, 2026);
 
-    assert.deepEqual(bookkeeper.income, [{ kind: 'LtcgIncome', amount: 200, year: 2026 }]);
+    assert.deepEqual(bookkeeper.taxCalc, [{ cat: 'LtcgIncome', amount: 200, year: 2026 }]);
 });
 
 test('constructor throws when basis exceeds balance', () => {

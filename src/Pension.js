@@ -7,7 +7,7 @@ export class Pension extends Account {
     }
 
     earn(year, bookkeeper) {
-        bookkeeper.postIncome('OrdinaryIncome', this.amount, year);
+        bookkeeper.postTaxCalc('OrdinaryIncome', this.amount, year);
         return { amount: this.amount };
     }
 }

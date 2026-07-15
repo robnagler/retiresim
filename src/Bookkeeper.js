@@ -35,16 +35,16 @@ export class Bookkeeper extends Base {
         }));
     }
 
-    // The instance making a withdrawal/earning income decides its own tax
-    // treatment (kind) and reports it here, rather than Cash doing
-    // instanceof checks. No-ops if this simulation doesn't model taxes
-    // (no TaxCalculator configured) -- lets accounts be unit-tested in
-    // isolation without a Tax spender.
-    postIncome(kind, amount, year) {
+    // The instance making a withdrawal, earning income, or paying a
+    // deductible expense decides its own tax treatment (cat) and reports
+    // it here, rather than Cash doing instanceof checks. No-ops if this
+    // simulation doesn't model taxes (no TaxCalculator configured) --
+    // lets accounts be unit-tested in isolation without a Tax spender.
+    postTaxCalc(cat, amount, year) {
         if (!this.taxCalculator) {
             return;
         }
-        this.taxCalculator.postIncome(kind, amount, year, this);
+        this.taxCalculator.postTaxCalc(cat, amount, year, this);
     }
 
     balanceChange(account, year) {

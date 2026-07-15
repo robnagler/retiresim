@@ -33,28 +33,33 @@ export class TaxCalculator extends Account {
         return rv;
     }
 
+    // Only itemize (deduct mortgage interest) if it beats the standard
+    // deduction -- matches how a real return chooses between the two.
     // Colorado has no preferential capital-gains rate, so gains join
     // ordinary income in the flat state base; federal keeps them separate
-    // via ltcg()'s stacking.
-    calculate({ ordinaryIncome, gains = 0 }) {
+    // via ltcg()'s stacking. Both bases are net of the deduction, since CO
+    // starts from federal taxable income.
+    calculate({ ordinaryIncome, gains = 0, mortgageInterest = 0 }) {
+        const deduction = Math.max(mortgageInterest, this.cfg.standardDeduction ?? 0);
+        const taxableOrdinary = Math.max(0, ordinaryIncome - deduction);
         const rv = {
-            federal: this.federal(ordinaryIncome) + this.ltcg(ordinaryIncome, gains),
-            state: this.state(ordinaryIncome + gains),
+            federal: this.federal(taxableOrdinary) + this.ltcg(taxableOrdinary, gains),
+            state: this.state(taxableOrdinary + gains),
         };
         rv.total = rv.federal + rv.state;
         return rv;
     }
 
-    // Called via Bookkeeper.postIncome(): records amount under kind so
-    // prepareNextYear() picks it up later via balanceChange(). Only
-    // OrdinaryIncome and LtcgIncome are taxed today -- anything else is a
-    // caller bug, not a silent no-tax case (RothIra/HsaAccount simply
-    // never call postIncome() at all).
-    postIncome(kind, amount, year, bookkeeper) {
-        if (kind !== 'OrdinaryIncome' && kind !== 'LtcgIncome') {
-            throw new Error(`kind=${kind} not recognized ${this}`);
+    // Called via Bookkeeper.postTaxCalc(): records amount under cat so
+    // prepareNextYear() picks it up later via balanceChange(). Only these
+    // three categories are recognized today -- anything else is a caller
+    // bug, not a silent no-effect case (RothIra/HsaAccount simply never
+    // call postTaxCalc() at all).
+    postTaxCalc(cat, amount, year, bookkeeper) {
+        if (cat !== 'OrdinaryIncome' && cat !== 'LtcgIncome' && cat !== 'MortgageInterestDeduction') {
+            throw new Error(`cat=${cat} not recognized ${this}`);
         }
-        bookkeeper.simplePost(year, 'income', 'IncomeEarned', kind, amount);
+        bookkeeper.simplePost(year, 'taxCalc', 'TaxCalcInput', cat, amount);
     }
 
     runYear({ year, bookkeeper }) {
@@ -67,8 +72,9 @@ export class TaxCalculator extends Account {
     prepareNextYear({ year, bookkeeper }) {
         const ordinaryIncome = bookkeeper.balanceChange('OrdinaryIncome', year);
         const gains = bookkeeper.balanceChange('LtcgIncome', year);
+        const mortgageInterest = bookkeeper.balanceChange('MortgageInterestDeduction', year);
         const a = this.balance;
-        this.balance = -this.calculate({ ordinaryIncome, gains }).total;
+        this.balance = -this.calculate({ ordinaryIncome, gains, mortgageInterest }).total;
         bookkeeper.simplePost(year, 'taxAccrued', 'TaxAccrued', this.name, this.balance - a);
     }
 

@@ -32,6 +32,11 @@ export class Mortgage extends Account {
     }
 
     runYear({ year, bookkeeper }) {
-        bookkeeper.simplePost(year, 'mortgagePrincipal', 'MortgagePrincipalPaid', this.name, this.makePayment().principal);
+        const rv = this.makePayment();
+        bookkeeper.simplePost(year, 'mortgagePrincipal', 'MortgagePrincipalPaid', this.name, rv.principal);
+        // Distinct from the 'MortgageInterest' category due() uses for the
+        // actual cash expense -- this one only feeds the tax deduction, so
+        // reusing the name would double it in balanceChange('MortgageInterest', ...).
+        bookkeeper.postTaxCalc('MortgageInterestDeduction', rv.interest, year);
     }
 }

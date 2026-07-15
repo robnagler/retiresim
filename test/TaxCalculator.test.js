@@ -77,6 +77,39 @@ test('calculate adds ltcg into federal and folds gains into the state\'s flat-ra
     assert.equal(rv.total, rv.federal + rv.state);
 });
 
+test('calculate deducts mortgage interest from ordinary income (no standardDeduction configured, so any itemizing wins)', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    const rv = c.calculate({ ordinaryIncome: 50000, mortgageInterest: 8000 });
+    const taxableOrdinary = 42000;
+    assert.equal(rv.federal, c.federal(taxableOrdinary) + c.ltcg(taxableOrdinary, 0));
+    assert.equal(rv.state, taxableOrdinary * 0.044);
+});
+
+test('calculate uses the standard deduction instead when mortgage interest is smaller', () => {
+    const withStandard = new Config({
+        Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
+        Tax: {
+            balance: -5000,
+            federalBrackets: [{ rate: 0.10, upTo: null }],
+            ltcgBrackets: [{ rate: 0.15, upTo: null }],
+            stateRate: 0.044,
+            standardDeduction: 29200,
+        },
+    });
+    const c = new TaxCalculator({ name: 'Tax', config: withStandard });
+    const rv = c.calculate({ ordinaryIncome: 50000, mortgageInterest: 5000 });
+    const taxableOrdinary = 50000 - 29200;
+    assert.equal(rv.federal, c.federal(taxableOrdinary));
+    assert.equal(rv.state, taxableOrdinary * 0.044);
+});
+
+test('calculate never lets taxable ordinary income go negative when the deduction exceeds it', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    const rv = c.calculate({ ordinaryIncome: 10000, mortgageInterest: 50000 });
+    assert.equal(rv.federal, 0);
+    assert.equal(rv.state, 0);
+});
+
 test('balance starts from the configured opening value, like any account', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     assert.equal(c.balance, -5000);
@@ -132,31 +165,54 @@ test('prepareNextYear also pulls this year\'s posted LtcgIncome into the liabili
     assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 15000 }).total);
 });
 
-test('postIncome posts amount from IncomeEarned to the given kind', () => {
+test('prepareNextYear also pulls this year\'s posted MortgageInterestDeduction into the liability calc', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+    bookkeeper.post(new JournalEntry({
+        year: 2026,
+        category: 'income',
+        source: new Posting({ account: 'TradIra', amount: -60000 }),
+        dest: new Posting({ account: 'OrdinaryIncome', amount: 60000 }),
+    }));
+    bookkeeper.post(new JournalEntry({
+        year: 2026,
+        category: 'taxCalc',
+        source: new Posting({ account: 'TaxCalcInput', amount: -8000 }),
+        dest: new Posting({ account: 'MortgageInterestDeduction', amount: 8000 }),
+    }));
+
+    c.prepareNextYear({ year: 2026, bookkeeper });
+
+    assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 0, mortgageInterest: 8000 }).total);
+});
+
+test('postTaxCalc posts amount from TaxCalcInput to the given cat', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
 
-    const rv = c.postIncome('OrdinaryIncome', 1000, 2026, bookkeeper);
+    const rv = c.postTaxCalc('OrdinaryIncome', 1000, 2026, bookkeeper);
 
     assert.equal(rv, undefined);
     assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 1000);
-    assert.equal(bookkeeper.balanceChange('IncomeEarned', 2026), -1000);
+    assert.equal(bookkeeper.balanceChange('TaxCalcInput', 2026), -1000);
 });
 
-test('postIncome accepts LtcgIncome as well as OrdinaryIncome', () => {
+test('postTaxCalc accepts LtcgIncome and MortgageInterestDeduction as well as OrdinaryIncome', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
 
-    c.postIncome('LtcgIncome', 500, 2026, bookkeeper);
+    c.postTaxCalc('LtcgIncome', 500, 2026, bookkeeper);
+    c.postTaxCalc('MortgageInterestDeduction', 700, 2026, bookkeeper);
 
     assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 500);
+    assert.equal(bookkeeper.balanceChange('MortgageInterestDeduction', 2026), 700);
 });
 
-test('postIncome throws on a kind it does not recognize', () => {
+test('postTaxCalc throws on a cat it does not recognize', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
 
-    assert.throws(() => c.postIncome('RothWithdrawal', 300, 2026, bookkeeper), /kind=RothWithdrawal not recognized/);
+    assert.throws(() => c.postTaxCalc('RothWithdrawal', 300, 2026, bookkeeper), /cat=RothWithdrawal not recognized/);
 });
 
 test('due returns a distinct paid-tax account, not the account\'s own name, and the amount runYear stashed as owed', () => {
