@@ -8,6 +8,7 @@ import { HsaAccount } from './HsaAccount.js';
 import { Mortgage } from './Mortgage.js';
 import { LivingExpense } from './LivingExpense.js';
 import { TaxCalculator } from './TaxCalculator.js';
+import { Medicare } from './Medicare.js';
 import { Salary } from './Salary.js';
 import { SocialSecurity } from './SocialSecurity.js';
 import { Pension } from './Pension.js';
@@ -23,6 +24,7 @@ const classes = {
     Mortgage,
     LivingExpense,
     TaxCalculator,
+    Medicare,
     Salary,
     SocialSecurity,
     Pension,
@@ -66,6 +68,24 @@ const config = new Config({
                 standardDeduction: 29200,
                 ssProvisionalIncomeThresholds: { low: 32000, high: 44000 },
                 initialMagi: 200000,
+            },
+            {
+                name: 'Medicare',
+                balance: 0,
+                rate: 0.05,
+                partBBase: 2100,
+                partDBase: 600,
+                // Illustrative IRMAA tiers (single filer, rounded) -- real
+                // thresholds/surcharges belong in the gitignored
+                // static/json config, not this example script.
+                irmaaBrackets: [
+                    { upTo: 106000, partB: 0, partD: 0 },
+                    { upTo: 133000, partB: 900, partD: 170 },
+                    { upTo: 167000, partB: 2250, partD: 430 },
+                    { upTo: 200000, partB: 3600, partD: 690 },
+                    { upTo: 500000, partB: 4950, partD: 950 },
+                    { upTo: null, partB: 5400, partD: 1050 },
+                ],
             },
         ],
     },

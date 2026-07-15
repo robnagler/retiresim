@@ -2,10 +2,11 @@
 // ledger/tax reporting without wiring up a real Bookkeeper, Config, and
 // TaxCalculator.
 export class FakeBookkeeper {
-    constructor() {
+    constructor({ magi = 0 } = {}) {
         this.ledger = [];
         this.taxCalc = [];
         this.taxCalculator = {
+            magi,
             postAmount: (cat, amount, year) => this.taxCalc.push({ cat, amount, year }),
         };
     }
