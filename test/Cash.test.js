@@ -149,10 +149,10 @@ test('runYear produces the total owed by all spenders, then spends it per catego
 
     cash.runYear({ year: 2026, bookkeeper });
 
-    const total = mortgage.interest + 3000 + 2000;
+    const total = mortgage.principal + mortgage.interest + 3000 + 2000;
     assert.equal(account.balance, 20000 - total);
     assert.equal(cash.balance, 0);
-    assert.equal(bookkeeper.balanceChange('MortgageInterest', 2026), mortgage.interest);
+    assert.equal(bookkeeper.balanceChange('MortgagePayment', 2026), mortgage.principal + mortgage.interest);
     assert.equal(bookkeeper.balanceChange('TaxPaid', 2026), 3000);
     assert.equal(bookkeeper.balanceChange('LivingExpensePaid', 2026), 2000);
 });

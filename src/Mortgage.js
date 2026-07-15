@@ -23,12 +23,18 @@ export class Mortgage extends Account {
         const rv = { principal: computePrincipal() };
         rv.interest = this.monthlyPayment * MONTHS_PER_YEAR - rv.principal;
         this.deposit(rv.principal);
+        this.principal = rv.principal;
         this.interest = rv.interest;
         return rv;
     }
 
+    // Cash writes one check covering the full payment -- principal and
+    // interest aren't separate cash outflows, so due() (which drives
+    // Cash's actual withdrawal) reports the total. Mortgage's own balance
+    // change is tracked independently via runYear()'s ledger posting;
+    // MortgageInterestDeduction is tracked independently via postTaxCalc().
     due() {
-        return { account: 'MortgageInterest', amount: this.interest };
+        return { account: 'MortgagePayment', amount: this.principal + this.interest };
     }
 
     runYear({ year, bookkeeper }) {

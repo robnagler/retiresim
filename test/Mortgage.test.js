@@ -14,12 +14,11 @@ test('makePayment amortizes principal and interest for one year', () => {
     assert.equal(m.balance, -200000 + rv.principal);
 });
 
-test('makePayment stores interest for due() to report', () => {
+test('due reports the full payment (principal + interest), not interest alone -- Cash pays one check covering both', () => {
     const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, monthlyPayment: 1200 } });
     const m = new Mortgage({ config });
     const rv = m.makePayment();
-    assert.equal(m.interest, rv.interest);
-    assert.deepEqual(m.due(), { account: 'MortgageInterest', amount: rv.interest });
+    assert.deepEqual(m.due(), { account: 'MortgagePayment', amount: rv.principal + rv.interest });
 });
 
 test('makePayment throws when payment does not cover interest', () => {
