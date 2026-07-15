@@ -44,7 +44,7 @@ const config = new Config({
         ],
         incomeOrder: [
             { name: 'Salary', balance: 0, rate: 0, monthlyAmount: 12500 },
-            { name: 'SocialSecurity', balance: 0, rate: 0, monthlyAmount: 2500 },
+            { name: 'SocialSecurity', balance: 0, rate: 0, monthlyAmount: 2500, startYear: 2028 },
             { name: 'Pension', balance: 0, rate: 0, amount: 20000 },
         ],
         spendingOrder: [
