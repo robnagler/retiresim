@@ -82,7 +82,7 @@ test('produce posts the gain portion of a TaxableAccount withdrawal to LtcgIncom
                 ltcgBrackets: [{ rate: 0.15, upTo: null }],
                 stateRate: 0.044,
                 standardDeduction: 0,
-                priorYearMagi: 0,
+                initialMagi: 0,
             }],
         },
     });
@@ -137,7 +137,7 @@ test('runYear produces the total owed by all spenders, then spends it per catego
                     ltcgBrackets: [{ rate: 0.15, upTo: null }],
                     stateRate: 0.044,
                     standardDeduction: 0,
-                    priorYearMagi: 0,
+                    initialMagi: 0,
                 },
                 { name: 'LivingExpense', balance: 2000, rate: 0.025 },
             ],

@@ -1,5 +1,12 @@
 # Retirement Optimizer Project Brief
 
+## TODO
+
+- Initial magi state tax hsa talks to Medicare
+- update this plan
+- priorYearMagi -> initialMagi, and magi (tax calcs are last years always)
+
+
 ## Goal
 
 Develop a Javascript retirement simulator and optimizer that produces
@@ -19,7 +26,7 @@ stored but never committed in static/json (add gitignore). the unit
 tests should be runnable by node locally. I don't want a lot of
 infrastructure.
 
-The tests will go in test. One test per class. 
+The tests will go in test. One test per class.
 
 Build the project slowly one module at a time.
 

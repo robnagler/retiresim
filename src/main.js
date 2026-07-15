@@ -65,7 +65,7 @@ const config = new Config({
                 stateRate: 0.044,
                 standardDeduction: 29200,
                 ssProvisionalIncomeThresholds: { low: 32000, high: 44000 },
-                priorYearMagi: 200000,
+                initialMagi: 200000,
             },
         ],
     },

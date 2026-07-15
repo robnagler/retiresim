@@ -6,7 +6,7 @@ export class TaxCalculator extends Account {
         // Seeds the very first simulated year, before any year's MAGI has
         // been computed in-model -- mirrors how `balance` seeds the first
         // year's already-accrued tax liability.
-        this.priorYearMagi = this.cfg.priorYearMagi;
+        this.magi = this.cfg.initialMagi;
     }
 
     federal(income) {
@@ -119,8 +119,10 @@ export class TaxCalculator extends Account {
 
     // IRMAA is really based on MAGI from two years prior; this project
     // approximates it with a one-year lag, the same simplification already
-    // used for the tax-payment lag (balance/owed below) -- Medicare (not
-    // yet built) will read priorYearMagi for its IRMAA calculation.
+    // used for the tax-payment lag (balance/owed below) -- by the time
+    // Medicare (not yet built) reads this.magi for its IRMAA calculation, a
+    // later year is already running, so it's always reading last year's
+    // value, same as `owed` reads last year's tax liability.
     prepareNextYear({ year, bookkeeper }) {
         const ordinaryIncome = bookkeeper.balanceChange('OrdinaryIncome', year);
         const gains = bookkeeper.balanceChange('LtcgIncome', year);
@@ -130,7 +132,7 @@ export class TaxCalculator extends Account {
         const calc = this.calculate({ ordinaryIncome, gains, mortgageInterest, ssBenefit });
         this.balance = -calc.total;
         bookkeeper.simplePost(year, 'taxAccrued', 'TaxAccrued', this.name, this.balance - a);
-        this.priorYearMagi = calc.magi;
+        this.magi = calc.magi;
     }
 
     due() {
