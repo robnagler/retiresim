@@ -73,6 +73,35 @@ export class Bookkeeper extends Base {
         return rv.join('\n');
     }
 
+    // One row per JournalEntry -- category plus the source->dest movement --
+    // for a single year, in the order they were posted.
+    reportTransactions(year) {
+        const entries = this.journal.filter((j) => j.year === year);
+        const w = {
+            category: Math.max(...entries.map((j) => j.category.length), 'Category'.length),
+            source: Math.max(...entries.map((j) => j.source.account.length), 'Source'.length),
+            dest: Math.max(...entries.map((j) => j.dest.account.length), 'Dest'.length),
+        };
+        const line = (category, source, dest, amount) => `${category.padEnd(w.category)}  ${source.padEnd(w.source)}  ${dest.padEnd(w.dest)}  ${amount.padStart(12)}`;
+        const rv = [line('Category', 'Source', 'Dest', 'Amount')];
+        for (const j of entries) {
+            rv.push(line(j.category, j.source.account, j.dest.account, j.dest.amount.toFixed(2)));
+        }
+        return rv.join('\n');
+    }
+
+    reportYear(year) {
+        return [
+            `Year ${year}`,
+            '',
+            'Transactions',
+            this.reportTransactions(year),
+            '',
+            'Balances',
+            this.report(),
+        ].join('\n');
+    }
+
     _reconcile(year, beginning, ending) {
         const checkAccount = (account) => {
             const c = this.balanceChange(account.name, year);

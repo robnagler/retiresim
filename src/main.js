@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { Bookkeeper } from './Bookkeeper.js';
 import { Simulator } from './Simulator.js';
 import { TaxableAccount } from './TaxableAccount.js';
@@ -31,7 +32,9 @@ const classes = {
     Cash,
 };
 
-const config = new Config({
+// node src/main.js [path/to/config.json] -- with no argument, runs the
+// illustrative example scenario below.
+const DEFAULT_CONFIG_DATA = {
     Simulator: { startYear: 2026, endYear: 2030 },
     Cash: {
         balance: 0,
@@ -83,11 +86,16 @@ const config = new Config({
             },
         ],
     },
-});
+};
+
+const configPath = process.argv[2];
+const configData = configPath ? JSON.parse(readFileSync(configPath, 'utf8')) : DEFAULT_CONFIG_DATA;
+const config = new Config(configData);
 
 const bookkeeper = new Bookkeeper({ config, classes });
 const simulator = new Simulator({ bookkeeper, config });
 
-simulator.run();
-
-console.log(bookkeeper.report());
+simulator.run((year) => {
+    console.log(bookkeeper.reportYear(year));
+    console.log('');
+});

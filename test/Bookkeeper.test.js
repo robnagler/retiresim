@@ -80,6 +80,54 @@ test('report dumps each account name and balance as a table', () => {
     assert.match(lines[4], /^Total\s+-199000$/);
 });
 
+test('reportTransactions dumps each journal entry for the given year as a category/source/dest/amount table', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'Account', balance: 1000, rate: 0.1 }],
+            spendingOrder: [],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
+
+    bookkeeper.runYear(2026);
+    const rv = bookkeeper.reportTransactions(2026);
+
+    const lines = rv.split('\n');
+    assert.match(lines[0], /^Category\s+Source\s+Dest\s+Amount$/);
+    assert.match(lines[1], /^growth\s+UnrealizedGrowth\s+Account\s+100\.00$/);
+});
+
+test('reportTransactions is empty (just the header) for a year with no journal entries', () => {
+    const config = new Config({
+        Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+
+    const rv = bookkeeper.reportTransactions(2026);
+
+    assert.equal(rv.split('\n').length, 1);
+    assert.match(rv, /^Category\s+Source\s+Dest\s+Amount$/);
+});
+
+test('reportYear combines that year\'s transactions and the current balances table under a year header', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'Account', balance: 1000, rate: 0.1 }],
+            spendingOrder: [],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
+
+    bookkeeper.runYear(2026);
+    const rv = bookkeeper.reportYear(2026);
+
+    assert.match(rv, /^Year 2026\n\nTransactions\n/);
+    assert.match(rv, /\n\nBalances\nAccount\s+Balance\n/);
+    assert.match(rv, /Account\s+1100\n/);
+});
+
 test('taxCalculator is found among accounts by type, and its postAmount posts through this bookkeeper', () => {
     const config = new Config({
         Cash: {

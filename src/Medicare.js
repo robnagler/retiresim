@@ -19,17 +19,14 @@ const IRMAA_BRACKETS = [
 export class Medicare extends Account {
     constructor({ name, config }) {
         super({ name, config });
-        // partBMonthly/partDMonthly/partGMonthly are all billed monthly (Part
-        // B to CMS, Part D/Medigap Plan G to private insurers) -- kept as raw
-        // monthly figures here, same as Mortgage.monthlyPayment;
-        // partBYearly/partDYearly/partGYearly hold the annualized, inflating
-        // amounts runYear() actually uses.
-        this.partBMonthly = this.cfg.partBMonthly;
-        this.partDMonthly = this.cfg.partDMonthly;
-        this.partGMonthly = this.cfg.partGMonthly;
-        this.partBYearly = this.partBMonthly * MONTHS_PER_YEAR;
-        this.partDYearly = this.partDMonthly * MONTHS_PER_YEAR;
-        this.partGYearly = this.partGMonthly * MONTHS_PER_YEAR;
+        // partB/partD/partGYearly are the only state that needs to live on
+        // the instance -- they compound every year in runYear(), unlike the
+        // raw monthly cfg values (partBMonthly etc, billed monthly: Part B to
+        // CMS, Part D/Medigap Plan G to private insurers), which are only
+        // ever needed once, right here, to seed them.
+        this.partBYearly = this.cfg.partBMonthly * MONTHS_PER_YEAR;
+        this.partDYearly = this.cfg.partDMonthly * MONTHS_PER_YEAR;
+        this.partGYearly = this.cfg.partGMonthly * MONTHS_PER_YEAR;
     }
 
     // IRMAA is a cliff, not a marginal bracket like federal/state/ltcg --

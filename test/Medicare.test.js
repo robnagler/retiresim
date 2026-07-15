@@ -14,14 +14,14 @@ const buildConfig = () => new Config({
     },
 });
 
-test('constructor keeps partB/partD/partGMonthly as raw monthly cfg values, like Mortgage.monthlyPayment, and derives the Yearly fields', () => {
+test('constructor derives partB/partD/partGYearly from the raw monthly cfg values -- the monthly values themselves aren\'t duplicated onto the instance', () => {
     const m = new Medicare({ name: 'Medicare', config: buildConfig() });
-    assert.equal(m.partBMonthly, 175);
-    assert.equal(m.partDMonthly, 50);
-    assert.equal(m.partGMonthly, 150);
     assert.equal(m.partBYearly, 175 * 12);
     assert.equal(m.partDYearly, 50 * 12);
     assert.equal(m.partGYearly, 150 * 12);
+    assert.equal(m.partBMonthly, undefined);
+    assert.equal(m.partDMonthly, undefined);
+    assert.equal(m.partGMonthly, undefined);
 });
 
 test('irmaaSurcharge returns the lowest bracket that covers magi', () => {

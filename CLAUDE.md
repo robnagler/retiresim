@@ -34,7 +34,8 @@ Core state, one class per file:
 * `TraditionalIra.js`, `RothIra.js`, `NonSpousalInheritedIra.js` extend Account -- each encodes its own RMD/withdrawal rules
 * `HsaAccount.js` extends `RothIra` -- no tax consequence on withdrawal, same as Roth
 * `Mortgage.js` -- balance, rate, amortization schedule, splits a payment into principal/interest
-* `Salary.js`, `Pension.js`, `SocialSecurity.js`, `LivingExpense.js` -- income/expense sources, each reports its own tax treatment (or none) to `TaxCalculator`
+* `Salary.js`, `Pension.js`, `SocialSecurity.js`, `LivingExpense.js` -- income/expense sources, each reports its own tax treatment (or none) to `TaxCalculator`. `SocialSecurity` gates on `cfg.startYear` (no benefit posted before the claimed year).
+* `Medicare.js` -- Part B/D premiums and a Medigap Plan G premium (all monthly cfg inputs, annualized internally), plus the IRMAA surcharge on Part B/D looked up from `bookkeeper.taxCalculator.magi` against a fixed internal bracket table (not configurable, not inflation-indexed)
 
 Orchestration (this diverged from the original `Household.js`/`Ledger.js` split -- their responsibilities ended up folded into `Config`, `Cash`, and `Bookkeeper` instead):
 
@@ -56,14 +57,13 @@ Each account/income source reports its own tax treatment directly via `bookkeepe
 3. `Bookkeeper`'s journal + reconciliation check, fed with hand-built fake numbers (no Simulator yet) -- **done**
 4. `Simulator` skeleton wired to Accounts + Mortgage + Bookkeeper for a pure-growth, no-income, no-tax scenario -- first end-to-end reconciliation pass -- **done**
 5. Add income sources (salary, SS, RMD) into the Simulator loop -- **done**
-6. Add `TaxCalculator`: federal, Colorado, LTCG, SS taxation, mortgage interest deduction -- **done**. IRMAA groundwork (`TaxCalculator.magi`, seeded from `cfg.initialMagi`) is in place but not yet consumed.
+6. Add `TaxCalculator`: federal, Colorado, LTCG, SS taxation, mortgage interest deduction -- **done**. IRMAA (`TaxCalculator.magi`, seeded from `cfg.initialMagi`) is now consumed by `Medicare.js` -- **done**.
 7. Wire withdrawals to actually cover expenses/taxes, still with a fixed deterministic withdrawal order -- **done** (`Cash.produce()`)
 8. Optimizer as its own module last, once step 7 reconciles cleanly every year -- **not started**
 
 ### Current Plan / Next Steps
 
-* `Medicare.js` -- new class, reads `TaxCalculator.magi` (a 1-year-lag approximation of IRMAA's real 2-year lookback) to compute IRMAA surcharges, and models payment of all Medicare parts (B, D, etc.), not just IRMAA
-* Optimizer module (build order step 8), once Medicare/IRMAA is wired in and reconciling cleanly
+* Optimizer module (build order step 8) -- the only thing left
 
 ## Current Objective
 
@@ -91,6 +91,11 @@ Mortgage payments:
 * Paid from modeled cash flow
 * NOT included in the living expenses
 * Principal and interest are additional required annual expenses
+
+Medicare premiums:
+
+* Part B, Part D, and Medigap Plan G, paid from modeled cash flow, NOT included in living expenses
+* Part B/D carry an IRMAA surcharge based on prior-year MAGI; Medigap does not
 
 Taxes are also paid from modeled cash flow.
 
@@ -133,7 +138,7 @@ Model:
 * Long-term capital gains -- done
 * Social Security taxation -- done (IRS provisional-income worksheet)
 * RMDs -- done
-* IRMAA -- groundwork done (`TaxCalculator.magi`), not yet consumed; see `Medicare.js` in Current Plan above
+* IRMAA -- done (`Medicare.js` looks up the Part B/D surcharge from `TaxCalculator.magi`, a 1-year-lag approximation of IRMAA's real 2-year lookback; thresholds differ by filing status in reality, so this implicitly represents one filing status's numbers, same as `standardDeduction`)
 * Mortgage interest deduction (if applicable) -- done
 
 Qualified dividends are intentionally **out of scope**, not deferred -- a small, hard-to-estimate perturbation for this portfolio (mostly mutual funds), not worth the modeling complexity.

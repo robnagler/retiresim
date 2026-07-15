@@ -35,6 +35,25 @@ test('run grows an account and pays down a mortgage over multiple years, reconci
     assert.ok(account.balance > 0);
 });
 
+test('run calls the optional onYear callback once per simulated year, after that year runs', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'Account', balance: 1000, rate: 0.05 }],
+            spendingOrder: [],
+        },
+        Simulator: { startYear: 2026, endYear: 2028 },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
+    const simulator = new Simulator({ bookkeeper, config });
+    const seen = [];
+
+    simulator.run((year) => seen.push({ year, balanceChange: bookkeeper.balanceChange('Account', year) }));
+
+    assert.deepEqual(seen.map((s) => s.year), [2026, 2027, 2028]);
+    assert.ok(seen.every((s) => s.balanceChange > 0));
+});
+
 test('run throws immediately if a single year fails to reconcile', () => {
     const config = new Config({
         Cash: {

@@ -6,9 +6,12 @@ export class Simulator extends Base {
         this.bookkeeper = bookkeeper;
     }
 
-    run() {
+    // onYear is a genuinely optional reporting hook -- the simulation runs
+    // fine without it (e.g. tests that only care about final balances).
+    run(onYear) {
         for (let y = this.cfg.startYear; y <= this.cfg.endYear; y++) {
             this.bookkeeper.runYear(y);
+            onYear?.(y);
         }
     }
 }

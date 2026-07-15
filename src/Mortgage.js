@@ -5,10 +5,14 @@ const MONTHS_PER_YEAR = 12;
 export class Mortgage extends Account {
     constructor({ name, config }) {
         super({ name, config });
-        this.monthlyPayment = this.cfg.monthlyPayment;
+        // growthFactor/yearlyPayment are non-trivial derived values reused
+        // every year in makePayment(), so they're worth caching -- cfg.rate
+        // and cfg.monthlyPayment themselves aren't mutated, so they're read
+        // straight from cfg wherever else they're needed instead of being
+        // duplicated onto the instance.
         const r = this.rate / MONTHS_PER_YEAR;
         this.growthFactor = (1 + r) ** MONTHS_PER_YEAR;
-        this.yearlyPayment = this.monthlyPayment * ((this.growthFactor - 1) / r);
+        this.yearlyPayment = this.cfg.monthlyPayment * ((this.growthFactor - 1) / r);
     }
 
     makePayment() {
@@ -21,7 +25,7 @@ export class Mortgage extends Account {
             throw new Error(`rv=${rv} endingBalance=${b} ${this}`);
         };
         const rv = { principal: computePrincipal() };
-        rv.interest = this.monthlyPayment * MONTHS_PER_YEAR - rv.principal;
+        rv.interest = this.cfg.monthlyPayment * MONTHS_PER_YEAR - rv.principal;
         this.deposit(rv.principal);
         this.principal = rv.principal;
         this.interest = rv.interest;
