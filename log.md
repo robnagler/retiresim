@@ -2,6 +2,8 @@
 
 ## 2026-07-15
 
+* 09:47:52 **Prompt**: "gckp"
+* 09:45:34 **Update**: Committed as `4ea18eb` on `main`: "priorYearMagi -> magi/initialMagi; add project TODO list". Pushed to `origin/main` (`8d7bd8a..4ea18eb`).
 * 09:45:18 **Prompt**: "gckp"
 * 09:45:08 **Update**: Renamed TaxCalculator's IRMAA-groundwork field per user's direction: the instance property is now just `this.magi` (was `this.priorYearMagi`) -- by the time anything reads it, a later year is already running, so it's inherently "last year's" without needing that in the name (same pattern as `owed` reading last year's tax liability). The seeding config field is now `cfg.initialMagi` (was `cfg.priorYearMagi`), updated in main.js and every test config. Updated test names/assertions referencing the old property name (TaxCalculator.test.js). `bash test.sh`: 76/76 passing; `node src/main.js` total unchanged (2433324), confirming pure rename. Left CLAUDE.md's TODO list (which already named this exact rename) untouched since it's the user's own uncommitted edit. Not committed yet.
 * 09:34:34 **Prompt**: "priorYearMagi is just magi.  It is initialized by cfg (initialMagi)."

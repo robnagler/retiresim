@@ -1,12 +1,5 @@
 # Retirement Optimizer Project Brief
 
-## TODO
-
-- Initial magi state tax hsa talks to Medicare
-- update this plan
-- priorYearMagi -> initialMagi, and magi (tax calcs are last years always)
-
-
 ## Goal
 
 Develop a Javascript retirement simulator and optimizer that produces
