@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Account } from '../src/Account.js';
 import { Mortgage } from '../src/Mortgage.js';
+import { TaxCalculator } from '../src/TaxCalculator.js';
 import { Cash } from '../src/Cash.js';
 import { JournalEntry } from '../src/JournalEntry.js';
 import { Posting } from '../src/Posting.js';
@@ -77,6 +78,40 @@ test('report dumps each account name and balance as a table', () => {
     assert.match(lines[2], /^Mortgage\s+-200000$/);
     assert.match(lines[3], /^Cash\s+0$/);
     assert.match(lines[4], /^Total\s+-199000$/);
+});
+
+test('postIncome routes to the configured TaxCalculator, found among accounts by type', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [],
+            spendingOrder: [{
+                name: 'Tax',
+                class: 'TaxCalculator',
+                balance: 0,
+                federalBrackets: [{ rate: 0.10, upTo: null }],
+                ltcgBrackets: [{ rate: 0.15, upTo: null }],
+                stateRate: 0.044,
+            }],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxCalculator, Cash } });
+
+    bookkeeper.postIncome('OrdinaryIncome', 1000, 2026);
+
+    assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 1000);
+});
+
+test('postIncome is a no-op when no TaxCalculator is configured -- lets accounts be tested without a Tax spender', () => {
+    const config = new Config({
+        Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+
+    const rv = bookkeeper.postIncome('OrdinaryIncome', 1000, 2026);
+
+    assert.equal(rv, undefined);
+    assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 0);
 });
 
 test('runYear throws when the journal does not match an account change', () => {

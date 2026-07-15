@@ -1,6 +1,7 @@
 import { Base } from './Base.js';
 import { JournalEntry } from './JournalEntry.js';
 import { Posting } from './Posting.js';
+import { TaxCalculator } from './TaxCalculator.js';
 
 export class Bookkeeper extends Base {
     constructor({ config, classes }) {
@@ -17,6 +18,7 @@ export class Bookkeeper extends Base {
         this.earners = [...withdrawal, ...income];
         this.cash = new classes.Cash({ config, accounts: withdrawal, spenders: spending });
         this.accounts = [...withdrawal, ...spending, ...income, this.cash];
+        this.taxCalculator = this.accounts.find((a) => a instanceof TaxCalculator);
         this.journal = [];
     }
 
@@ -31,6 +33,18 @@ export class Bookkeeper extends Base {
             source: new Posting({ account: source, amount: -amount }),
             dest: new Posting({ account: dest, amount }),
         }));
+    }
+
+    // The instance making a withdrawal/earning income decides its own tax
+    // treatment (kind) and reports it here, rather than Cash doing
+    // instanceof checks. No-ops if this simulation doesn't model taxes
+    // (no TaxCalculator configured) -- lets accounts be unit-tested in
+    // isolation without a Tax spender.
+    postIncome(kind, amount, year) {
+        if (!this.taxCalculator) {
+            return;
+        }
+        this.taxCalculator.postIncome(kind, amount, year, this);
     }
 
     balanceChange(account, year) {

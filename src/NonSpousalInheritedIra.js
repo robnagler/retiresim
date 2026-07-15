@@ -61,7 +61,7 @@ export class NonSpousalInheritedIra extends TraditionalIra {
         return null;
     }
 
-    earn(year) {
+    earn(year, bookkeeper) {
         if (year < this.cfg.inheritedYear) {
             throw new Error(`year=${year} before inheritedYear=${this.cfg.inheritedYear} ${this}`);
         }
@@ -70,13 +70,13 @@ export class NonSpousalInheritedIra extends TraditionalIra {
                 return null;
             }
             const factor = Math.max(MIN_FACTOR, this.initialFactor - (year - this.firstDistributionYear));
-            return this.distribute(this.balance / factor);
+            return this.distribute(this.balance / factor, bookkeeper, year);
         }
         const deadline = this.cfg.inheritedYear + SECURE_ACT_DISTRIBUTION_PERIOD;
         const yearsRemaining = deadline - year + 1;
         if (yearsRemaining <= 0) {
             throw new Error(`balance=${this.balance} not fully distributed by deadline=${deadline} ${this}`);
         }
-        return this.distribute(this.balance / yearsRemaining);
+        return this.distribute(this.balance / yearsRemaining, bookkeeper, year);
     }
 }

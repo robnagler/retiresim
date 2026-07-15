@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { TraditionalIra } from '../src/TraditionalIra.js';
 import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Cash } from '../src/Cash.js';
+import { TaxCalculator } from '../src/TaxCalculator.js';
 import { Config } from '../src/Config.js';
 
 test('below the RMD start age, runYear only grows the balance -- no distribution', () => {
@@ -28,10 +29,17 @@ test('once age qualifies, Cash takes the RMD from the prior year-end balance, be
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'TraditionalIra', balance: 23700, rate: 0.05, birthYear: 1950 }],
-            spendingOrder: [],
+            spendingOrder: [{
+                name: 'Tax',
+                class: 'TaxCalculator',
+                balance: 0,
+                federalBrackets: [{ rate: 0.10, upTo: null }],
+                ltcgBrackets: [{ rate: 0.15, upTo: null }],
+                stateRate: 0.044,
+            }],
         },
     });
-    const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra, Cash } });
+    const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra, TaxCalculator, Cash } });
 
     bookkeeper.runYear(2026);
 

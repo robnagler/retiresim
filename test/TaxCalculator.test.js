@@ -132,6 +132,33 @@ test('prepareNextYear also pulls this year\'s posted LtcgIncome into the liabili
     assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 15000 }).total);
 });
 
+test('postIncome posts amount from IncomeEarned to the given kind', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+
+    const rv = c.postIncome('OrdinaryIncome', 1000, 2026, bookkeeper);
+
+    assert.equal(rv, undefined);
+    assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 1000);
+    assert.equal(bookkeeper.balanceChange('IncomeEarned', 2026), -1000);
+});
+
+test('postIncome accepts LtcgIncome as well as OrdinaryIncome', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+
+    c.postIncome('LtcgIncome', 500, 2026, bookkeeper);
+
+    assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 500);
+});
+
+test('postIncome throws on a kind it does not recognize', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+
+    assert.throws(() => c.postIncome('RothWithdrawal', 300, 2026, bookkeeper), /kind=RothWithdrawal not recognized/);
+});
+
 test('due returns a distinct paid-tax account, not the account\'s own name, and the amount runYear stashed as owed', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });

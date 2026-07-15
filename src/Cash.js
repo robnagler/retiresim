@@ -1,5 +1,4 @@
 import { Account } from './Account.js';
-import { TaxableAccount } from './TaxableAccount.js';
 
 export class Cash extends Account {
     constructor({ name, config, accounts, spenders }) {
@@ -25,10 +24,9 @@ export class Cash extends Account {
         const post = (e) => {
             this.deposit(e.amount);
             bookkeeper.simplePost(year, 'earn', e.source ?? 'IncomeEarned', this.name, e.amount);
-            bookkeeper.simplePost(year, 'earn', 'IncomeEarned', e.account, e.amount);
         };
         for (const earner of earners) {
-            const e = earner.earn(year);
+            const e = earner.earn(year, bookkeeper);
             if (e && e.amount > 0) {
                 post(e);
             }
@@ -57,12 +55,9 @@ export class Cash extends Account {
             if (w <= 0) {
                 continue;
             }
-            const result = source.withdraw(w);
+            source.withdraw(w, bookkeeper, year);
             this.deposit(w);
             bookkeeper.simplePost(year, `${source.constructor.name}Withdrawal`, source.name, this.name, w);
-            if (source instanceof TaxableAccount) {
-                bookkeeper.simplePost(year, 'ltcg', 'IncomeEarned', 'LtcgIncome', result.gain);
-            }
             rv.push({ account: n, amount: w });
             r -= w;
         }

@@ -45,6 +45,18 @@ export class TaxCalculator extends Account {
         return rv;
     }
 
+    // Called via Bookkeeper.postIncome(): records amount under kind so
+    // prepareNextYear() picks it up later via balanceChange(). Only
+    // OrdinaryIncome and LtcgIncome are taxed today -- anything else is a
+    // caller bug, not a silent no-tax case (RothIra/HsaAccount simply
+    // never call postIncome() at all).
+    postIncome(kind, amount, year, bookkeeper) {
+        if (kind !== 'OrdinaryIncome' && kind !== 'LtcgIncome') {
+            throw new Error(`kind=${kind} not recognized ${this}`);
+        }
+        bookkeeper.simplePost(year, 'income', 'IncomeEarned', kind, amount);
+    }
+
     runYear({ year, bookkeeper }) {
         this.owed = -this.balance;
         const a = this.balance;

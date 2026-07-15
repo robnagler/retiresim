@@ -74,10 +74,17 @@ test('produce posts the gain portion of a TaxableAccount withdrawal to LtcgIncom
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 10000, rate: 0, basis: 6000 }],
-            spendingOrder: [],
+            spendingOrder: [{
+                name: 'Tax',
+                class: 'TaxCalculator',
+                balance: 0,
+                federalBrackets: [{ rate: 0.10, upTo: null }],
+                ltcgBrackets: [{ rate: 0.15, upTo: null }],
+                stateRate: 0.044,
+            }],
         },
     });
-    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, Cash } });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, TaxCalculator, Cash } });
     const taxable = bookkeeper.accounts.find((a) => a.name === 'Taxable');
     const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
 

@@ -14,12 +14,14 @@ export class TaxableAccount extends Account {
         return this.balance;
     }
 
-    withdraw(amount) {
+    withdraw(amount, bookkeeper, year) {
         const basisUsed = amount * (this.basis / this.balance);
         super.withdraw(amount);
         this.basis -= basisUsed;
         this._checkBasis();
-        return { balance: this.balance, basisUsed, gain: amount - basisUsed };
+        const gain = amount - basisUsed;
+        bookkeeper?.postIncome('LtcgIncome', gain, year);
+        return { balance: this.balance, basisUsed, gain };
     }
 
     _checkBasis() {

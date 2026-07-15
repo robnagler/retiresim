@@ -18,6 +18,6 @@ test('earn withdrawal is not taxable -- does not post to OrdinaryIncome, and lan
     bookkeeper.runYear(2026);
 
     assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2026), 0);
-    assert.equal(bookkeeper.balanceChange('RothWithdrawal', 2026), 300);
+    assert.equal(bookkeeper.balanceChange('RothIra', 2026), -300);
     assert.equal(bookkeeper.balanceChange('Cash', 2026), 300);
 });

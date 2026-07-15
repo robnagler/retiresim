@@ -41,13 +41,13 @@ export class TraditionalIra extends Account {
     // account's growth runs this year, so this.balance is still the
     // prior year-end balance the IRS formula requires. null before the
     // RMD start age.
-    earn(year) {
+    earn(year, bookkeeper) {
         const age = year - this.cfg.birthYear;
         this.checkAge(age);
         if (age < this.startAge) {
             return null;
         }
-        return this.distribute(this.balance / (LIFE_EXPECTANCY_FACTOR[age] ?? MAX_AGE_FACTOR));
+        return this.distribute(this.balance / (LIFE_EXPECTANCY_FACTOR[age] ?? MAX_AGE_FACTOR), bookkeeper, year);
     }
 
     checkAge(age) {
@@ -56,11 +56,20 @@ export class TraditionalIra extends Account {
         }
     }
 
-    distribute(amount) {
+    distribute(amount, bookkeeper, year) {
         if (amount <= 0) {
             return null;
         }
-        this.withdraw(amount);
-        return { account: 'OrdinaryIncome', amount, source: this.name };
+        this.withdraw(amount, bookkeeper, year);
+        return { amount, source: this.name };
+    }
+
+    // Every IRA withdrawal is ordinary income, whether it's an RMD (via
+    // distribute()) or an ad-hoc draw Cash.produce() takes to cover a
+    // shortfall -- both funnel through here.
+    withdraw(amount, bookkeeper, year) {
+        super.withdraw(amount);
+        bookkeeper?.postIncome('OrdinaryIncome', amount, year);
+        return this.balance;
     }
 }

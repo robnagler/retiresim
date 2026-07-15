@@ -6,7 +6,8 @@ export class Pension extends Account {
         this.amount = this.cfg.amount;
     }
 
-    earn(year) {
-        return { account: 'OrdinaryIncome', amount: this.amount };
+    earn(year, bookkeeper) {
+        bookkeeper?.postIncome('OrdinaryIncome', this.amount, year);
+        return { amount: this.amount };
     }
 }
