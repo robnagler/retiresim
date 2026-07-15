@@ -2,6 +2,10 @@
 
 ## 2026-07-15
 
+* 09:49:49 **Prompt**: "gckp"
+* 09:49:39 **Update**: Updated CLAUDE.md's Modularization/Build Order/Taxes/Income Sources sections to match actual state, per user's direction. Modularization now lists the real file set (Household.js/Ledger.js never got built as such -- their responsibilities ended up split across Config/Cash/Bookkeeper instead; InheritedIra.js is NonSpousalInheritedIra.js; HsaAccount extends RothIra). Build Order steps 1-7 marked done, step 8 (optimizer) not started, with a note that IRMAA groundwork (TaxCalculator.magi/cfg.initialMagi) is in but not yet consumed. Added a "Current Plan / Next Steps" section naming the two remaining items: Medicare.js (IRMAA + all Medicare parts, per user's earlier direction) and the optimizer. Removed qualified dividends from Taxes/Income Sources/Annual Ledger per the earlier out-of-scope decision (project_skip_qdi memory) -- CLAUDE.md was stale on this. Did not touch Spending Assumptions, Accounts, Annual Ledger's structure, Required Reconciliation, or Automatic Validation sections, which are still accurate. Not committed yet.
+* 09:48:19 **Prompt**: "update the claude.md to include the current plan"
+* 09:48:05 **Update**: Committed as `b5aafd2` on `main`: "remove completed TODO items from CLAUDE.md". Pushed to `origin/main` (`4ea18eb..b5aafd2`).
 * 09:47:52 **Prompt**: "gckp"
 * 09:45:34 **Update**: Committed as `4ea18eb` on `main`: "priorYearMagi -> magi/initialMagi; add project TODO list". Pushed to `origin/main` (`8d7bd8a..4ea18eb`).
 * 09:45:18 **Prompt**: "gckp"
