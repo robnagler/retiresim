@@ -92,6 +92,8 @@ test('taxCalculator is found among accounts by type, and its postAmount posts th
                 federalBrackets: [{ rate: 0.10, upTo: null }],
                 ltcgBrackets: [{ rate: 0.15, upTo: null }],
                 stateRate: 0.044,
+                standardDeduction: 0,
+                priorYearMagi: 0,
             }],
         },
     });

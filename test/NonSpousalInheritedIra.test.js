@@ -13,6 +13,8 @@ const taxSpender = () => ({
     federalBrackets: [{ rate: 0.10, upTo: null }],
     ltcgBrackets: [{ rate: 0.15, upTo: null }],
     stateRate: 0.044,
+    standardDeduction: 0,
+    priorYearMagi: 0,
 });
 
 test('inherited in 2020 or later, earn distributes the balance straight-line over the years remaining until the 10-year deadline, taxable like a TraditionalIra', () => {

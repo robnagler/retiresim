@@ -22,6 +22,8 @@ const config = new Config({
             { rate: 0.20, upTo: null },
         ],
         stateRate: 0.044,
+        standardDeduction: 0,
+        priorYearMagi: 0,
     },
 });
 
@@ -32,6 +34,8 @@ const configWithSS = () => new Config({
         federalBrackets: [{ rate: 0.10, upTo: null }],
         ltcgBrackets: [{ rate: 0.15, upTo: null }],
         stateRate: 0.044,
+        standardDeduction: 0,
+        priorYearMagi: 0,
         ssProvisionalIncomeThresholds: { low: 32000, high: 44000 },
     },
 });
@@ -106,7 +110,7 @@ test('calculate returns federal, state, total, and magi for ordinary income alon
 
 test('calculate\'s magi includes gains and taxable Social Security, but not the mortgage/standard deduction', () => {
     const c = new TaxCalculator({ name: 'Tax', config: configWithSS() });
-    const rv = c.calculate({ ordinaryIncome: 60000, gains: 5000, mortgageInterest: 8000, ssBenefit: 30000 });
+    const rv = c.calculate({ ordinaryIncome: 60000, gains: 5000, mortgageInterest: -8000, ssBenefit: 30000 });
     const taxableSS = c.taxableSocialSecurity(60000, 30000);
     assert.equal(rv.magi, 60000 + 5000 + taxableSS);
 });
@@ -119,9 +123,9 @@ test('calculate adds ltcg into federal and folds gains into the state\'s flat-ra
     assert.equal(rv.total, rv.federal + rv.state);
 });
 
-test('calculate deducts mortgage interest from ordinary income (no standardDeduction configured, so any itemizing wins)', () => {
+test('calculate deducts mortgage interest (negative) from ordinary income (standardDeduction=0, so any itemizing wins)', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
-    const rv = c.calculate({ ordinaryIncome: 50000, mortgageInterest: 8000 });
+    const rv = c.calculate({ ordinaryIncome: 50000, mortgageInterest: -8000 });
     const taxableOrdinary = 42000;
     assert.equal(rv.federal, c.federal(taxableOrdinary) + c.ltcg(taxableOrdinary, 0));
     assert.equal(rv.state, taxableOrdinary * 0.044);
@@ -136,10 +140,11 @@ test('calculate uses the standard deduction instead when mortgage interest is sm
             ltcgBrackets: [{ rate: 0.15, upTo: null }],
             stateRate: 0.044,
             standardDeduction: 29200,
+            priorYearMagi: 0,
         },
     });
     const c = new TaxCalculator({ name: 'Tax', config: withStandard });
-    const rv = c.calculate({ ordinaryIncome: 50000, mortgageInterest: 5000 });
+    const rv = c.calculate({ ordinaryIncome: 50000, mortgageInterest: -5000 });
     const taxableOrdinary = 50000 - 29200;
     assert.equal(rv.federal, c.federal(taxableOrdinary));
     assert.equal(rv.state, taxableOrdinary * 0.044);
@@ -147,7 +152,7 @@ test('calculate uses the standard deduction instead when mortgage interest is sm
 
 test('calculate never lets taxable ordinary income go negative when the deduction exceeds it', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
-    const rv = c.calculate({ ordinaryIncome: 10000, mortgageInterest: 50000 });
+    const rv = c.calculate({ ordinaryIncome: 10000, mortgageInterest: -50000 });
     assert.equal(rv.federal, 0);
     assert.equal(rv.state, 0);
 });
@@ -165,13 +170,20 @@ test('balance starts from the configured opening value, like any account', () =>
     assert.equal(c.balance, -5000);
 });
 
-test('priorYearMagi starts from the configured seed value, defaulting to 0 when unconfigured', () => {
+test('priorYearMagi is read directly from config, with no implicit default -- config must always define it', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     assert.equal(c.priorYearMagi, 0);
 
     const seeded = new Config({
         Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
-        Tax: { balance: -5000, federalBrackets: [{ rate: 0.10, upTo: null }], ltcgBrackets: [], stateRate: 0.044, priorYearMagi: 180000 },
+        Tax: {
+            balance: -5000,
+            federalBrackets: [{ rate: 0.10, upTo: null }],
+            ltcgBrackets: [],
+            stateRate: 0.044,
+            standardDeduction: 0,
+            priorYearMagi: 180000,
+        },
     });
     assert.equal(new TaxCalculator({ name: 'Tax', config: seeded }).priorYearMagi, 180000);
 });
@@ -227,7 +239,7 @@ test('prepareNextYear also pulls this year\'s posted LtcgIncome into the liabili
     assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 15000 }).total);
 });
 
-test('prepareNextYear also pulls this year\'s posted MortgageInterestDeduction into the liability calc', () => {
+test('prepareNextYear also pulls this year\'s posted MortgageInterestDeduction (negative, matching postAmount()\'s sign) into the liability calc', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
     bookkeeper.post(new JournalEntry({
@@ -239,13 +251,15 @@ test('prepareNextYear also pulls this year\'s posted MortgageInterestDeduction i
     bookkeeper.post(new JournalEntry({
         year: 2026,
         category: 'taxCalc',
-        source: new Posting({ account: 'TaxCalcInput', amount: -8000 }),
-        dest: new Posting({ account: 'MortgageInterestDeduction', amount: 8000 }),
+        source: new Posting({ account: 'TaxCalcInput', amount: 8000 }),
+        dest: new Posting({ account: 'MortgageInterestDeduction', amount: -8000 }),
     }));
 
     c.prepareNextYear({ year: 2026, bookkeeper });
 
-    assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 0, mortgageInterest: 8000 }).total);
+    assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 0, mortgageInterest: -8000 }).total);
+    // sanity check the deduction actually reduced the liability
+    assert.ok(c.balance > -c.calculate({ ordinaryIncome: 60000, gains: 0 }).total);
 });
 
 test('prepareNextYear also pulls this year\'s posted SocialSecurityBenefit into the liability calc', () => {
@@ -280,17 +294,24 @@ test('postAmount posts amount from TaxCalcInput to the given cat', () => {
     assert.equal(bookkeeper.balanceChange('TaxCalcInput', 2026), -1000);
 });
 
-test('postAmount accepts LtcgIncome, MortgageInterestDeduction, and SocialSecurityBenefit as well as OrdinaryIncome', () => {
+test('postAmount accepts LtcgIncome and SocialSecurityBenefit as well as OrdinaryIncome, all posted positive', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
 
     c.postAmount('LtcgIncome', 500, 2026, bookkeeper);
-    c.postAmount('MortgageInterestDeduction', 700, 2026, bookkeeper);
     c.postAmount('SocialSecurityBenefit', 30000, 2026, bookkeeper);
 
     assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 500);
-    assert.equal(bookkeeper.balanceChange('MortgageInterestDeduction', 2026), 700);
     assert.equal(bookkeeper.balanceChange('SocialSecurityBenefit', 2026), 30000);
+});
+
+test('postAmount posts MortgageInterestDeduction negative, even though the caller passes a positive magnitude -- income positive, deductions negative', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+
+    c.postAmount('MortgageInterestDeduction', 700, 2026, bookkeeper);
+
+    assert.equal(bookkeeper.balanceChange('MortgageInterestDeduction', 2026), -700);
 });
 
 test('postAmount throws on a cat it does not recognize', () => {

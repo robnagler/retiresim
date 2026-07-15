@@ -36,6 +36,8 @@ test('once age qualifies, Cash takes the RMD from the prior year-end balance, be
                 federalBrackets: [{ rate: 0.10, upTo: null }],
                 ltcgBrackets: [{ rate: 0.15, upTo: null }],
                 stateRate: 0.044,
+                standardDeduction: 0,
+                priorYearMagi: 0,
             }],
         },
     });

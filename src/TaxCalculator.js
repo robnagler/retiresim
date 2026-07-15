@@ -6,7 +6,7 @@ export class TaxCalculator extends Account {
         // Seeds the very first simulated year, before any year's MAGI has
         // been computed in-model -- mirrors how `balance` seeds the first
         // year's already-accrued tax liability.
-        this.priorYearMagi = this.cfg.priorYearMagi ?? 0;
+        this.priorYearMagi = this.cfg.priorYearMagi;
     }
 
     federal(income) {
@@ -63,20 +63,24 @@ export class TaxCalculator extends Account {
         return Math.min(0.85 * ssBenefit, 0.85 * (provisional - high) + tier1AtHigh);
     }
 
-    // Only itemize (deduct mortgage interest) if it beats the standard
-    // deduction -- matches how a real return chooses between the two.
-    // Colorado has no preferential capital-gains rate, so gains join
-    // ordinary income in the flat state base; federal keeps them separate
-    // via ltcg()'s stacking. Colorado excludes Social Security benefits
-    // from state tax entirely (current CO law for taxpayers 65+, the
-    // common case here) -- so taxable SS only widens the federal base,
-    // never the state one. Both bases are net of the deduction, floored
-    // at 0, since CO starts from federal taxable income.
+    // Sign convention: income is positive, deductions are negative --
+    // mortgageInterest is <= 0 here (postAmount() posts it negative).
+    // standardDeduction is a plain positive magnitude (never posted
+    // through the ledger), so it's negated for comparison. Only itemize
+    // if it beats the standard deduction (more negative = bigger benefit)
+    // -- matches how a real return chooses between the two. Colorado has
+    // no preferential capital-gains rate, so gains join ordinary income in
+    // the flat state base; federal keeps them separate via ltcg()'s
+    // stacking. Colorado excludes Social Security benefits from state tax
+    // entirely (current CO law for taxpayers 65+, the common case here)
+    // -- so taxable SS only widens the federal base, never the state one.
+    // Both bases are net of the deduction, floored at 0, since CO starts
+    // from federal taxable income.
     calculate({ ordinaryIncome, gains = 0, mortgageInterest = 0, ssBenefit = 0 }) {
         const taxableSS = this.taxableSocialSecurity(ordinaryIncome, ssBenefit);
-        const deduction = Math.max(mortgageInterest, this.cfg.standardDeduction ?? 0);
-        const taxableFederalOrdinary = Math.max(0, ordinaryIncome + taxableSS - deduction);
-        const taxableStateOrdinary = Math.max(0, ordinaryIncome - deduction);
+        const deduction = Math.min(mortgageInterest, -this.cfg.standardDeduction);
+        const taxableFederalOrdinary = Math.max(0, ordinaryIncome + taxableSS + deduction);
+        const taxableStateOrdinary = Math.max(0, ordinaryIncome + deduction);
         const rv = {
             federal: this.federal(taxableFederalOrdinary) + this.ltcg(taxableFederalOrdinary, gains),
             state: this.state(taxableStateOrdinary + gains),
@@ -93,12 +97,17 @@ export class TaxCalculator extends Account {
     // amount under cat so prepareNextYear() picks it up later via
     // balanceChange(). Only these categories are recognized today --
     // anything else is a caller bug, not a silent no-effect case
-    // (RothIra/HsaAccount simply never call postAmount() at all).
+    // (RothIra/HsaAccount simply never call postAmount() at all). Callers
+    // always pass a positive magnitude (e.g. Mortgage passes the interest
+    // it paid); postAmount() encodes the sign -- income categories post
+    // positive, MortgageInterestDeduction posts negative -- so the ledger
+    // is self-describing and calculate() can just add everything up.
     postAmount(cat, amount, year, bookkeeper) {
         if (cat !== 'OrdinaryIncome' && cat !== 'LtcgIncome' && cat !== 'MortgageInterestDeduction' && cat !== 'SocialSecurityBenefit') {
             throw new Error(`cat=${cat} not recognized ${this}`);
         }
-        bookkeeper.simplePost(year, 'taxCalc', 'TaxCalcInput', cat, amount);
+        const signed = cat === 'MortgageInterestDeduction' ? -amount : amount;
+        bookkeeper.simplePost(year, 'taxCalc', 'TaxCalcInput', cat, signed);
     }
 
     runYear({ year, bookkeeper }) {
