@@ -25,6 +25,17 @@ const config = new Config({
     },
 });
 
+const configWithSS = () => new Config({
+    Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
+    Tax: {
+        balance: -5000,
+        federalBrackets: [{ rate: 0.10, upTo: null }],
+        ltcgBrackets: [{ rate: 0.15, upTo: null }],
+        stateRate: 0.044,
+        ssProvisionalIncomeThresholds: { low: 32000, high: 44000 },
+    },
+});
+
 test('federal applies progressive brackets', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     assert.equal(c.federal(50000), 10000 * 0.10 + 30000 * 0.12 + 10000 * 0.22);
@@ -59,6 +70,29 @@ test('ltcg is taxed entirely at the top bracket rate when ordinary income alread
 test('ltcg is zero when there are no gains', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     assert.equal(c.ltcg(50000, 0), 0);
+});
+
+test('taxableSocialSecurity is zero below the low provisional-income threshold', () => {
+    const c = new TaxCalculator({ name: 'Tax', config: configWithSS() });
+    // provisional = 10000 + 0.5*30000 = 25000, below the 32000 low threshold
+    assert.equal(c.taxableSocialSecurity(10000, 30000), 0);
+});
+
+test('taxableSocialSecurity is zero when there is no benefit', () => {
+    const c = new TaxCalculator({ name: 'Tax', config: configWithSS() });
+    assert.equal(c.taxableSocialSecurity(100000, 0), 0);
+});
+
+test('taxableSocialSecurity taxes up to 50% of benefits between the two thresholds', () => {
+    const c = new TaxCalculator({ name: 'Tax', config: configWithSS() });
+    // provisional = 20000 + 0.5*30000 = 35000, between 32000 and 44000
+    assert.equal(c.taxableSocialSecurity(20000, 30000), Math.min(0.5 * 30000, 0.5 * (35000 - 32000)));
+});
+
+test('taxableSocialSecurity caps at 85% of benefits far above the high threshold', () => {
+    const c = new TaxCalculator({ name: 'Tax', config: configWithSS() });
+    // provisional = 60000 + 0.5*30000 = 75000, well above 44000
+    assert.equal(c.taxableSocialSecurity(60000, 30000), 0.85 * 30000);
 });
 
 test('calculate returns federal, state, and total for ordinary income alone', () => {
@@ -108,6 +142,14 @@ test('calculate never lets taxable ordinary income go negative when the deductio
     const rv = c.calculate({ ordinaryIncome: 10000, mortgageInterest: 50000 });
     assert.equal(rv.federal, 0);
     assert.equal(rv.state, 0);
+});
+
+test('calculate adds taxable Social Security to the federal base only -- Colorado excludes it entirely', () => {
+    const c = new TaxCalculator({ name: 'Tax', config: configWithSS() });
+    const rv = c.calculate({ ordinaryIncome: 60000, ssBenefit: 30000 });
+    const taxableSS = c.taxableSocialSecurity(60000, 30000);
+    assert.equal(rv.federal, c.federal(60000 + taxableSS));
+    assert.equal(rv.state, c.state(60000));
 });
 
 test('balance starts from the configured opening value, like any account', () => {
@@ -186,6 +228,27 @@ test('prepareNextYear also pulls this year\'s posted MortgageInterestDeduction i
     assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 0, mortgageInterest: 8000 }).total);
 });
 
+test('prepareNextYear also pulls this year\'s posted SocialSecurityBenefit into the liability calc', () => {
+    const c = new TaxCalculator({ name: 'Tax', config: configWithSS() });
+    const bookkeeper = new Bookkeeper({ config: configWithSS(), classes: { Cash } });
+    bookkeeper.post(new JournalEntry({
+        year: 2026,
+        category: 'income',
+        source: new Posting({ account: 'TradIra', amount: -60000 }),
+        dest: new Posting({ account: 'OrdinaryIncome', amount: 60000 }),
+    }));
+    bookkeeper.post(new JournalEntry({
+        year: 2026,
+        category: 'taxCalc',
+        source: new Posting({ account: 'TaxCalcInput', amount: -30000 }),
+        dest: new Posting({ account: 'SocialSecurityBenefit', amount: 30000 }),
+    }));
+
+    c.prepareNextYear({ year: 2026, bookkeeper });
+
+    assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 0, ssBenefit: 30000 }).total);
+});
+
 test('postTaxCalc posts amount from TaxCalcInput to the given cat', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
@@ -197,15 +260,17 @@ test('postTaxCalc posts amount from TaxCalcInput to the given cat', () => {
     assert.equal(bookkeeper.balanceChange('TaxCalcInput', 2026), -1000);
 });
 
-test('postTaxCalc accepts LtcgIncome and MortgageInterestDeduction as well as OrdinaryIncome', () => {
+test('postTaxCalc accepts LtcgIncome, MortgageInterestDeduction, and SocialSecurityBenefit as well as OrdinaryIncome', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
 
     c.postTaxCalc('LtcgIncome', 500, 2026, bookkeeper);
     c.postTaxCalc('MortgageInterestDeduction', 700, 2026, bookkeeper);
+    c.postTaxCalc('SocialSecurityBenefit', 30000, 2026, bookkeeper);
 
     assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 500);
     assert.equal(bookkeeper.balanceChange('MortgageInterestDeduction', 2026), 700);
+    assert.equal(bookkeeper.balanceChange('SocialSecurityBenefit', 2026), 30000);
 });
 
 test('postTaxCalc throws on a cat it does not recognize', () => {

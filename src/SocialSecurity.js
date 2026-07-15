@@ -6,8 +6,11 @@ export class SocialSecurity extends Account {
         this.amount = this.cfg.amount;
     }
 
+    // Reports the raw benefit, not OrdinaryIncome -- how much of it is
+    // taxable depends on total provisional income for the year, which
+    // only TaxCalculator can compute (see TaxCalculator.taxableSocialSecurity()).
     earn(year, bookkeeper) {
-        bookkeeper.postTaxCalc('OrdinaryIncome', this.amount, year);
+        bookkeeper.postTaxCalc('SocialSecurityBenefit', this.amount, year);
         return { amount: this.amount };
     }
 }

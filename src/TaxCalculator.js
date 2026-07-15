@@ -33,18 +33,45 @@ export class TaxCalculator extends Account {
         return rv;
     }
 
+    // IRS provisional-income worksheet (simplified: ignores tax-exempt
+    // interest, which this project doesn't model). otherOrdinaryIncome
+    // excludes the SS benefit itself -- it's added back at 50% to form
+    // provisional income. Up to 50% of benefits are taxable between the
+    // two thresholds, up to 85% above the upper one.
+    taxableSocialSecurity(otherOrdinaryIncome, ssBenefit) {
+        if (ssBenefit <= 0) {
+            return 0;
+        }
+        const { low, high } = this.cfg.ssProvisionalIncomeThresholds;
+        const provisional = otherOrdinaryIncome + 0.5 * ssBenefit;
+        if (provisional <= low) {
+            return 0;
+        }
+        const tier1 = Math.min(0.5 * ssBenefit, 0.5 * (provisional - low));
+        if (provisional <= high) {
+            return tier1;
+        }
+        const tier1AtHigh = Math.min(0.5 * ssBenefit, 0.5 * (high - low));
+        return Math.min(0.85 * ssBenefit, 0.85 * (provisional - high) + tier1AtHigh);
+    }
+
     // Only itemize (deduct mortgage interest) if it beats the standard
     // deduction -- matches how a real return chooses between the two.
     // Colorado has no preferential capital-gains rate, so gains join
     // ordinary income in the flat state base; federal keeps them separate
-    // via ltcg()'s stacking. Both bases are net of the deduction, since CO
-    // starts from federal taxable income.
-    calculate({ ordinaryIncome, gains = 0, mortgageInterest = 0 }) {
+    // via ltcg()'s stacking. Colorado excludes Social Security benefits
+    // from state tax entirely (current CO law for taxpayers 65+, the
+    // common case here) -- so taxable SS only widens the federal base,
+    // never the state one. Both bases are net of the deduction, floored
+    // at 0, since CO starts from federal taxable income.
+    calculate({ ordinaryIncome, gains = 0, mortgageInterest = 0, ssBenefit = 0 }) {
+        const taxableSS = this.taxableSocialSecurity(ordinaryIncome, ssBenefit);
         const deduction = Math.max(mortgageInterest, this.cfg.standardDeduction ?? 0);
-        const taxableOrdinary = Math.max(0, ordinaryIncome - deduction);
+        const taxableFederalOrdinary = Math.max(0, ordinaryIncome + taxableSS - deduction);
+        const taxableStateOrdinary = Math.max(0, ordinaryIncome - deduction);
         const rv = {
-            federal: this.federal(taxableOrdinary) + this.ltcg(taxableOrdinary, gains),
-            state: this.state(taxableOrdinary + gains),
+            federal: this.federal(taxableFederalOrdinary) + this.ltcg(taxableFederalOrdinary, gains),
+            state: this.state(taxableStateOrdinary + gains),
         };
         rv.total = rv.federal + rv.state;
         return rv;
@@ -52,11 +79,11 @@ export class TaxCalculator extends Account {
 
     // Called via Bookkeeper.postTaxCalc(): records amount under cat so
     // prepareNextYear() picks it up later via balanceChange(). Only these
-    // three categories are recognized today -- anything else is a caller
-    // bug, not a silent no-effect case (RothIra/HsaAccount simply never
-    // call postTaxCalc() at all).
+    // categories are recognized today -- anything else is a caller bug,
+    // not a silent no-effect case (RothIra/HsaAccount simply never call
+    // postTaxCalc() at all).
     postTaxCalc(cat, amount, year, bookkeeper) {
-        if (cat !== 'OrdinaryIncome' && cat !== 'LtcgIncome' && cat !== 'MortgageInterestDeduction') {
+        if (cat !== 'OrdinaryIncome' && cat !== 'LtcgIncome' && cat !== 'MortgageInterestDeduction' && cat !== 'SocialSecurityBenefit') {
             throw new Error(`cat=${cat} not recognized ${this}`);
         }
         bookkeeper.simplePost(year, 'taxCalc', 'TaxCalcInput', cat, amount);
@@ -73,8 +100,9 @@ export class TaxCalculator extends Account {
         const ordinaryIncome = bookkeeper.balanceChange('OrdinaryIncome', year);
         const gains = bookkeeper.balanceChange('LtcgIncome', year);
         const mortgageInterest = bookkeeper.balanceChange('MortgageInterestDeduction', year);
+        const ssBenefit = bookkeeper.balanceChange('SocialSecurityBenefit', year);
         const a = this.balance;
-        this.balance = -this.calculate({ ordinaryIncome, gains, mortgageInterest }).total;
+        this.balance = -this.calculate({ ordinaryIncome, gains, mortgageInterest, ssBenefit }).total;
         bookkeeper.simplePost(year, 'taxAccrued', 'TaxAccrued', this.name, this.balance - a);
     }
 
