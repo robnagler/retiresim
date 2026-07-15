@@ -2,21 +2,35 @@ import { Account } from './Account.js';
 
 export class TaxCalculator extends Account {
     federal(income) {
+        return this._bracketTax(this.cfg.federalBrackets, 0, income);
+    }
+
+    state(income) {
+        return income * this.cfg.stateRate;
+    }
+
+    // Gains stack on top of ordinary income: the floor is ordinaryIncome, so
+    // gains are taxed at the rate for the bracket(s) they fall into above it,
+    // not from zero.
+    ltcg(ordinaryIncome, gains) {
+        return this._bracketTax(this.cfg.ltcgBrackets, ordinaryIncome, ordinaryIncome + gains);
+    }
+
+    _bracketTax(brackets, floor, ceiling) {
         let rv = 0;
-        let p = 0;
-        for (const c of this.cfg.federalBrackets) {
-            const u = c.upTo === null ? income : Math.min(income, c.upTo);
+        let p = floor;
+        for (const c of brackets) {
+            const u = c.upTo === null ? ceiling : Math.min(ceiling, c.upTo);
             if (u <= p) {
-                break;
+                if (u >= ceiling) {
+                    break;
+                }
+                continue;
             }
             rv += (u - p) * c.rate;
             p = u;
         }
         return rv;
-    }
-
-    state(income) {
-        return income * this.cfg.stateRate;
     }
 
     calculate(income) {

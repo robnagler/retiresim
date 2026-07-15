@@ -16,6 +16,11 @@ const config = new Config({
             { rate: 0.12, upTo: 40000 },
             { rate: 0.22, upTo: null },
         ],
+        ltcgBrackets: [
+            { rate: 0.00, upTo: 40000 },
+            { rate: 0.15, upTo: 100000 },
+            { rate: 0.20, upTo: null },
+        ],
         stateRate: 0.044,
     },
 });
@@ -33,6 +38,27 @@ test('federal stays within the first bracket for low income', () => {
 test('state applies a flat rate', () => {
     const c = new TaxCalculator({ name: 'Tax', config });
     assert.equal(c.state(50000), 50000 * 0.044);
+});
+
+test('ltcg is untaxed when ordinary income plus gains stay within the 0% bracket', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    assert.equal(c.ltcg(20000, 10000), 0);
+});
+
+test('ltcg stacks on top of ordinary income, splitting across brackets it straddles', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    // floor=35000, top=45000: 5000 in the 0% bracket (35000-40000), 5000 in the 15% bracket (40000-45000)
+    assert.equal(c.ltcg(35000, 10000), 5000 * 0.15);
+});
+
+test('ltcg is taxed entirely at the top bracket rate when ordinary income already exceeds it', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    assert.equal(c.ltcg(150000, 50000), 50000 * 0.20);
+});
+
+test('ltcg is zero when there are no gains', () => {
+    const c = new TaxCalculator({ name: 'Tax', config });
+    assert.equal(c.ltcg(50000, 0), 0);
 });
 
 test('calculate returns federal, state, and total', () => {

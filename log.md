@@ -1,5 +1,12 @@
 # Log
 
+## 2026-07-15
+
+* 19:40:06 **Prompt**: "wire up" (interrupted mid-investigation) then "actually commit what you have"
+* 19:38:54 **Update**: Added `TaxCalculator.ltcg(ordinaryIncome, gains)` (LTCG stacks on top of ordinary income across bracket boundaries), refactored `federal()` to share a new `_bracketTax(brackets, floor, ceiling)` helper (behavior-preserving), added `ltcgBrackets` to the test config, and added 4 new tests. `bash test.sh`: 50/50 passing. Scope per user: calc method only, isolated and unit-tested like `federal()`/`state()` were -- no wiring of `TaxableAccount` withdrawal gains into the ledger yet (`Cash.produce()` still discards the `gain` it computes).
+* 19:34:03 **Prompt**: "lets' fix taxcalc"
+* 19:32:46 **Prompt**: "next step?"
+
 ## 2026-07-14
 
 * 18:48:59 **Update**: Ran `bash test.sh` (46/46 passing), committed as `26dcc77` on `main`: "added test.sh". Pushed to `origin/main` (`8b3b569..26dcc77`).
