@@ -4,6 +4,8 @@ import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Account } from '../src/Account.js';
 import { Mortgage } from '../src/Mortgage.js';
 import { TaxCalculator } from '../src/TaxCalculator.js';
+import { TaxableAccount } from '../src/TaxableAccount.js';
+import { LivingExpense } from '../src/LivingExpense.js';
 import { Cash } from '../src/Cash.js';
 import { JournalEntry } from '../src/JournalEntry.js';
 import { Posting } from '../src/Posting.js';
@@ -28,7 +30,7 @@ test('runYear pays down a mortgage and reconciles', () => {
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 1000000, rate: 0 }],
-            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, monthlyPayment: 1200 }],
+            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
         },
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage, Cash } });
@@ -44,7 +46,7 @@ test('constructor builds accounts from Cash\'s withdrawalOrder and spendingOrder
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 1000, rate: 0.05 }],
-            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, monthlyPayment: 1200 }],
+            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
         },
     });
 
@@ -64,7 +66,7 @@ test('report dumps each account name and balance as a table', () => {
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 1000, rate: 0 }],
-            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, monthlyPayment: 1200 }],
+            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
         },
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage, Cash } });
@@ -159,6 +161,44 @@ test('taxCalculator is undefined when no TaxCalculator is configured -- lets acc
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
 
     assert.equal(bookkeeper.taxCalculator, undefined);
+});
+
+test('a gain realized to cover a shortfall is taxed the same year it is realized', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'TaxableAccount', balance: 1000, rate: 0, basis: 200 }],
+            spendingOrder: [
+                { name: 'LivingExpense', balance: 1000, rate: 0 },
+                {
+                    name: 'Tax',
+                    class: 'TaxCalculator',
+                    balance: 0,
+                    federalBrackets: [{ rate: 0.10, upTo: null }],
+                    ltcgBrackets: [{ rate: 0.15, upTo: null }],
+                    stateRate: 0.044,
+                    standardDeduction: 0,
+                    ssProvisionalIncomeThresholds: { low: 0, high: 0 },
+                    initialMagi: 0,
+                },
+            ],
+        },
+    });
+    const bookkeeper = new Bookkeeper({
+        config,
+        classes: { TaxableAccount, LivingExpense, TaxCalculator, Cash },
+    });
+
+    bookkeeper.runYear(2026);
+
+    // The shortfall-covering withdrawal from TaxableAccount realizes an
+    // $800 gain ($1000 withdrawn, $200 basis) -- the ledger has it.
+    assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 800);
+    // That gain must be reflected in the same year's tax calculation.
+    // Currently fails: TaxCalculator.prepareNextYear() runs (inside
+    // Cash.runYear()) before produce() withdraws to cover the shortfall,
+    // so magi comes out 0 -- the gain is dropped, not deferred.
+    assert.equal(bookkeeper.taxCalculator.magi, 800);
 });
 
 test('runYear throws when the journal does not match an account change', () => {

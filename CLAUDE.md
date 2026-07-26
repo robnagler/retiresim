@@ -29,20 +29,22 @@ Build the project slowly one module at a time.
 
 Core state, one class per file:
 
-* `Account.js` -- base class: balance, `grow(rate)`, `deposit()`, `withdraw()`
+* `Base.js` -- root class every other class extends: resolves `name`/`cfg` from `Config`, and a `toString()` that dumps all fields for error messages
+* `Account.js` extends `Base` -- balance, `grow(rate)`, `deposit()`, `withdraw()`
 * `TaxableAccount.js` extends Account -- adds basis tracking
 * `TraditionalIra.js`, `RothIra.js`, `NonSpousalInheritedIra.js` extend Account -- each encodes its own RMD/withdrawal rules
 * `HsaAccount.js` extends `RothIra` -- no tax consequence on withdrawal, same as Roth
-* `Mortgage.js` -- balance, rate, amortization schedule, splits a payment into principal/interest
+* `Mortgage.js` -- balance, rate, `endYear` (payoff year); the monthly payment is derived from those three via the standard fixed-payment amortization formula (not a separate cfg input), fixed once on the first year it runs, splits each year's payment into principal/interest. No payment is due once `year > endYear`.
 * `Salary.js`, `Pension.js`, `SocialSecurity.js`, `LivingExpense.js` -- income/expense sources, each reports its own tax treatment (or none) to `TaxCalculator`. `SocialSecurity` gates on `cfg.startYear` (no benefit posted before the claimed year).
 * `Medicare.js` -- Part B/D premiums and a Medigap Plan G premium (all monthly cfg inputs, annualized internally), plus the IRMAA surcharge on Part B/D looked up from `bookkeeper.taxCalculator.magi` against a fixed internal bracket table (not configurable, not inflation-indexed)
 
 Orchestration (this diverged from the original `Household.js`/`Ledger.js` split -- their responsibilities ended up folded into `Config`, `Cash`, and `Bookkeeper` instead):
 
 * `Config.js` -- reads static/json config, resolves per-account settings (age, salary trajectory, retirement date, SS claiming age/amount live here)
-* `Bookkeeper.js` -- builds accounts from config, owns the journal (`JournalEntry`/`Posting`), drives `runYear()` across all accounts, and runs the reconciliation check (`_reconcile()`)
-* `Cash.js` -- the year's cash orchestrator: collects income (`earn()`), pays spenders in order (`runYear()`), and covers shortfalls by withdrawing from accounts in `withdrawalOrder` (`produce()`)
-* `Simulator.js` -- thin year-by-year loop calling `bookkeeper.runYear(year)`
+* `Bookkeeper.js` -- builds accounts from config, owns the journal (`JournalEntry`/`Posting`), drives `runYear()` across all accounts, runs the reconciliation check (`_reconcile()`), and reports a year's transactions/balances (`reportTransactions()`, `reportYear()`)
+* `Cash.js` -- the year's cash orchestrator: collects income (`earn()`), pays spenders in order (`runYear()`), then covers shortfalls by withdrawing from accounts in `withdrawalOrder` (`produce()`) -- `produce()` runs before spenders' `prepareNextYear()` so a shortfall-covering withdrawal's realized gains/income are taxed the same year they're realized, not dropped
+* `Simulator.js` -- thin year-by-year loop calling `bookkeeper.runYear(year)`, with an optional per-year callback (`run(onYear)`)
+* `main.js` -- runs the simulation and prints each year's report; takes an optional config file path as its first CLI argument (`node src/main.js path/to/config.json`), otherwise runs an illustrative built-in scenario
 
 Taxes (single class, as planned -- has not needed splitting):
 
@@ -58,7 +60,7 @@ Each account/income source reports its own tax treatment directly via `bookkeepe
 4. `Simulator` skeleton wired to Accounts + Mortgage + Bookkeeper for a pure-growth, no-income, no-tax scenario -- first end-to-end reconciliation pass -- **done**
 5. Add income sources (salary, SS, RMD) into the Simulator loop -- **done**
 6. Add `TaxCalculator`: federal, Colorado, LTCG, SS taxation, mortgage interest deduction -- **done**. IRMAA (`TaxCalculator.magi`, seeded from `cfg.initialMagi`) is now consumed by `Medicare.js` -- **done**.
-7. Wire withdrawals to actually cover expenses/taxes, still with a fixed deterministic withdrawal order -- **done** (`Cash.produce()`)
+7. Wire withdrawals to actually cover expenses/taxes, still with a fixed deterministic withdrawal order -- **done** (`Cash.produce()`). Fixed a real bug where `TaxCalculator.prepareNextYear()` ran before `produce()`, so gains/income from a shortfall-covering withdrawal were silently dropped from that year's tax calculation instead of taxed -- `_reconcile()` couldn't catch this since each account's own balance still reconciled correctly.
 8. Optimizer as its own module last, once step 7 reconciles cleanly every year -- **not started**
 
 ### Current Plan / Next Steps

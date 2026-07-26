@@ -12,12 +12,16 @@ export class Cash extends Account {
         for (const x of d) {
             this.spend({ amount: x.amount, account: x.account, year, bookkeeper });
         }
+        // produce() must run before prepareNextYear(): a shortfall-covering
+        // withdrawal here can itself post taxable income (TaxableAccount
+        // gains, ad-hoc IRA withdrawals) that prepareNextYear() needs to see
+        // for this same year.
+        this.produce({ amount: -this.balance, year, bookkeeper });
         for (const spender of this.spenders) {
             if (spender.prepareNextYear) {
                 spender.prepareNextYear({ year, bookkeeper });
             }
         }
-        this.produce({ amount: -this.balance, year, bookkeeper });
     }
 
     earn(earners, year, bookkeeper) {

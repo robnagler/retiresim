@@ -1,7 +1,35 @@
 # Log
 
+## 2026-07-25
+
+* 20:31:19 **Prompt**: "commit"
+* 20:29:55 **Update**: Mortgage.js now takes endYear instead of monthlyPayment -- the monthly payment is derived once (on first runYear) from balance/rate/months-to-endYear via the standard amortization formula, and runYear() charges nothing once year > endYear so a paid-off loan doesn't drift into positive balance. Updated all Mortgage-using tests, main.js's demo scenario, cfg.json, and CLAUDE.md to match; added tests for the derivation, full-term payoff, the endYear-misconfig throw, and the post-payoff no-payment case. 94/94 tests pass.
+* 20:26:29 **Discussion**: Asked what endYear should do, given Mortgage.makePayment() currently applies a fixed monthlyPayment forever with no maturity concept. User clarified: monthlyPayment shouldn't be a separate cfg input at all -- it should be derived from balance/rate/endYear via the standard fixed-payment amortization formula, so the loan is mathematically guaranteed to reach 0 by endYear.
+* 20:21:46 **Prompt**: "mortgage needs an endYear in order for it to be correctly computed"
+* 20:19:09 **Update**: Inlined configData into the Config constructor call and simulator into the .run() chain in main.js. All 91 tests still pass and main.js still runs against the real config.
+* 20:18:55 **Prompt**: "configData and simulator are unnecessary temporaries in main.js"
+* 20:16:53 **Answer**: Ran it against the real config -- only Year 2026/2027 print, no 2028 anywhere in output; Simulator.run()'s loop is correctly inclusive of endYear. The only "2028" in cfg.json lives in the unused notes block (not read by any code). Asked for the actual command/output line to confirm where they're seeing it.
+* 20:16:07 **Prompt**: "when running main.js with startYear 2026 and endYear 2027, 2028 comes out. why?"
+* 20:12:56 **Update**: Added Base.js to CLAUDE.md's Modularization list as the root class (name/cfg resolution, toString() for error messages) that Account and everything else extends.
+* 20:12:46 **Prompt**: "base.js isn't metoned"
+* 20:11:03 **Update**: Updated CLAUDE.md: Bookkeeper/Cash/Simulator/main.js bullets now match current code (reporting methods, produce()-before-prepareNextYear() fix, config-file CLI arg), and step 7 notes the timing bug and its fix. Optimizer remains the only unstarted step.
+* 20:10:42 **Prompt**: "update claude.md with the latest plan"
+* 20:08:57 **Update**: Reactivated rnlog for this project (memory flipped back to ON, no-PII rule still applies) and backfilled the two prompts/answers below that happened while logging was off.
+* 20:08:30 **Prompt**: "turn on logging and log the last two prompts and answers. just keep the order right"
+* 20:06:00 **Answer**: (added retroactively, missed logging it in real time) Reordered Cash.runYear() so produce() (the shortfall-covering withdrawal, which can realize taxable gains/income) runs before the prepareNextYear() loop, instead of after. All 91 tests pass, including the new reproduction test.
+* 20:03:00 **Prompt**: (added retroactively, missed logging it in real time) "fix"
+* 19:59:00 **Answer**: (added retroactively, missed logging it in real time) The test asserted the buggy value (magi=0) as expected, so it couldn't fail. Flipped it to assert the correct value (magi=800); it now fails against the unfixed code as it should.
+* 19:58:00 **Prompt**: (added retroactively, missed logging it in real time) "a test should fail when it reproduces a bug"
+* 19:54:00 **Answer**: (added retroactively, missed logging it in real time) Added a reproduction test to test/Bookkeeper.test.js: a taxable-account/living-expense/tax-calculator scenario with no income, so the year's spending forces a shortfall withdrawal that realizes a gain. All tests passed, including the new one -- which was itself the problem the next prompt caught.
+* 19:50:00 **Prompt**: (added retroactively, missed logging it in real time) "create test for 1"
+
 ## 2026-07-15
 
+* 16:03:21 **Update**: rnlog turned off for this project per user's request. Marked the memory rule disabled and recorded the PII incident/remediation in a dedicated memory entry for future reference. This is the last log.md entry until re-enabled.
+* 16:02:15 **Prompt**: "turn off rnlog"
+* 16:01:53 **Answer**: Yes -- just say so, no separate switch needed. Asked whether to turn it off now.
+* 16:01:40 **Prompt**: "can i turn logging off?"
+* 15:55:21 **Update**: Committed as `3e909f8`, pushed (`8fcff11..3e909f8`).
 * 15:55:01 **Prompt**: "gckp"
 * 15:51:38 **Update**: Remote was actually gone (filter-repo removed it); re-added origin at the same URL, confirmed the recreated repo is private, committed log.md, and pushed as a fresh branch with no conflicts.
 * 15:50:39 **Prompt**: "same remote is already there so just push"

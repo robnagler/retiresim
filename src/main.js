@@ -51,7 +51,7 @@ const DEFAULT_CONFIG_DATA = {
             { name: 'Pension', balance: 0, rate: 0, amount: 20000 },
         ],
         spendingOrder: [
-            { name: 'Mortgage', balance: -200000, rate: 0.06, monthlyPayment: 1500 },
+            { name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2045 },
             { name: 'LivingExpense', balance: 60000, rate: 0.025 },
             {
                 name: 'Tax',
@@ -78,8 +78,7 @@ const DEFAULT_CONFIG_DATA = {
                 rate: 0.05,
                 // partBMonthly/partDMonthly/partGMonthly are all monthly,
                 // unlike everything else in cfg -- Part B is billed monthly by
-                // CMS, Part D/Medigap Plan G monthly by private insurers, same
-                // convention as Mortgage.monthlyPayment.
+                // CMS, Part D/Medigap Plan G monthly by private insurers.
                 partBMonthly: 175,
                 partDMonthly: 50,
                 partGMonthly: 150,
@@ -89,13 +88,11 @@ const DEFAULT_CONFIG_DATA = {
 };
 
 const configPath = process.argv[2];
-const configData = configPath ? JSON.parse(readFileSync(configPath, 'utf8')) : DEFAULT_CONFIG_DATA;
-const config = new Config(configData);
+const config = new Config(configPath ? JSON.parse(readFileSync(configPath, 'utf8')) : DEFAULT_CONFIG_DATA);
 
 const bookkeeper = new Bookkeeper({ config, classes });
-const simulator = new Simulator({ bookkeeper, config });
 
-simulator.run((year) => {
+new Simulator({ bookkeeper, config }).run((year) => {
     console.log(bookkeeper.reportYear(year));
     console.log('');
 });

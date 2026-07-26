@@ -5,17 +5,38 @@ const MONTHS_PER_YEAR = 12;
 export class Mortgage extends Account {
     constructor({ name, config }) {
         super({ name, config });
-        // growthFactor/yearlyPayment are non-trivial derived values reused
-        // every year in makePayment(), so they're worth caching -- cfg.rate
-        // and cfg.monthlyPayment themselves aren't mutated, so they're read
-        // straight from cfg wherever else they're needed instead of being
-        // duplicated onto the instance.
+        // growthFactor is a non-trivial derived value reused every year in
+        // makePayment(), so it's worth caching -- cfg.rate itself isn't
+        // mutated, so it's read straight from cfg wherever else it's
+        // needed instead of being duplicated onto the instance.
         const r = this.rate / MONTHS_PER_YEAR;
         this.growthFactor = (1 + r) ** MONTHS_PER_YEAR;
-        this.yearlyPayment = this.cfg.monthlyPayment * ((this.growthFactor - 1) / r);
+        this._monthlyRate = r;
     }
 
-    makePayment() {
+    // The monthly payment isn't configured -- it's derived from the current
+    // balance, rate, and how many months remain until cfg.endYear as of the
+    // first year this runs, via the standard fixed-payment amortization
+    // formula. That formula guarantees the balance reaches (approximately)
+    // zero exactly at endYear. Computed once and held fixed for the life of
+    // the loan, like a real mortgage's payment never changes after
+    // origination.
+    _ensurePayment(year) {
+        if (this.monthlyPayment !== undefined) {
+            return;
+        }
+        const months = (this.cfg.endYear - year + 1) * MONTHS_PER_YEAR;
+        if (months <= 0) {
+            throw new Error(`endYear=${this.cfg.endYear} not after year=${year} ${this}`);
+        }
+        const p = -this.balance;
+        const r = this._monthlyRate;
+        this.monthlyPayment = (p * r) / (1 - (1 + r) ** -months);
+        this.yearlyPayment = this.monthlyPayment * ((this.growthFactor - 1) / r);
+    }
+
+    makePayment(year) {
+        this._ensurePayment(year);
         const computePrincipal = () => {
             const b = this.balance * this.growthFactor + this.yearlyPayment;
             const rv = b - this.balance;
@@ -25,7 +46,7 @@ export class Mortgage extends Account {
             throw new Error(`rv=${rv} endingBalance=${b} ${this}`);
         };
         const rv = { principal: computePrincipal() };
-        rv.interest = this.cfg.monthlyPayment * MONTHS_PER_YEAR - rv.principal;
+        rv.interest = this.monthlyPayment * MONTHS_PER_YEAR - rv.principal;
         this.deposit(rv.principal);
         this.principal = rv.principal;
         this.interest = rv.interest;
@@ -42,7 +63,16 @@ export class Mortgage extends Account {
     }
 
     runYear({ year, bookkeeper }) {
-        const rv = this.makePayment();
+        // Past endYear the loan is paid off -- no payment due, balance
+        // stays put. Without this, the amortized payment would keep being
+        // applied forever and the balance would drift past zero into
+        // positive territory.
+        if (year > this.cfg.endYear) {
+            this.principal = 0;
+            this.interest = 0;
+            return;
+        }
+        const rv = this.makePayment(year);
         bookkeeper.simplePost(year, 'mortgagePrincipal', 'MortgagePrincipalPaid', this.name, rv.principal);
         // Distinct from the 'MortgageInterest' category due() uses for the
         // actual cash expense -- this one only feeds the tax deduction, so

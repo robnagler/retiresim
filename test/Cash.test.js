@@ -128,7 +128,7 @@ test('runYear produces the total owed by all spenders, then spends it per catego
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 20000, rate: 0 }],
             spendingOrder: [
-                { name: 'Mortgage', balance: -200000, rate: 0.06, monthlyPayment: 1200 },
+                { name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 },
                 {
                     name: 'Tax',
                     class: 'TaxCalculator',
@@ -148,7 +148,7 @@ test('runYear produces the total owed by all spenders, then spends it per catego
     const mortgage = bookkeeper.accounts.find((a) => a.name === 'Mortgage');
     const tax = bookkeeper.accounts.find((a) => a.name === 'Tax');
     const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
-    mortgage.makePayment();
+    mortgage.makePayment(2026);
     tax.runYear({ year: 2026, bookkeeper });
 
     cash.runYear({ year: 2026, bookkeeper });

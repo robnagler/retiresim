@@ -12,7 +12,7 @@ test('run grows an account and pays down a mortgage over multiple years, reconci
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 1000000, rate: 0.05 }],
-            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, monthlyPayment: 1200 }],
+            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
         },
         Simulator: { startYear: 2026, endYear: 2030 },
     });
