@@ -15,6 +15,7 @@ import { SocialSecurity } from './SocialSecurity.js';
 import { Pension } from './Pension.js';
 import { Cash } from './Cash.js';
 import { Config } from './Config.js';
+import { Optimizer } from './Optimizer.js';
 
 const classes = {
     TaxableAccount,
@@ -46,7 +47,7 @@ const DEFAULT_CONFIG_DATA = {
             { name: 'HsaAccount', balance: 40000, rate: 0.06, withdraw: 0 },
         ],
         incomeOrder: [
-            { name: 'Salary', balance: 0, rate: 0, monthlyAmount: 12500 },
+            { name: 'Salary', balance: 0, rate: 0, monthlyAmount: 12500, endYear: 2035 },
             { name: 'SocialSecurity', balance: 0, rate: 0, monthlyAmount: 2500, startYear: 2028 },
             { name: 'Pension', balance: 0, rate: 0, amount: 20000 },
         ],
@@ -87,12 +88,41 @@ const DEFAULT_CONFIG_DATA = {
     },
 };
 
-const configPath = process.argv[2];
-const config = new Config(configPath ? JSON.parse(readFileSync(configPath, 'utf8')) : DEFAULT_CONFIG_DATA);
+function runReport(configData) {
+    const config = new Config(configData);
+    const bookkeeper = new Bookkeeper({ config, classes });
+    new Simulator({ bookkeeper, config }).run((year) => {
+        console.log(bookkeeper.reportYear(year));
+        console.log('');
+    });
+}
 
-const bookkeeper = new Bookkeeper({ config, classes });
+// First cut of the optimizer (CLAUDE.md's "Optimizer Build Plan" step 3):
+// searches Salary.endYear alone. evaluate() clones the base config data,
+// overrides just that one field, and runs the normal
+// Config -> Bookkeeper -> Simulator sequence, scoring by netWorth().
+function runOptimize(configData) {
+    const evaluate = (candidateEndYear) => {
+        const data = structuredClone(configData);
+        data.Cash.incomeOrder.find((e) => e.name === 'Salary').endYear = candidateEndYear;
+        const config = new Config(data);
+        const bookkeeper = new Bookkeeper({ config, classes });
+        new Simulator({ bookkeeper, config }).run();
+        return bookkeeper.netWorth();
+    };
+    const { startYear } = configData.Simulator;
+    const candidates = Array.from({ length: 41 }, (_, i) => startYear + i);
+    const rv = new Optimizer().run(candidates, evaluate);
+    console.log(`Best Salary end year: ${rv.best} (net worth ${rv.score.toFixed(0)})`);
+}
 
-new Simulator({ bookkeeper, config }).run((year) => {
-    console.log(bookkeeper.reportYear(year));
-    console.log('');
-});
+const args = process.argv.slice(2);
+const optimize = args[0] === '--optimize';
+const configPath = optimize ? args[1] : args[0];
+const configData = configPath ? JSON.parse(readFileSync(configPath, 'utf8')) : DEFAULT_CONFIG_DATA;
+
+if (optimize) {
+    runOptimize(configData);
+} else {
+    runReport(configData);
+}

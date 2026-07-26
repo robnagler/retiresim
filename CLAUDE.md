@@ -35,7 +35,7 @@ Core state, one class per file:
 * `TraditionalIra.js`, `RothIra.js`, `NonSpousalInheritedIra.js` extend Account -- each encodes its own RMD/withdrawal rules
 * `HsaAccount.js` extends `RothIra` -- no tax consequence on withdrawal, same as Roth
 * `Mortgage.js` -- balance, rate, `endYear` (payoff year); the monthly payment is derived from those three via the standard fixed-payment amortization formula (not a separate cfg input), fixed once on the first year it runs, splits each year's payment into principal/interest. No payment is due once `year > endYear`.
-* `Salary.js`, `Pension.js`, `SocialSecurity.js`, `LivingExpense.js` -- income/expense sources, each reports its own tax treatment (or none) to `TaxCalculator`. `SocialSecurity` gates on `cfg.startYear` (no benefit posted before the claimed year).
+* `Salary.js`, `Pension.js`, `SocialSecurity.js`, `LivingExpense.js` -- income/expense sources, each reports its own tax treatment (or none) to `TaxCalculator`. `SocialSecurity` gates on `cfg.startYear` (no benefit posted before the claimed year); `Salary` gates on `cfg.endYear` (no income posted after the working years end).
 * `Medicare.js` -- Part B/D premiums and a Medigap Plan G premium (all monthly cfg inputs, annualized internally), plus the IRMAA surcharge on Part B/D looked up from `bookkeeper.taxCalculator.magi` against a fixed internal bracket table (not configurable, not inflation-indexed)
 
 Orchestration (this diverged from the original `Household.js`/`Ledger.js` split -- their responsibilities ended up folded into `Config`, `Cash`, and `Bookkeeper` instead):
@@ -82,16 +82,77 @@ Taxable
 
 ## Optimize Variables
 
-- When to start SocialSecurity is important. We should put in the
-  amount at full retirement age, e.g. 4152 (max) at 67. Then apply
-  formulas for starting earlier or later. I think it's about 8%.
-- We'll want to consider paying more principal on Mortgages.
-- Use the HSA to pay medicare or not should be a variable.
-- Whether to withdraw from Taxable, RothIRA, TraditionalIRA. That
-  might vary by the year based on the income from social security and
-  salary
-- Salary needs an endYear which can vary, e.g. if I work till I'm 75,
-  what's the effect?
+- Social Security claiming age -- when to start benefits. Model the
+  amount at full retirement age (e.g. $4,152/month, the current max,
+  at 67), then apply the standard ~8%/year adjustment for claiming
+  earlier or later.
+- Extra mortgage principal payments -- how much, if any, to pay down
+  beyond the required payment.
+- HSA usage -- whether to pay Medicare premiums from the HSA.
+- Withdrawal source -- Taxable vs. Roth IRA vs. Traditional IRA,
+  potentially varying year to year based on Social Security and
+  salary income.
+- Salary end year -- when to stop working (e.g. age 75), since
+  retiring later changes the outcome.
+
+## Optimizer Build Plan
+
+The five variables above vary hugely in build cost. Rather than modeling
+all five before any optimizer exists, build one thin, fully-working
+pipeline (search harness + scoring + tests) around the cheapest variable
+first, prove it end-to-end, then repeat the same recipe for the rest one
+at a time.
+
+**Step 1 -- `Salary.endYear`** -- **done**. Gates `Salary.earn()` on
+`year > cfg.endYear` returning `null`, mirroring `SocialSecurity.earn()`'s
+`year < cfg.startYear` gate. `endYear` added to every `Salary` cfg block
+(`main.js`'s `DEFAULT_CONFIG_DATA`, `config/cfg.json`, test fixtures).
+`test/Salary.test.js` added, following `test/SocialSecurity.test.js`'s shape.
+
+**Step 2 -- generic `Optimizer.js`** -- **done**. A tiny brute-force search
+that knows nothing about `Config`/`Bookkeeper`/`Simulator`/`netWorth` --
+just `run(candidates, evaluate)` returning the best `{candidate, score}`
+plus all results, so it stays reusable for every future variable (and
+later, combinations) without changes. Unit-tested with fake `evaluate`
+functions, including a non-monotonic case proving it isn't just taking an
+endpoint.
+
+**Step 3 -- wire it end-to-end for Salary end year** -- **done**. `main.js
+--optimize [config.json]` builds an `evaluate(candidateEndYear)` closure
+that `structuredClone`s the base config data, overrides the `Salary`
+entry's `endYear`, runs the normal `Config` -> `Bookkeeper` -> `Simulator`
+sequence, and returns `bookkeeper.netWorth()`; `Optimizer.run()` searches
+`startYear` through `startYear + 40` and prints the winner. The
+single-scenario report (no flag) is untouched. An integration test with a
+hand-computable optimum (Salary's amount exactly matches LivingExpense, so
+more Salary years strictly preserves more TaxableAccount balance) proves
+the real pipeline is wired correctly, not just `Optimizer`'s internal
+argmax. Confirmed on the real scenario that the optimum isn't always the
+latest candidate once taxes/IRMAA are in play -- a genuine tradeoff, not
+just "work forever."
+
+**Deferred, same two-part recipe once Step 3 lands** (add the model
+capability, then its candidate-generation/override glue -- `Optimizer.js`
+itself needs no changes):
+
+- Social Security claiming age -- needs a claim-age-driven benefit
+  formula (derive `monthlyAmount`/`startYear` from one `claimAge` input),
+  replacing today's two independent, manually-entered fields.
+- Extra mortgage principal payments -- `Mortgage.runYear()` currently
+  detects payoff only via `year > cfg.endYear`; extra principal means
+  payoff can happen early, so detection also needs `balance >= 0`.
+- HSA-pays-Medicare -- every spender's `due()` is funded generically from
+  the shared `Cash` pool via `Cash.produce()`'s `withdrawalOrder` walk;
+  routing one specific expense to one specific account needs a deliberate
+  extension to that flow.
+- Withdrawal source/order varying by year -- the largest of the five;
+  `Cash.withdrawalOrder` is a single static list applied identically every
+  year (see `README.md`'s note that this is "deferred to the future
+  Optimizer module").
+
+Also noted, not part of this plan: CLAUDE.md's Overview section still
+says config lives in `static/json`, which never existed on disk -- the
+real path is `config/cfg.json` (gitignored via `config/.gitignore`).
 
 ---
 
