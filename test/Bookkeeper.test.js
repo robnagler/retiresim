@@ -5,6 +5,10 @@ import { Account } from '../src/Account.js';
 import { Mortgage } from '../src/Mortgage.js';
 import { TaxCalculator } from '../src/TaxCalculator.js';
 import { TaxableAccount } from '../src/TaxableAccount.js';
+import { TraditionalIra } from '../src/TraditionalIra.js';
+import { RothIra } from '../src/RothIra.js';
+import { NonSpousalInheritedIra } from '../src/NonSpousalInheritedIra.js';
+import { HsaAccount } from '../src/HsaAccount.js';
 import { LivingExpense } from '../src/LivingExpense.js';
 import { Cash } from '../src/Cash.js';
 import { JournalEntry } from '../src/JournalEntry.js';
@@ -80,6 +84,41 @@ test('report dumps each account name and balance as a table', () => {
     assert.match(lines[2], /^Mortgage\s+-200000$/);
     assert.match(lines[3], /^Cash\s+0$/);
     assert.match(lines[4], /^Total\s+-199000$/);
+});
+
+test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA balances plus Mortgage (already negative), excluding LivingExpense/Tax/Cash', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [
+                { name: 'TaxableAccount', balance: 1000, rate: 0, basis: 0 },
+                { name: 'TraditionalIra', balance: 2000, rate: 0, birthYear: 2000 },
+                { name: 'RothIra', balance: 3000, rate: 0, withdraw: 0 },
+                { name: 'NonSpousalInheritedIra', balance: 4000, rate: 0, birthYear: 2000, inheritedYear: 2021 },
+                { name: 'HsaAccount', balance: 5000, rate: 0, withdraw: 0 },
+            ],
+            spendingOrder: [
+                { name: 'Mortgage', balance: -6000, rate: 0.06, endYear: 2100 },
+                { name: 'LivingExpense', balance: 700, rate: 0 },
+                {
+                    name: 'Tax',
+                    class: 'TaxCalculator',
+                    balance: -50,
+                    federalBrackets: [{ rate: 0.10, upTo: null }],
+                    ltcgBrackets: [{ rate: 0.15, upTo: null }],
+                    stateRate: 0.044,
+                    standardDeduction: 0,
+                    initialMagi: 0,
+                },
+            ],
+        },
+    });
+    const bookkeeper = new Bookkeeper({
+        config,
+        classes: { TaxableAccount, TraditionalIra, RothIra, NonSpousalInheritedIra, HsaAccount, Mortgage, LivingExpense, TaxCalculator, Cash },
+    });
+
+    assert.equal(bookkeeper.netWorth(), 1000 + 2000 + 3000 + 4000 + 5000 - 6000);
 });
 
 test('reportTransactions dumps each journal entry for the given year as a category/source/dest/amount table', () => {

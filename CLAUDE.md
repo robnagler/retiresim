@@ -80,6 +80,19 @@ Taxable
 - Remaining mortgage balances
 ```
 
+## Optimize Variables
+
+- When to start SocialSecurity is important. We should put in the
+  amount at full retirement age, e.g. 4152 (max) at 67. Then apply
+  formulas for starting earlier or later. I think it's about 8%.
+- We'll want to consider paying more principal on Mortgages.
+- Use the HSA to pay medicare or not should be a variable.
+- Whether to withdraw from Taxable, RothIRA, TraditionalIRA. That
+  might vary by the year based on the income from social security and
+  salary
+- Salary needs an endYear which can vary, e.g. if I work till I'm 75,
+  what's the effect?
+
 ---
 
 ## Spending Assumptions
