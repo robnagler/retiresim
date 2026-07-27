@@ -94,16 +94,6 @@ const DEFAULT_CONFIG_DATA = {
 // knowledge of any of this -- it just sees candidates + a scoring closure.
 const OPTIMIZE_VARIABLES = [
     {
-        label: 'Salary end year',
-        candidates: (configData) => {
-            const { startYear } = configData.Simulator;
-            return Array.from({ length: 41 }, (_, i) => startYear + i);
-        },
-        apply: (data, candidate) => {
-            data.Cash.incomeOrder.find((e) => e.name === 'Salary').endYear = candidate;
-        },
-    },
-    {
         label: 'SS claim age',
         // Excludes claim ages already passed as of Simulator.startYear --
         // not real, actionable choices for someone already older than them.
@@ -113,6 +103,20 @@ const OPTIMIZE_VARIABLES = [
         },
         apply: (data, candidate) => {
             data.Cash.incomeOrder.find((e) => e.name === 'SocialSecurity').claimAge = candidate;
+        },
+    },
+    {
+        label: 'Withdrawal ordinary-income ceiling',
+        // Candidates are the federal bracket boundaries themselves (plus
+        // "no cap") -- the interesting choices are "fill up to the top of
+        // this bracket," not arbitrary dollar amounts in between.
+        candidates: (configData) => {
+            const tax = configData.Cash.spendingOrder.find((e) => e.class === 'TaxCalculator');
+            const bounds = tax.federalBrackets.map((b) => b.upTo).filter((upTo) => upTo !== null);
+            return [...bounds, Infinity];
+        },
+        apply: (data, candidate) => {
+            data.Cash.ordinaryIncomeCeiling = candidate;
         },
     },
 ];
@@ -146,9 +150,10 @@ function printNetWorthTable(label, rv) {
         return;
     }
     console.log(`\n${label}`);
+    console.log(`  ${'Candidate'.padStart(9)}   ${'Net Worth'.padStart(12)}`);
     for (const { candidate, score } of rv.all) {
-        const marker = candidate === rv.best ? '*' : ' ';
-        console.log(`${marker} ${String(candidate).padStart(6)}   ${score.toFixed(0).padStart(12)}`);
+        const marker = candidate === rv.best ? '  <- best' : '';
+        console.log(`  ${String(candidate).padStart(9)}   ${score.toFixed(0).padStart(12)}${marker}`);
     }
 }
 

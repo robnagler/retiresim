@@ -2,6 +2,24 @@
 
 ## 2026-07-27
 
+* 18:28:07 **Prompt**: "first gckp; then when the calculator hits insufficient funds. catch that and output "0 (YYYY)" the year the failure occured in the networth table. then continue the grid elsewhere."
+* 18:20:19 **Update**: Removed "Salary end year" from main.js's OPTIMIZE_VARIABLES, same pattern as the earlier Mortgage sell year removal -- the underlying mechanism is untouched, just no longer auto-searched. 118/118 tests pass. Updated CLAUDE.md. Not committed yet.
+* 18:19:20 **Prompt**: "don't optimize salary endyear."
+* 18:18:00 **Prompt**: (added retroactively, missed logging it in real time) "what does salayr end year mean?"
+* 18:18:00 **Answer**: The last year Salary posts income before Salary.earn() gates it off; the optimizer variable searches different values of that year to see which retirement year leaves the most net worth.
+* 18:12:00 **Update**: Replaced the bare "*" marker in the optimizer's candidate/net-worth tables with a header row and an explicit "<- best" label on the winning candidate. 118/118 tests pass. Not committed yet.
+* 18:11:45 **Prompt**: "what's the star on selary end year (need a better anme)"
+* 18:05:40 **Update**: Removed the "Mortgage sell year" entry from main.js's OPTIMIZE_VARIABLES -- the underlying Mortgage.sellYear mechanism is untouched, just no longer auto-searched; set by hand per mortgage instead. 118/118 tests pass. Updated CLAUDE.md. Not committed yet.
+* 18:04:56 **Prompt**: "let's not optimize sellYear. I'll set that manually."
+* 17:57:26 **Update**: Added Mortgage.sellYear -- once year reaches it, payments stop and the remaining balance is wiped to zero in one journal entry (sale proceeds/profit not modeled, per explicit instruction). Wired into main.js's OPTIMIZE_VARIABLES (applies the same sell year to every Mortgage-* entry when there's more than one). Replaces "extra mortgage principal" in CLAUDE.md's Optimize Variables, not deferred alongside it. Added unit and integration tests. 118/118 tests pass. Updated CLAUDE.md. Not committed yet.
+* 17:53:58 **Prompt**: "instead of extra mortgage principal lets add a sellYear. don't consider profit on the sale. just stop paying the mortgage and wipe the balance off the books"
+* 17:52:00 **Prompt**: (added retroactively, missed logging it in real time) "how many vars do we have now?"
+* 17:52:00 **Answer**: 3 (Salary end year, SS claim age, withdrawal ordinary-income ceiling), each optimized independently, not jointly. 2 more designed but not built (extra mortgage principal, HSA-pays-Medicare).
+* 17:49:00 **Prompt**: (added retroactively, missed logging it in real time) asked what JS package supports nonlinear optimization via gradient descent
+* 17:49:00 **Answer**: Named fmin and numeric.js's uncmin, but recommended against it -- the objective has hard discontinuities (tax brackets, IRMAA tiers, integer claim ages) that break gradient descent's core assumption, and the project has zero dependencies by design. Suggested a dependency-free multi-dimensional grid search instead if the real goal is more variables at once.
+* 17:42:26 **Prompt**: "build it"
+* 17:42:26 **Update**: Built the withdrawal-ceiling slice. Cash.produce() now caps withdrawals from ordinary-income accounts (TraditionalIra/NonSpousalInheritedIra) at one config number, falling through to the next account in withdrawalOrder for the remainder; unset means no cap, so existing behavior is unaffected. Wired into main.js's OPTIMIZE_VARIABLES (candidates are the federal bracket boundaries plus "no cap"). Added unit tests and an integration test proving the real pipeline responds correctly. 114/114 tests pass. Updated CLAUDE.md. Not committed yet.
+* 17:37:20 **Update**: Committed as `8c6d24a` and pushed `eeede7a..8c6d24a` to origin/main.
 * 17:36:31 **Prompt**: "first gckp"
 * 17:35:00 **Prompt**: (added retroactively, missed logging it in real time) "what's the simplest?"
 * 17:35:00 **Answer**: Simplest slice: one config ceiling on ordinary income, capping only the ordinary-income-generating withdrawal accounts in produce()'s existing walk-the-list loop (falls through to the next account when capped) -- no bracket-filling logic for TaxableAccount/Roth/HSA needed yet. Asked whether to build it.

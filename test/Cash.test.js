@@ -108,6 +108,76 @@ test('produce does not post to LtcgIncome for non-TaxableAccount withdrawals', (
     assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 0);
 });
 
+test('produce caps TraditionalIra withdrawals at ordinaryIncomeCeiling, falling through to the next account for the remainder', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            ordinaryIncomeCeiling: 3000,
+            withdrawalOrder: [
+                { name: 'TraditionalIra', balance: 5000, rate: 0, birthYear: 2000 },
+                { name: 'Account', balance: 1000, rate: 0 },
+            ],
+            spendingOrder: [],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra, Cash } });
+
+    const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 4000, year: 2026, bookkeeper });
+
+    assert.deepEqual(rv, [
+        { account: 'TraditionalIra', amount: 3000 },
+        { account: 'Account', amount: 1000 },
+    ]);
+});
+
+test('produce\'s ordinaryIncomeCeiling accounts for OrdinaryIncome already posted this year (e.g. Salary), leaving less room', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            ordinaryIncomeCeiling: 3000,
+            withdrawalOrder: [
+                { name: 'TraditionalIra', balance: 5000, rate: 0, birthYear: 2000 },
+                { name: 'Account', balance: 5000, rate: 0 },
+            ],
+            spendingOrder: [],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra, Cash } });
+    bookkeeper.simplePost(2026, 'earn', 'TaxCalcInput', 'OrdinaryIncome', 2000);
+
+    const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 4000, year: 2026, bookkeeper });
+
+    assert.deepEqual(rv, [
+        { account: 'TraditionalIra', amount: 1000 },
+        { account: 'Account', amount: 3000 },
+    ]);
+});
+
+test('produce\'s ordinaryIncomeCeiling does not limit non-TraditionalIra accounts', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            ordinaryIncomeCeiling: 0,
+            withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 10000, rate: 0, basis: 6000 }],
+            spendingOrder: [{
+                name: 'Tax',
+                class: 'TaxCalculator',
+                balance: 0,
+                federalBrackets: [{ rate: 0.10, upTo: null }],
+                ltcgBrackets: [{ rate: 0.15, upTo: null }],
+                stateRate: 0.044,
+                standardDeduction: 0,
+                initialMagi: 0,
+            }],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, TaxCalculator, Cash } });
+
+    const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 5000, year: 2026, bookkeeper });
+
+    assert.deepEqual(rv, [{ account: 'Taxable', amount: 5000 }]);
+});
+
 test('spend withdraws from cash and posts a journal entry to the expense category', () => {
     const config = new Config({
         Cash: { balance: 1500, withdrawalOrder: [], spendingOrder: [] },

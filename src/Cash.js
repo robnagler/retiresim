@@ -1,4 +1,5 @@
 import { Account } from './Account.js';
+import { TraditionalIra } from './TraditionalIra.js';
 
 export class Cash extends Account {
     constructor({ name, config, accounts, spenders }) {
@@ -47,6 +48,25 @@ export class Cash extends Account {
         bookkeeper.simplePost(year, 'spend', this.name, account, amount);
     }
 
+    // Caps withdrawals from ordinary-income accounts (TraditionalIra and
+    // its NonSpousalInheritedIra subclass) at cfg.ordinaryIncomeCeiling,
+    // reading this year's already-posted OrdinaryIncome (Salary/Pension/
+    // RMDs, posted by cash.earn() before produce() runs -- see
+    // Bookkeeper.runYear()'s call order) so the room left already
+    // reflects this year's other ordinary income. A capped account still
+    // contributes up to that room, then produce()'s loop falls through
+    // to the next account in withdrawalOrder for the remainder. Unset
+    // (undefined) means no cap -- today's drain-fully behavior, so every
+    // existing config/test is unaffected. Ignores the knock-on effect of
+    // ordinary income on Social Security's taxability (the "tax
+    // torpedo") -- a real refinement, not needed for this first cut.
+    ordinaryIncomeRoom(source, year, bookkeeper) {
+        if (!(source instanceof TraditionalIra) || this.cfg.ordinaryIncomeCeiling == null) {
+            return Infinity;
+        }
+        return Math.max(0, this.cfg.ordinaryIncomeCeiling - bookkeeper.balanceChange('OrdinaryIncome', year));
+    }
+
     produce({ amount, year, bookkeeper }) {
         const rv = [];
         let r = amount;
@@ -55,7 +75,7 @@ export class Cash extends Account {
                 break;
             }
             const source = this.accounts.find((account) => account.name === n);
-            const w = Math.min(r, source.balance);
+            const w = Math.min(r, source.balance, this.ordinaryIncomeRoom(source, year, bookkeeper));
             if (w <= 0) {
                 continue;
             }

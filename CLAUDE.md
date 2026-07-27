@@ -34,7 +34,7 @@ Core state, one class per file:
 * `TaxableAccount.js` extends Account -- adds basis tracking
 * `TraditionalIra.js`, `RothIra.js`, `NonSpousalInheritedIra.js` extend Account -- each encodes its own RMD/withdrawal rules
 * `HsaAccount.js` extends `RothIra` -- no tax consequence on withdrawal, same as Roth
-* `Mortgage.js` -- balance, rate, `endYear` (payoff year); the monthly payment is derived from those three via the standard fixed-payment amortization formula (not a separate cfg input), fixed once on the first year it runs, splits each year's payment into principal/interest. No payment is due once `year > endYear`.
+* `Mortgage.js` -- balance, rate, `endYear` (payoff year); the monthly payment is derived from those three via the standard fixed-payment amortization formula (not a separate cfg input), fixed once on the first year it runs, splits each year's payment into principal/interest. No payment is due once `year > endYear`. Optional `sellYear`: once `year >= sellYear`, payments stop and the remaining balance is wiped to zero in one non-cash journal entry -- sale proceeds/profit aren't modeled, only the liability going away.
 * `Salary.js`, `Pension.js`, `SocialSecurity.js`, `LivingExpense.js` -- income/expense sources, each reports its own tax treatment (or none) to `TaxCalculator`. `SocialSecurity` derives `startYear`/`monthlyAmount` from `cfg.birthYear`/`cfg.claimAge`/`cfg.fraMonthlyBenefit` (~8%/year adjustment off age 67), gating on the derived `startYear` (no benefit posted before the claimed year); `Salary` gates on `cfg.endYear` (no income posted after the working years end).
 * `Medicare.js` -- Part B/D premiums and a Medigap Plan G premium (all monthly cfg inputs, annualized internally), plus the IRMAA surcharge on Part B/D looked up from `bookkeeper.taxCalculator.magi` against a fixed internal bracket table (not configurable, not inflation-indexed)
 
@@ -42,9 +42,9 @@ Orchestration (this diverged from the original `Household.js`/`Ledger.js` split 
 
 * `Config.js` -- reads static/json config, resolves per-account settings (age, salary trajectory, retirement date, SS claiming age/amount live here)
 * `Bookkeeper.js` -- builds accounts from config, owns the journal (`JournalEntry`/`Posting`), drives `runYear()` across all accounts, runs the reconciliation check (`_reconcile()`), and reports a year's transactions/balances (`reportTransactions()`, `reportYear()`)
-* `Cash.js` -- the year's cash orchestrator: collects income (`earn()`), pays spenders in order (`runYear()`), then covers shortfalls by withdrawing from accounts in `withdrawalOrder` (`produce()`) -- `produce()` runs before spenders' `prepareNextYear()` so a shortfall-covering withdrawal's realized gains/income are taxed the same year they're realized, not dropped
+* `Cash.js` -- the year's cash orchestrator: collects income (`earn()`), pays spenders in order (`runYear()`), then covers shortfalls by withdrawing from accounts in `withdrawalOrder` (`produce()`) -- `produce()` runs before spenders' `prepareNextYear()` so a shortfall-covering withdrawal's realized gains/income are taxed the same year they're realized, not dropped. `produce()` caps withdrawals from ordinary-income accounts (`TraditionalIra`/`NonSpousalInheritedIra`) at `cfg.ordinaryIncomeCeiling` when set, falling through to the next account in `withdrawalOrder` for the remainder
 * `Simulator.js` -- thin year-by-year loop calling `bookkeeper.runYear(year)`, with an optional per-year callback (`run(onYear)`)
-* `main.js` -- always runs the optimizer (`node src/main.js [--debug] [path/to/config.json]`, otherwise runs an illustrative built-in scenario): for every entry in `OPTIMIZE_VARIABLES` (currently Salary end year, SS claim age), prints a candidate/net-worth table via `Optimizer.run()` + `Bookkeeper.netWorth()`; `--debug` additionally prints the full per-year `reportYear()` report for each variable's winning candidate (omitted by default -- one variable's full report is a lot of output, all of them by default would be too much). If every candidate ties or only one candidate is legal, the table collapses to one flagged line ("-- no effect on net worth" / "-- only one legal candidate") instead of printing a table that looks like a real tradeoff was searched when none was found
+* `main.js` -- always runs the optimizer (`node src/main.js [--debug] [path/to/config.json]`, otherwise runs an illustrative built-in scenario): for every entry in `OPTIMIZE_VARIABLES` (currently SS claim age, withdrawal ordinary-income ceiling -- Salary end year and Mortgage sell year are implemented but set by hand instead, see Optimizer Build Plan), prints a candidate/net-worth table via `Optimizer.run()` + `Bookkeeper.netWorth()`; `--debug` additionally prints the full per-year `reportYear()` report for each variable's winning candidate (omitted by default -- one variable's full report is a lot of output, all of them by default would be too much). If every candidate ties or only one candidate is legal, the table collapses to one flagged line ("-- no effect on net worth" / "-- only one legal candidate") instead of printing a table that looks like a real tradeoff was searched when none was found
 
 Taxes (single class, as planned -- has not needed splitting):
 
@@ -93,8 +93,8 @@ already covered spending regardless of Salary's length).
   amount at full retirement age (e.g. $4,152/month, the current max,
   at 67), then apply the standard ~8%/year adjustment for claiming
   earlier or later.
-- Extra mortgage principal payments -- how much, if any, to pay down
-  beyond the required payment.
+- Mortgage sell year -- selling the house stops payments and wipes the
+  remaining balance off the books; sale proceeds/profit aren't modeled.
 - HSA usage -- whether to pay Medicare premiums from the HSA.
 - Withdrawal source -- Taxable vs. Roth IRA vs. Traditional IRA,
   potentially varying year to year based on Social Security and
@@ -135,7 +135,10 @@ LivingExpense, so more Salary years strictly preserves more
 TaxableAccount balance) proves the real pipeline is wired correctly, not
 just `Optimizer`'s internal argmax. Confirmed on the real scenario that
 the optimum isn't always the latest candidate once taxes/IRMAA are in
-play -- a genuine tradeoff, not just "work forever."
+play -- a genuine tradeoff, not just "work forever." **Since removed from
+`OPTIMIZE_VARIABLES`** by user request -- `Salary.endYear` still works
+exactly as built, the user just sets it by hand in `config/cfg.json`
+rather than having it auto-searched.
 
 **Social Security claiming age** -- **done**. `SocialSecurity.js` now takes
 `birthYear`/`claimAge`/`fraMonthlyBenefit`, deriving `startYear`
@@ -169,21 +172,61 @@ per-year `reportYear()` report for each variable's winning candidate --
 gated behind the flag since printing it for every variable by default
 would be too much output to scan.
 
+**Withdrawal ordinary-income ceiling** -- **done** (first slice of
+"withdrawal source/order," the largest of the five variables). Rather than
+a full per-year combinatorial search over which account(s) to draw from,
+this is deliberately the simplest structure that lets a shortfall span
+multiple accounts in one year: `Cash.produce()` (`src/Cash.js`) caps
+withdrawals from `TraditionalIra`/`NonSpousalInheritedIra` at one config
+number, `cfg.ordinaryIncomeCeiling` (reading that year's already-posted
+`OrdinaryIncome` from Salary/Pension/RMDs, since `cash.earn()` runs before
+`produce()` -- see `Bookkeeper.runYear()`), then falls through to the next
+account in `withdrawalOrder` (Roth/HSA, no tax consequence) for the
+remainder -- no new control flow, the existing walk-the-list loop just
+stops early on a capped account. Unset means no cap (today's drain-fully
+behavior), so every existing config/test is unaffected. Deliberately
+ignores the knock-on effect of ordinary income on Social Security's
+taxability (the "tax torpedo") -- a real refinement, not needed for this
+first cut. Wired into `main.js`'s `OPTIMIZE_VARIABLES`: candidates are the
+federal bracket boundaries themselves plus "no cap" (the interesting
+choices are "fill up to the top of this bracket," not arbitrary dollar
+amounts). An integration test in `test/Optimizer.test.js` proves the real
+pipeline with a hand-computable case: capping withdrawals away from
+`TraditionalIra` onto tax-free `RothIra` avoids realizing tax that a
+higher ceiling would have to pay (and then withdraw more to cover) the
+following year.
+
+**Mortgage sell year** -- **done**, replaces "extra mortgage principal
+payments" in Optimize Variables (dropped, not deferred -- the user chose
+sell year instead). `Mortgage.js`'s `runYear()` checks `cfg.sellYear`
+before the existing `endYear` guard: once `year >= sellYear`, no more
+payments are due and the remaining balance is wiped to zero via one
+non-cash journal entry (`'mortgageSale'`/`'MortgageBalanceForgiven'`,
+distinct from the cash-flow `MortgagePayment` category), guarded by
+`balance !== 0` so the forgiveness only posts once. Sale proceeds/profit
+are deliberately not modeled -- explicit user instruction. Payments before
+`sellYear` are unaffected -- the amortization schedule still targets the
+original `endYear`, you just stop following it partway through and the
+rest disappears. **Not** wired into `main.js`'s `OPTIMIZE_VARIABLES` --
+since no cost of selling is modeled, selling immediately is essentially
+always at least as good as waiting (confirmed on the demo scenario: net
+worth strictly decreases the longer the sale is delayed), so searching it
+wouldn't be a meaningful tradeoff anyway. The user sets `sellYear` by hand
+per mortgage in `config/cfg.json` instead.
+
 **Deferred, same two-part recipe once Step 3 lands** (add the model
 capability, then its candidate-generation/override glue -- `Optimizer.js`
 itself needs no changes):
 
-- Extra mortgage principal payments -- `Mortgage.runYear()` currently
-  detects payoff only via `year > cfg.endYear`; extra principal means
-  payoff can happen early, so detection also needs `balance >= 0`.
 - HSA-pays-Medicare -- every spender's `due()` is funded generically from
   the shared `Cash` pool via `Cash.produce()`'s `withdrawalOrder` walk;
   routing one specific expense to one specific account needs a deliberate
   extension to that flow.
-- Withdrawal source/order varying by year -- the largest of the five;
-  `Cash.withdrawalOrder` is a single static list applied identically every
-  year (see `README.md`'s note that this is "deferred to the future
-  Optimizer module").
+- A ceiling that varies year-to-year, instead of one fixed number for the
+  whole simulation -- the actually-useful version of withdrawal-order
+  optimization, since income mix changes over decades, but a much bigger
+  search space than a single scalar; a follow-up slice, not part of this
+  one.
 
 Also noted, not part of this plan: CLAUDE.md's Overview section still
 says config lives in `static/json`, which never existed on disk -- the

@@ -45,6 +45,24 @@ test('runYear pays down a mortgage and reconciles', () => {
     assert.equal(bookkeeper.balanceChange('Mortgage', 2026), change);
 });
 
+test('runYear wipes the mortgage balance at sellYear and reconciles, and netWorth stops being reduced by it', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 1000000, basis: 1000000, rate: 0 }],
+            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055, sellYear: 2026 }],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, Mortgage, Cash } });
+
+    bookkeeper.runYear(2026);
+
+    const mortgage = bookkeeper.accounts.find((a) => a.name === 'Mortgage');
+    assert.equal(mortgage.balance, 0);
+    assert.equal(bookkeeper.balanceChange('Mortgage', 2026), 200000);
+    assert.equal(bookkeeper.netWorth(), 1000000);
+});
+
 test('constructor resolves multiple instances of the same class via a dash-suffixed name, no explicit class needed', () => {
     const config = new Config({
         Cash: {

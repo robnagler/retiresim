@@ -74,3 +74,46 @@ test('runYear stops charging a payment once year is past endYear', () => {
     assert.equal(m.balance, balanceAfterPayoff);
     assert.equal(bookkeeper.ledger.length, 1);
 });
+
+test('runYear wipes the remaining balance to zero and stops paying once year reaches sellYear', () => {
+    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2055, sellYear: 2030 } });
+    const m = new Mortgage({ config });
+    const bookkeeper = new FakeBookkeeper();
+    for (let year = 2026; year < 2030; year++) {
+        m.runYear({ year, bookkeeper });
+    }
+    assert.ok(m.balance < 0);
+
+    m.runYear({ year: 2030, bookkeeper });
+
+    assert.equal(m.balance, 0);
+    assert.equal(m.principal, 0);
+    assert.equal(m.interest, 0);
+    assert.deepEqual(m.due(), { account: 'MortgagePayment', amount: 0 });
+    const last = bookkeeper.ledger.at(-1);
+    assert.equal(last.category, 'mortgageSale');
+    assert.equal(last.dest, 'Mortgage');
+});
+
+test('runYear posts the sellYear forgiveness only once -- later years touch nothing further', () => {
+    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2055, sellYear: 2026 } });
+    const m = new Mortgage({ config });
+    const bookkeeper = new FakeBookkeeper();
+    m.runYear({ year: 2026, bookkeeper });
+    assert.equal(bookkeeper.ledger.length, 1);
+
+    m.runYear({ year: 2027, bookkeeper });
+
+    assert.equal(m.balance, 0);
+    assert.equal(bookkeeper.ledger.length, 1);
+});
+
+test('runYear ignores sellYear when it is not set, behaving exactly as before', () => {
+    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2055 } });
+    const m = new Mortgage({ config });
+    const bookkeeper = new FakeBookkeeper();
+
+    m.runYear({ year: 2026, bookkeeper });
+
+    assert.ok(m.balance < -190000);
+});

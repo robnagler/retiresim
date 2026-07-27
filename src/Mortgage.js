@@ -63,6 +63,23 @@ export class Mortgage extends Account {
     }
 
     runYear({ year, bookkeeper }) {
+        // Selling the house: stop paying and remove the remaining balance
+        // from the books entirely -- sale proceeds/profit aren't modeled,
+        // only the liability going away. Checked before the endYear guard
+        // since a sale can happen either before or after the loan's
+        // natural payoff year; the balance-!==-0 guard means the
+        // forgiveness posting only happens once, the year the sale takes
+        // effect (a later endYear payoff would already have zeroed it).
+        if (this.cfg.sellYear !== undefined && year >= this.cfg.sellYear) {
+            this.principal = 0;
+            this.interest = 0;
+            if (this.balance !== 0) {
+                const change = -this.balance;
+                this.deposit(change);
+                bookkeeper.simplePost(year, 'mortgageSale', 'MortgageBalanceForgiven', this.name, change);
+            }
+            return;
+        }
         // Past endYear the loan is paid off -- no payment due, balance
         // stays put. Without this, the amortized payment would keep being
         // applied forever and the balance would drift past zero into

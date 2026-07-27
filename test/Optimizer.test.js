@@ -5,7 +5,10 @@ import { Config } from '../src/Config.js';
 import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Simulator } from '../src/Simulator.js';
 import { TaxableAccount } from '../src/TaxableAccount.js';
+import { TraditionalIra } from '../src/TraditionalIra.js';
+import { RothIra } from '../src/RothIra.js';
 import { LivingExpense } from '../src/LivingExpense.js';
+import { TaxCalculator } from '../src/TaxCalculator.js';
 import { Salary } from '../src/Salary.js';
 import { SocialSecurity, MIN_CLAIM_AGE, MAX_CLAIM_AGE } from '../src/SocialSecurity.js';
 import { Cash } from '../src/Cash.js';
@@ -114,4 +117,54 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the SS claim age tha
     assert.deepEqual(rv.all.map((r) => r.score), [122000, 131600, 141200, 150800, 160400, 170000, 179600, 161360, 139280]);
     assert.equal(rv.best, 68);
     assert.equal(rv.score, 179600);
+});
+
+// Same shape again, applied to CLAUDE.md's Withdrawal ordinary-income
+// ceiling. A ceiling of 0 forces every shortfall away from TraditionalIra
+// (ordinary income, taxed) onto RothIra (no tax consequence, see
+// RothIra.js); Infinity (no cap) lets TraditionalIra cover everything.
+// Two years: year 1's shortfall is just LivingExpense; the ceiling=0 run
+// accrues no tax (never touches TraditionalIra), while the Infinity run
+// accrues federal tax on that year's ordinary income, which itself has to
+// be withdrawn (and taxed the same way) in year 2 -- so the two candidates
+// diverge by exactly the tax the Infinity run pays that the 0 run avoids.
+test('run wired to a real Config/Bookkeeper/Simulator picks the ordinary-income ceiling that avoids realizing avoidable tax', () => {
+    const baseData = {
+        Simulator: { startYear: 2026, endYear: 2027 },
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [
+                { name: 'TraditionalIra', balance: 50000, rate: 0, birthYear: 2000 },
+                { name: 'RothIra', balance: 50000, rate: 0, withdraw: 0 },
+            ],
+            spendingOrder: [
+                { name: 'LivingExpense', balance: 10000, rate: 0 },
+                {
+                    name: 'Tax',
+                    class: 'TaxCalculator',
+                    balance: 0,
+                    federalBrackets: [{ rate: 0.20, upTo: null }],
+                    ltcgBrackets: [{ rate: 0.15, upTo: null }],
+                    stateRate: 0,
+                    standardDeduction: 0,
+                    initialMagi: 0,
+                },
+            ],
+        },
+    };
+    const classes = { TraditionalIra, RothIra, LivingExpense, TaxCalculator, Cash };
+    const evaluate = (candidateCeiling) => {
+        const data = structuredClone(baseData);
+        data.Cash.ordinaryIncomeCeiling = candidateCeiling;
+        const config = new Config(data);
+        const bookkeeper = new Bookkeeper({ config, classes });
+        new Simulator({ bookkeeper, config }).run();
+        return bookkeeper.netWorth();
+    };
+
+    const rv = new Optimizer().run([0, Infinity], evaluate);
+
+    assert.deepEqual(rv.all.map((r) => r.score), [80000, 78000]);
+    assert.equal(rv.best, 0);
+    assert.equal(rv.score, 80000);
 });
