@@ -2,6 +2,18 @@
 
 ## 2026-07-27
 
+* 17:36:31 **Prompt**: "first gckp"
+* 17:35:00 **Prompt**: (added retroactively, missed logging it in real time) "what's the simplest?"
+* 17:35:00 **Answer**: Simplest slice: one config ceiling on ordinary income, capping only the ordinary-income-generating withdrawal accounts in produce()'s existing walk-the-list loop (falls through to the next account when capped) -- no bracket-filling logic for TaxableAccount/Roth/HSA needed yet. Asked whether to build it.
+* 17:33:00 **Prompt**: (added retroactively, missed logging it in real time) "the ordinary-income will depende on salary, earned first?"
+* 17:33:00 **Answer**: Confirmed via Bookkeeper.runYear()'s call order -- cash.earn() (Salary/Pension/SS/RMDs) runs before produce(), so a ceiling check can read that year's already-posted ordinary income. Flagged one refinement (not needed for a first cut): later withdrawals also affect how much of Social Security becomes taxable, a real interaction a simple ceiling ignores initially.
+* 17:20:00 **Prompt**: (added retroactively, missed logging it in real time) discussed structuring a withdrawal-order optimizer that can split a year's shortfall across multiple accounts to manage tax thresholds
+* 17:20:00 **Discussion**: Recommended deterministic bracket-filling driven by one searchable ceiling parameter (reusing the existing Optimizer unchanged) over a full per-year combinatorial search, and recommended a single fixed ceiling for the whole simulation as the first slice rather than a ceiling that varies year to year. Asked for direction before building.
+* 17:15:58 **Prompt**: "when an account name has a dash in it, it will be of the form Mortgage-Foo where the first part is the class name. this avoids having to specify the class explicitly"
+* 17:16:30 **Update**: Bookkeeper's account builder now resolves the class from a name's prefix before a dash when no explicit class field is given, so multiple instances of the same class don't each need one spelled out. Added a unit test. All tests pass.
+* 17:06:27 **Answer**: Three deferred optimize variables remain: extra mortgage principal, HSA-pays-Medicare, and per-year withdrawal order. Recommended extra mortgage principal next (cheapest -- Mortgage.runYear()'s payoff detection just needs to also check balance>=0 alongside year>endYear); asked which to start.
+* 17:06:13 **Prompt**: "next?"
+* 16:57:54 **Update**: Committed as `eeede7a` and pushed `1f1d55d..eeede7a` to origin/main.
 * 16:57:38 **Prompt**: "gckp"
 * 16:02:01 **Update**: Bookkeeper.netWorth() now includes Cash (real spendable money that was previously invisible to the optimizer). Updated CLAUDE.md's Current Objective formula (+Cash), Bookkeeper.js's comment, and both Optimizer.test.js/Bookkeeper.test.js expectations to match. Confirmed the fix directly resolved the demo's falsely-flat Salary end year table -- it now shows real variation, since Salary's effect was only ever landing in previously-uncounted idle Cash. 109/109 tests pass. Not committed yet.
 * 15:59:30 **Prompt**: "fix networth"

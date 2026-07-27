@@ -12,9 +12,16 @@ export class Bookkeeper extends Base {
     constructor({ config, classes }) {
         super({ config });
         const cash = config.get('Cash');
+        // Multiple instances of the same class (e.g. two Mortgages) need
+        // distinct names, but shouldn't need an explicit "class" on every
+        // entry -- "Mortgage-E26"/"Mortgage-7999" both resolve to the
+        // Mortgage class via the name's prefix before the dash, same as
+        // "TaxableAccount" (no dash) resolves to itself. Names without a
+        // dash are unaffected: split('-')[0] on a dash-free string is the
+        // whole string.
         const build = (entry) => {
             config.set(entry.name, entry);
-            const t = classes[entry.class ?? entry.name];
+            const t = classes[entry.class ?? entry.name.split('-')[0]];
             return new t({ name: entry.name, config });
         };
         const withdrawal = cash.withdrawalOrder.map(build);

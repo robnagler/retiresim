@@ -45,6 +45,28 @@ test('runYear pays down a mortgage and reconciles', () => {
     assert.equal(bookkeeper.balanceChange('Mortgage', 2026), change);
 });
 
+test('constructor resolves multiple instances of the same class via a dash-suffixed name, no explicit class needed', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'Account', balance: 2000000, rate: 0 }],
+            spendingOrder: [
+                { name: 'Mortgage-E26', balance: -100000, rate: 0.06, endYear: 2055 },
+                { name: 'Mortgage-7999', balance: -200000, rate: 0.06, endYear: 2050 },
+            ],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage, Cash } });
+
+    bookkeeper.runYear(2026);
+
+    const first = bookkeeper.accounts.find((a) => a.name === 'Mortgage-E26');
+    const second = bookkeeper.accounts.find((a) => a.name === 'Mortgage-7999');
+    assert.ok(first instanceof Mortgage);
+    assert.ok(second instanceof Mortgage);
+    assert.notEqual(first.balance, second.balance);
+});
+
 test('constructor builds accounts from Cash\'s withdrawalOrder and spendingOrder, resolving each one\'s class', () => {
     const config = new Config({
         Cash: {
