@@ -7,6 +7,7 @@ import { Simulator } from '../src/Simulator.js';
 import { TaxableAccount } from '../src/TaxableAccount.js';
 import { LivingExpense } from '../src/LivingExpense.js';
 import { Salary } from '../src/Salary.js';
+import { SocialSecurity, MIN_CLAIM_AGE, MAX_CLAIM_AGE } from '../src/SocialSecurity.js';
 import { Cash } from '../src/Cash.js';
 
 test('run picks the candidate with the highest score', () => {
@@ -74,4 +75,43 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the Salary end year 
     assert.deepEqual(rv.all.map((r) => r.score), [80000, 104000, 152000, 200000]);
     assert.equal(rv.best, 2030);
     assert.equal(rv.score, 200000);
+});
+
+// Same shape as the Salary end-year test above, applied to CLAUDE.md's
+// second Optimize Variable. fraMonthlyBenefit is comfortably above
+// LivingExpense even at claimAge's most-reduced case (62, -40%), so once
+// SocialSecurity is active it always fully covers spending, and the
+// surplus (netWorth() now counts idle Cash) grows with claimAge for
+// every candidate that's active the full 5-year window (62-68) --
+// bigger checks each of those 5 years wins. Claiming even later (69, 70)
+// starts losing whole years of coverage (birthYear+claimAge lands after
+// the simulation starts, forcing a TaxableAccount-funded shortfall in
+// the missed years), so the optimum lands at 68, not an endpoint --
+// still unambiguous and hand-computable.
+test('run wired to a real Config/Bookkeeper/Simulator picks the SS claim age that preserves the most net worth', () => {
+    const baseData = {
+        Simulator: { startYear: 2026, endYear: 2030 },
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'TaxableAccount', balance: 100000, rate: 0, basis: 100000 }],
+            incomeOrder: [{ name: 'SocialSecurity', balance: 0, rate: 0, birthYear: 1958, claimAge: 0, fraMonthlyBenefit: 2000 }],
+            spendingOrder: [{ name: 'LivingExpense', balance: 10000, rate: 0 }],
+        },
+    };
+    const classes = { TaxableAccount, LivingExpense, SocialSecurity, Cash };
+    const evaluate = (candidateClaimAge) => {
+        const data = structuredClone(baseData);
+        data.Cash.incomeOrder[0].claimAge = candidateClaimAge;
+        const config = new Config(data);
+        const bookkeeper = new Bookkeeper({ config, classes });
+        new Simulator({ bookkeeper, config }).run();
+        return bookkeeper.netWorth();
+    };
+    const candidates = Array.from({ length: MAX_CLAIM_AGE - MIN_CLAIM_AGE + 1 }, (_, i) => MIN_CLAIM_AGE + i);
+
+    const rv = new Optimizer().run(candidates, evaluate);
+
+    assert.deepEqual(rv.all.map((r) => r.score), [122000, 131600, 141200, 150800, 160400, 170000, 179600, 161360, 139280]);
+    assert.equal(rv.best, 68);
+    assert.equal(rv.score, 179600);
 });

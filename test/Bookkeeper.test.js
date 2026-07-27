@@ -86,10 +86,10 @@ test('report dumps each account name and balance as a table', () => {
     assert.match(lines[4], /^Total\s+-199000$/);
 });
 
-test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA balances plus Mortgage (already negative), excluding LivingExpense/Tax/Cash', () => {
+test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA + Cash balances plus Mortgage (already negative), excluding LivingExpense/Tax', () => {
     const config = new Config({
         Cash: {
-            balance: 0,
+            balance: 700,
             withdrawalOrder: [
                 { name: 'TaxableAccount', balance: 1000, rate: 0, basis: 0 },
                 { name: 'TraditionalIra', balance: 2000, rate: 0, birthYear: 2000 },
@@ -118,7 +118,7 @@ test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA balances plus
         classes: { TaxableAccount, TraditionalIra, RothIra, NonSpousalInheritedIra, HsaAccount, Mortgage, LivingExpense, TaxCalculator, Cash },
     });
 
-    assert.equal(bookkeeper.netWorth(), 1000 + 2000 + 3000 + 4000 + 5000 - 6000);
+    assert.equal(bookkeeper.netWorth(), 1000 + 2000 + 3000 + 4000 + 5000 - 6000 + 700);
 });
 
 test('reportTransactions dumps each journal entry for the given year as a category/source/dest/amount table', () => {

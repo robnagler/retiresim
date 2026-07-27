@@ -6,6 +6,7 @@ import { TaxableAccount } from './TaxableAccount.js';
 import { TraditionalIra } from './TraditionalIra.js';
 import { RothIra } from './RothIra.js';
 import { Mortgage } from './Mortgage.js';
+import { Cash } from './Cash.js';
 
 export class Bookkeeper extends Base {
     constructor({ config, classes }) {
@@ -65,16 +66,19 @@ export class Bookkeeper extends Base {
     }
 
     // The optimizer's objective (CLAUDE.md's "Current Objective"): Taxable
-    // + Traditional IRA + Roth IRA + Inherited IRA + HSA - remaining
+    // + Traditional IRA + Roth IRA + Inherited IRA + HSA + Cash - remaining
     // mortgage balance. NonSpousalInheritedIra IS-A TraditionalIra and
     // HsaAccount IS-A RothIra, so the instanceof checks below already
-    // cover them without double-counting. Deliberately excludes
-    // TaxCalculator's balance (a year's accrued-but-unpaid liability, paid
-    // the following year per the 1-year lag) -- CLAUDE.md's formula
-    // doesn't mention it, and whether unpaid tax should reduce net worth
-    // is an open question, not a silent choice made here.
+    // cover them without double-counting. Cash is real, spendable money --
+    // excluding it previously made any variable whose only effect was
+    // "leaves more cash unspent" look like it had no effect on net worth
+    // at all. Deliberately excludes TaxCalculator's balance (a year's
+    // accrued-but-unpaid liability, paid the following year per the 1-year
+    // lag) -- CLAUDE.md's formula doesn't mention it, and whether unpaid
+    // tax should reduce net worth is an open question, not a silent choice
+    // made here.
     netWorth() {
-        const isAsset = (a) => a instanceof TaxableAccount || a instanceof TraditionalIra || a instanceof RothIra;
+        const isAsset = (a) => a instanceof TaxableAccount || a instanceof TraditionalIra || a instanceof RothIra || a instanceof Cash;
         let rv = 0;
         for (const a of this.accounts) {
             if (isAsset(a) || a instanceof Mortgage) {
