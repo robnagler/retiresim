@@ -16,6 +16,7 @@ import { Pension } from './Pension.js';
 import { Cash } from './Cash.js';
 import { Config } from './Config.js';
 import { Optimizer } from './Optimizer.js';
+import { InsufficientFundsError } from './InsufficientFundsError.js';
 
 const classes = {
     TaxableAccount,
@@ -132,16 +133,33 @@ function buildPipeline(configData, variable, candidate) {
     return { config, bookkeeper };
 }
 
+// A candidate that hit InsufficientFundsError is scored 0 for sorting
+// purposes (see evaluate() below), but displayed as "0 (YYYY)" -- YYYY
+// being the year it ran out -- so it reads as a failure, not a real
+// zero-net-worth result.
+function formatScore(candidate, score, failedYears) {
+    const year = failedYears.get(candidate);
+    return year !== undefined ? `0 (${year})` : score.toFixed(0);
+}
+
 // A full candidate/net-worth table implies a real tradeoff was searched.
-// Two cases where that's misleading: only one legal candidate existed
-// (e.g. SS claim age when already past 70, see claimAgeCandidates()), or
-// every candidate scored the same (e.g. Salary end year when
-// monthlyAmount=0, so there's no income to vary at all). Both are
-// collapsed to one flagged line instead of a table that looks
-// informative but isn't.
-function printNetWorthTable(label, rv) {
+// Cases where that's misleading: only one legal candidate existed (e.g.
+// SS claim age when already past 70, see claimAgeCandidates()), every
+// candidate scored the same (e.g. Salary end year when monthlyAmount=0,
+// so there's no income to vary at all), or every candidate ran out of
+// money (a tie at 0 for a different reason than "this variable doesn't
+// matter"). All are collapsed to one flagged line instead of a table
+// that looks informative but isn't.
+function printNetWorthTable(label, rv, failedYears) {
+    if (failedYears.size === rv.all.length) {
+        console.log(`\n${label} -- every candidate ran out of money:`);
+        for (const { candidate } of rv.all) {
+            console.log(`  ${String(candidate).padStart(9)}   ${formatScore(candidate, 0, failedYears).padStart(12)}`);
+        }
+        return;
+    }
     if (rv.all.length === 1) {
-        console.log(`\n${label} -- only one legal candidate (${rv.best}), net worth ${rv.score.toFixed(0)}`);
+        console.log(`\n${label} -- only one legal candidate (${rv.best}), net worth ${formatScore(rv.best, rv.score, failedYears)}`);
         return;
     }
     const scores = rv.all.map((r) => r.score);
@@ -153,7 +171,7 @@ function printNetWorthTable(label, rv) {
     console.log(`  ${'Candidate'.padStart(9)}   ${'Net Worth'.padStart(12)}`);
     for (const { candidate, score } of rv.all) {
         const marker = candidate === rv.best ? '  <- best' : '';
-        console.log(`  ${String(candidate).padStart(9)}   ${score.toFixed(0).padStart(12)}${marker}`);
+        console.log(`  ${String(candidate).padStart(9)}   ${formatScore(candidate, score, failedYears).padStart(12)}${marker}`);
     }
 }
 
@@ -165,20 +183,38 @@ function printNetWorthTable(label, rv) {
 function runOptimize(configData, debug) {
     for (const variable of OPTIMIZE_VARIABLES) {
         const candidates = variable.candidates(configData);
+        // Keyed by candidate: which ones hit InsufficientFundsError and
+        // in what year, so the rest of the grid keeps running instead of
+        // the whole process aborting on the first candidate that runs out
+        // of money.
+        const failedYears = new Map();
         const evaluate = (candidate) => {
             const { config, bookkeeper } = buildPipeline(configData, variable, candidate);
-            new Simulator({ bookkeeper, config }).run();
-            return bookkeeper.netWorth();
+            try {
+                new Simulator({ bookkeeper, config }).run();
+                return bookkeeper.netWorth();
+            } catch (err) {
+                if (!(err instanceof InsufficientFundsError)) {
+                    throw err;
+                }
+                failedYears.set(candidate, err.year);
+                return 0;
+            }
         };
         const rv = new Optimizer().run(candidates, evaluate);
-        printNetWorthTable(variable.label, rv);
-        if (debug) {
-            const { config, bookkeeper } = buildPipeline(configData, variable, rv.best);
-            new Simulator({ bookkeeper, config }).run((year) => {
-                console.log(bookkeeper.reportYear(year));
-                console.log('');
-            });
+        printNetWorthTable(variable.label, rv, failedYears);
+        if (!debug) {
+            continue;
         }
+        if (failedYears.has(rv.best)) {
+            console.log(`\n(skipping full report for ${variable.label} -- winning candidate ${rv.best} ran out of money in ${failedYears.get(rv.best)})`);
+            continue;
+        }
+        const { config, bookkeeper } = buildPipeline(configData, variable, rv.best);
+        new Simulator({ bookkeeper, config }).run((year) => {
+            console.log(bookkeeper.reportYear(year));
+            console.log('');
+        });
     }
 }
 

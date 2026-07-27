@@ -2,6 +2,9 @@
 
 ## 2026-07-27
 
+* 18:45:27 **Prompt**: "gckp"
+* 18:30:59 **Update**: Added InsufficientFundsError (carries the year) thrown by Cash.produce(). main.js now catches it per-candidate during an optimizer sweep instead of the whole grid aborting -- that candidate is scored 0 and displayed as "0 (YYYY)", the rest of the grid (that variable's remaining candidates, and every other variable) still runs; --debug skips the detailed report if the winner itself failed, with a short note instead of crashing. 119/119 tests pass. Updated CLAUDE.md. Not committed yet.
+* 18:28:29 **Update**: Committed as `8187834` and pushed `8c6d24a..8187834` to origin/main.
 * 18:28:07 **Prompt**: "first gckp; then when the calculator hits insufficient funds. catch that and output "0 (YYYY)" the year the failure occured in the networth table. then continue the grid elsewhere."
 * 18:20:19 **Update**: Removed "Salary end year" from main.js's OPTIMIZE_VARIABLES, same pattern as the earlier Mortgage sell year removal -- the underlying mechanism is untouched, just no longer auto-searched. 118/118 tests pass. Updated CLAUDE.md. Not committed yet.
 * 18:19:20 **Prompt**: "don't optimize salary endyear."

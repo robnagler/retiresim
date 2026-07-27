@@ -9,6 +9,7 @@ import { TaxCalculator } from '../src/TaxCalculator.js';
 import { LivingExpense } from '../src/LivingExpense.js';
 import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Config } from '../src/Config.js';
+import { InsufficientFundsError } from '../src/InsufficientFundsError.js';
 
 const buildConfig = () => new Config({
     Cash: {
@@ -67,6 +68,26 @@ test('produce throws when accounts in withdrawalOrder cannot cover the amount', 
     const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
 
     assert.throws(() => cash.produce({ amount: 1500, year: 2026, bookkeeper }), /shortfall=500/);
+});
+
+test('produce throws InsufficientFundsError carrying the year, not just a plain Error', () => {
+    const config = new Config({
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'Account', balance: 1000, rate: 0 }],
+            spendingOrder: [],
+        },
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
+
+    try {
+        cash.produce({ amount: 1500, year: 2026, bookkeeper });
+        assert.fail('expected produce to throw');
+    } catch (err) {
+        assert.ok(err instanceof InsufficientFundsError);
+        assert.equal(err.year, 2026);
+    }
 });
 
 test('produce posts the gain portion of a TaxableAccount withdrawal to LtcgIncome, not the full amount', () => {

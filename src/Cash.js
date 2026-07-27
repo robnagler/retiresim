@@ -1,5 +1,6 @@
 import { Account } from './Account.js';
 import { TraditionalIra } from './TraditionalIra.js';
+import { InsufficientFundsError } from './InsufficientFundsError.js';
 
 export class Cash extends Account {
     constructor({ name, config, accounts, spenders }) {
@@ -86,7 +87,7 @@ export class Cash extends Account {
             r -= w;
         }
         if (r > 0.005) {
-            throw new Error(`insufficient funds shortfall=${r} amount=${amount} accounts=${this.accounts}`);
+            throw new InsufficientFundsError({ shortfall: r, amount, year, accounts: this.accounts });
         }
         return rv;
     }
