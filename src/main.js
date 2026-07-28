@@ -8,6 +8,7 @@ import { RothIra } from './RothIra.js';
 import { HsaAccount } from './HsaAccount.js';
 import { Mortgage } from './Mortgage.js';
 import { LivingExpense } from './LivingExpense.js';
+import { LumpSum } from './LumpSum.js';
 import { TaxCalculator } from './TaxCalculator.js';
 import { Medicare } from './Medicare.js';
 import { Salary } from './Salary.js';
@@ -25,6 +26,7 @@ const classes = {
     HsaAccount,
     Mortgage,
     LivingExpense,
+    LumpSum,
     TaxCalculator,
     Medicare,
     Salary,

@@ -2,6 +2,16 @@
 
 ## 2026-07-28
 
+* 14:46:28 **Update**: Phase 3 done -- new LumpSum.js posts a one-time spending amount only in specific configured years (cfg.amounts, a year-to-dollar-amount map), same shape as LivingExpense but year-gated instead of every-year. Registered in main.js's class list. 140/140 tests pass. Updated CLAUDE.md, removed the completed TODO item. Not committed yet.
+* 14:44:20 **Prompt**: "phase 3"
+* 14:44:08 **Update**: Committed as `27be833` and pushed `c34519f..27be833` to origin/main.
+* 14:43:00 **Prompt**: "gckp" (then, mid-turn: "phase 3")
+* 14:40:00 **Prompt**: (added retroactively, missed logging it in real time) "could main.js use the test config?"
+* 14:40:00 **Answer**: (added retroactively, missed logging it in real time) No -- test/support/ depending the wrong direction (src/ would depend on test-only code), and the value proposition doesn't transfer since main.js's illustrative config isn't a sparse mostly-default fixture the way test configs are.
+* 14:38:00 **Prompt**: (added retroactively, missed logging it in real time) "can you see other refactorings?"
+* 14:38:00 **Answer**: (added retroactively, missed logging it in real time) Flagged two real production-code duplications for the user to consider (not acted on): bracket clone/grow logic repeated between Medicare.js and TaxCalculator.js, and the grow-then-post-to-ledger idiom repeated between Account.runYear() and Cash.runYear().
+* 14:36:00 **Prompt**: (added retroactively, missed logging it in real time) "how many lines did you delete vs add"
+* 14:36:00 **Answer**: (added retroactively, missed logging it in real time) Reported the git diff --stat totals for the test consolidation.
 * 14:32:00 **Prompt**: (added retroactively, missed logging it in real time) asked whether a memory/skill could be saved to capture the general refactoring-consolidation preference just demonstrated
 * 14:32:00 **Answer**: (added retroactively, missed logging it in real time) Saved a feedback memory: when consolidating copy-pasted construction code, go all the way to a flat single-call helper taking only what varies, not sub-pieces callers still hand-compose.
 * 14:25:00 **Prompt**: (added retroactively, missed logging it in real time) corrected the approach mid-refactor -- the first-pass economy()/taxSpender() helpers still left callers hand-composing "Economy: economy(...)" at every call site; asked for one flat testConfig({...}) that fills in everything else
