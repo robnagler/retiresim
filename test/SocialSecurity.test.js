@@ -4,28 +4,14 @@ import { SocialSecurity, claimAgeCandidates } from '../src/SocialSecurity.js';
 import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Cash } from '../src/Cash.js';
 import { TaxCalculator } from '../src/TaxCalculator.js';
-import { Config } from '../src/Config.js';
+import { testConfig, taxSpender } from './support/testConfig.js';
 
-const buildConfig = ({ birthYear, claimAge, fraMonthlyBenefit = 2500, cola = 0 }) => new Config({
-    // colaRate isn't configured separately -- it's derived from
-    // inflationRate (see Economy.js), so this is how these tests control it.
-    Economy: { inflationRate: cola, interestRate: 0, sp500Rate: 0 },
-    Cash: {
-        balance: 0,
-        withdrawalOrder: [],
-        incomeOrder: [{ name: 'SocialSecurity', balance: 0, birthYear, claimAge, fraMonthlyBenefit }],
-        spendingOrder: [{
-            name: 'Tax',
-            class: 'TaxCalculator',
-            balance: 0,
-            federalBrackets: [{ rate: 0.10, upTo: null }],
-            ltcgBrackets: [{ rate: 0.15, upTo: null }],
-            stateRate: 0.044,
-            standardDeduction: 0,
-            initialMagi: 0,
-            ssProvisionalIncomeThresholds: { low: 32000, high: 44000 },
-        }],
-    },
+// colaRate isn't configured separately -- it's derived from inflationRate
+// (see Economy.js), so this is how these tests control it.
+const buildConfig = ({ birthYear, claimAge, fraMonthlyBenefit = 2500, cola = 0 }) => testConfig({
+    inflationRate: cola,
+    incomeOrder: [{ name: 'SocialSecurity', balance: 0, birthYear, claimAge, fraMonthlyBenefit }],
+    spendingOrder: [taxSpender({ ssProvisionalIncomeThresholds: { low: 32000, high: 44000 } })],
 });
 
 // Bookkeeper.build() populates config's per-name lookup via config.set()

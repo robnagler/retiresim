@@ -4,16 +4,12 @@ import { TraditionalIra } from '../src/TraditionalIra.js';
 import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Cash } from '../src/Cash.js';
 import { TaxCalculator } from '../src/TaxCalculator.js';
-import { Config } from '../src/Config.js';
+import { testConfig, taxSpender } from './support/testConfig.js';
 
 test('below the RMD start age, runYear only grows the balance -- no distribution', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.05 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'TraditionalIra', balance: 1000, birthYear: 2000 }],
-            spendingOrder: [],
-        },
+    const config = testConfig({
+        sp500Rate: 0.05,
+        withdrawalOrder: [{ name: 'TraditionalIra', balance: 1000, birthYear: 2000 }],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra, Cash } });
 
@@ -26,22 +22,10 @@ test('below the RMD start age, runYear only grows the balance -- no distribution
 });
 
 test('once age qualifies, Cash takes the RMD from the prior year-end balance, before growth, and it lands in Cash as ordinary income', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.05 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'TraditionalIra', balance: 23700, birthYear: 1950 }],
-            spendingOrder: [{
-                name: 'Tax',
-                class: 'TaxCalculator',
-                balance: 0,
-                federalBrackets: [{ rate: 0.10, upTo: null }],
-                ltcgBrackets: [{ rate: 0.15, upTo: null }],
-                stateRate: 0.044,
-                standardDeduction: 0,
-                initialMagi: 0,
-            }],
-        },
+    const config = testConfig({
+        sp500Rate: 0.05,
+        withdrawalOrder: [{ name: 'TraditionalIra', balance: 23700, birthYear: 1950 }],
+        spendingOrder: [taxSpender()],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra, TaxCalculator, Cash } });
 
@@ -55,13 +39,8 @@ test('once age qualifies, Cash takes the RMD from the prior year-end balance, be
 });
 
 test('earn throws when the computed age is not reasonable', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'TraditionalIra', balance: 1000, birthYear: 2030 }],
-            spendingOrder: [],
-        },
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'TraditionalIra', balance: 1000, birthYear: 2030 }],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra, Cash } });
 

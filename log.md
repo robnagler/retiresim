@@ -2,6 +2,14 @@
 
 ## 2026-07-28
 
+* 14:32:00 **Prompt**: (added retroactively, missed logging it in real time) asked whether a memory/skill could be saved to capture the general refactoring-consolidation preference just demonstrated
+* 14:32:00 **Answer**: (added retroactively, missed logging it in real time) Saved a feedback memory: when consolidating copy-pasted construction code, go all the way to a flat single-call helper taking only what varies, not sub-pieces callers still hand-compose.
+* 14:25:00 **Prompt**: (added retroactively, missed logging it in real time) corrected the approach mid-refactor -- the first-pass economy()/taxSpender() helpers still left callers hand-composing "Economy: economy(...)" at every call site; asked for one flat testConfig({...}) that fills in everything else
+* 14:22:00 **Prompt**: "the tests have too much copy and paste. consolidate the construction of config into a utility"
+* 14:32:43 **Update**: Consolidated the copy-pasted Economy/Cash Config boilerplate across nearly every test file into test/support/testConfig.js -- a flat testConfig(overrides) that returns a ready-to-use Config directly (only the fields that actually vary per test need to be passed; a testConfigData() variant supports the few tests that structuredClone a base fixture per candidate), plus a taxSpender(overrides) for the standard TaxCalculator spendingOrder entry. Applied across RothIra/Salary/SocialSecurity/NonSpousalInheritedIra/TraditionalIra/Simulator/Cash/Bookkeeper/Optimizer/TaxCalculator tests -- net ~325 fewer lines. 137/137 tests pass. Not committed yet.
+* 14:20:01 **Prompt**: "is everything adjusted correctly now?"
+* 14:18:42 **Update**: Committed as `c34519f` and pushed `236435b..c34519f` to origin/main.
+* 14:18:00 **Prompt**: "gckp"
 * 14:17:59 **Update**: Medicare.js and TaxCalculator.js now compute their growth-factor `rate` variable as `1 + inflationRate` once per call, instead of writing `1 + rate` at every use. 136/136 tests pass.
 * 14:17:00 **Prompt**: "rate variable should just be 1 + inflationRate so you don't have to add 1 + twice"
 * 14:16:14 **Update**: Consolidated Medicare.js's partB/partD/partGYearly into a single `yearly` premium -- the three were never used individually, only summed, so tracking them separately was dead weight. Updated tests accordingly. 136/136 tests pass. Updated CLAUDE.md. Not committed yet.

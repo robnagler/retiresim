@@ -5,16 +5,13 @@ import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Account } from '../src/Account.js';
 import { Mortgage } from '../src/Mortgage.js';
 import { Cash } from '../src/Cash.js';
-import { Config } from '../src/Config.js';
+import { testConfig } from './support/testConfig.js';
 
 test('run grows an account and pays down a mortgage over multiple years, reconciling every year', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.05 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000000 }],
-            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
-        },
+    const config = testConfig({
+        sp500Rate: 0.05,
+        withdrawalOrder: [{ name: 'Account', balance: 1000000 }],
+        spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
         Simulator: { startYear: 2026, endYear: 2030 },
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage, Cash } });
@@ -37,13 +34,9 @@ test('run grows an account and pays down a mortgage over multiple years, reconci
 });
 
 test('run calls the optional onYear callback once per simulated year, after that year runs', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.05 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000 }],
-            spendingOrder: [],
-        },
+    const config = testConfig({
+        sp500Rate: 0.05,
+        withdrawalOrder: [{ name: 'Account', balance: 1000 }],
         Simulator: { startYear: 2026, endYear: 2028 },
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
@@ -57,13 +50,9 @@ test('run calls the optional onYear callback once per simulated year, after that
 });
 
 test('run throws immediately if a single year fails to reconcile', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.05 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000 }],
-            spendingOrder: [],
-        },
+    const config = testConfig({
+        sp500Rate: 0.05,
+        withdrawalOrder: [{ name: 'Account', balance: 1000 }],
         Simulator: { startYear: 2026, endYear: 2026 },
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });

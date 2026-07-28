@@ -1,15 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TaxCalculator } from '../src/TaxCalculator.js';
-import { Config } from '../src/Config.js';
 import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Cash } from '../src/Cash.js';
 import { JournalEntry } from '../src/JournalEntry.js';
 import { Posting } from '../src/Posting.js';
+import { testConfig, taxSpender } from './support/testConfig.js';
 
-const config = new Config({
-    Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-    Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
+// Deliberately NOT taxSpender()'s single-tier default -- these tests
+// exercise progressive-bracket behavior, so federal/ltcg each need more
+// than one tier.
+const config = testConfig({
     Tax: {
         balance: -5000,
         federalBrackets: [
@@ -28,18 +29,8 @@ const config = new Config({
     },
 });
 
-const configWithSS = () => new Config({
-    Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-    Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
-    Tax: {
-        balance: -5000,
-        federalBrackets: [{ rate: 0.10, upTo: null }],
-        ltcgBrackets: [{ rate: 0.15, upTo: null }],
-        stateRate: 0.044,
-        standardDeduction: 0,
-        initialMagi: 0,
-        ssProvisionalIncomeThresholds: { low: 32000, high: 44000 },
-    },
+const configWithSS = () => testConfig({
+    Tax: taxSpender({ balance: -5000, ssProvisionalIncomeThresholds: { low: 32000, high: 44000 } }),
 });
 
 test('federal applies progressive brackets', () => {
@@ -134,17 +125,7 @@ test('calculate deducts mortgage interest (negative) from ordinary income (stand
 });
 
 test('calculate uses the standard deduction instead when mortgage interest is smaller', () => {
-    const withStandard = new Config({
-        Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
-        Tax: {
-            balance: -5000,
-            federalBrackets: [{ rate: 0.10, upTo: null }],
-            ltcgBrackets: [{ rate: 0.15, upTo: null }],
-            stateRate: 0.044,
-            standardDeduction: 29200,
-            initialMagi: 0,
-        },
-    });
+    const withStandard = testConfig({ Tax: taxSpender({ balance: -5000, standardDeduction: 29200 }) });
     const c = new TaxCalculator({ name: 'Tax', config: withStandard });
     const rv = c.calculate({ ordinaryIncome: 50000, mortgageInterest: -5000 });
     const taxableOrdinary = 50000 - 29200;
@@ -176,17 +157,7 @@ test('magi is seeded from cfg.initialMagi, with no implicit default -- config mu
     const c = new TaxCalculator({ name: 'Tax', config });
     assert.equal(c.magi, 0);
 
-    const seeded = new Config({
-        Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
-        Tax: {
-            balance: -5000,
-            federalBrackets: [{ rate: 0.10, upTo: null }],
-            ltcgBrackets: [],
-            stateRate: 0.044,
-            standardDeduction: 0,
-            initialMagi: 180000,
-        },
-    });
+    const seeded = testConfig({ Tax: taxSpender({ balance: -5000, ltcgBrackets: [], initialMagi: 180000 }) });
     assert.equal(new TaxCalculator({ name: 'Tax', config: seeded }).magi, 180000);
 });
 
@@ -286,9 +257,8 @@ test('prepareNextYear also pulls this year\'s posted SocialSecurityBenefit into 
 });
 
 test('prepareNextYear grows federalBrackets/ltcgBrackets/standardDeduction by inflationRate, but not ssProvisionalIncomeThresholds', () => {
-    const inflated = new Config({
-        Economy: { inflationRate: 0.04, interestRate: 0, sp500Rate: 0 },
-        Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
+    const inflated = testConfig({
+        inflationRate: 0.04,
         Tax: {
             balance: 0,
             federalBrackets: [{ rate: 0.10, upTo: 10000 }, { rate: 0.22, upTo: null }],

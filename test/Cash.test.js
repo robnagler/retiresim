@@ -8,28 +8,18 @@ import { Mortgage } from '../src/Mortgage.js';
 import { TaxCalculator } from '../src/TaxCalculator.js';
 import { LivingExpense } from '../src/LivingExpense.js';
 import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Config } from '../src/Config.js';
 import { InsufficientFundsError } from '../src/InsufficientFundsError.js';
+import { testConfig, taxSpender } from './support/testConfig.js';
 
-const ZERO_ECONOMY = { inflationRate: 0, interestRate: 0, sp500Rate: 0 };
-
-const buildConfig = () => new Config({
-    Economy: ZERO_ECONOMY,
-    Cash: {
-        balance: 0,
-        withdrawalOrder: [
-            { name: 'Account', balance: 1000 },
-            { name: 'TraditionalIra', balance: 5000, birthYear: 2000 },
-        ],
-        spendingOrder: [],
-    },
+const buildConfig = () => testConfig({
+    withdrawalOrder: [
+        { name: 'Account', balance: 1000 },
+        { name: 'TraditionalIra', balance: 5000, birthYear: 2000 },
+    ],
 });
 
 test('runYear grows the balance at half of Economy.interestRate, not the full rate', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0.04, sp500Rate: 0 },
-        Cash: { balance: 1000, withdrawalOrder: [], spendingOrder: [] },
-    });
+    const config = testConfig({ interestRate: 0.04, balance: 1000 });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
     const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
 
@@ -74,14 +64,7 @@ test('produce stops early once the amount is fully covered by earlier accounts',
 });
 
 test('produce throws when accounts in withdrawalOrder cannot cover the amount', () => {
-    const config = new Config({
-        Economy: ZERO_ECONOMY,
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000 }],
-            spendingOrder: [],
-        },
-    });
+    const config = testConfig({ withdrawalOrder: [{ name: 'Account', balance: 1000 }] });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
     const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
 
@@ -89,14 +72,7 @@ test('produce throws when accounts in withdrawalOrder cannot cover the amount', 
 });
 
 test('produce throws InsufficientFundsError carrying the year, not just a plain Error', () => {
-    const config = new Config({
-        Economy: ZERO_ECONOMY,
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000 }],
-            spendingOrder: [],
-        },
-    });
+    const config = testConfig({ withdrawalOrder: [{ name: 'Account', balance: 1000 }] });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
     const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
 
@@ -110,22 +86,9 @@ test('produce throws InsufficientFundsError carrying the year, not just a plain 
 });
 
 test('produce posts the gain portion of a TaxableAccount withdrawal to LtcgIncome, not the full amount', () => {
-    const config = new Config({
-        Economy: ZERO_ECONOMY,
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 }],
-            spendingOrder: [{
-                name: 'Tax',
-                class: 'TaxCalculator',
-                balance: 0,
-                federalBrackets: [{ rate: 0.10, upTo: null }],
-                ltcgBrackets: [{ rate: 0.15, upTo: null }],
-                stateRate: 0.044,
-                standardDeduction: 0,
-                initialMagi: 0,
-            }],
-        },
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 }],
+        spendingOrder: [taxSpender()],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, TaxCalculator, Cash } });
     const taxable = bookkeeper.accounts.find((a) => a.name === 'Taxable');
@@ -150,17 +113,12 @@ test('produce does not post to LtcgIncome for non-TaxableAccount withdrawals', (
 });
 
 test('produce caps TraditionalIra withdrawals at ordinaryIncomeCeiling, falling through to the next account for the remainder', () => {
-    const config = new Config({
-        Economy: ZERO_ECONOMY,
-        Cash: {
-            balance: 0,
-            ordinaryIncomeCeiling: 3000,
-            withdrawalOrder: [
-                { name: 'TraditionalIra', balance: 5000, birthYear: 2000 },
-                { name: 'Account', balance: 1000 },
-            ],
-            spendingOrder: [],
-        },
+    const config = testConfig({
+        ordinaryIncomeCeiling: 3000,
+        withdrawalOrder: [
+            { name: 'TraditionalIra', balance: 5000, birthYear: 2000 },
+            { name: 'Account', balance: 1000 },
+        ],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra, Cash } });
 
@@ -173,17 +131,12 @@ test('produce caps TraditionalIra withdrawals at ordinaryIncomeCeiling, falling 
 });
 
 test('produce\'s ordinaryIncomeCeiling accounts for OrdinaryIncome already posted this year (e.g. Salary), leaving less room', () => {
-    const config = new Config({
-        Economy: ZERO_ECONOMY,
-        Cash: {
-            balance: 0,
-            ordinaryIncomeCeiling: 3000,
-            withdrawalOrder: [
-                { name: 'TraditionalIra', balance: 5000, birthYear: 2000 },
-                { name: 'Account', balance: 5000 },
-            ],
-            spendingOrder: [],
-        },
+    const config = testConfig({
+        ordinaryIncomeCeiling: 3000,
+        withdrawalOrder: [
+            { name: 'TraditionalIra', balance: 5000, birthYear: 2000 },
+            { name: 'Account', balance: 5000 },
+        ],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra, Cash } });
     bookkeeper.simplePost(2026, 'earn', 'TaxCalcInput', 'OrdinaryIncome', 2000);
@@ -197,23 +150,10 @@ test('produce\'s ordinaryIncomeCeiling accounts for OrdinaryIncome already poste
 });
 
 test('produce\'s ordinaryIncomeCeiling does not limit non-TraditionalIra accounts', () => {
-    const config = new Config({
-        Economy: ZERO_ECONOMY,
-        Cash: {
-            balance: 0,
-            ordinaryIncomeCeiling: 0,
-            withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 }],
-            spendingOrder: [{
-                name: 'Tax',
-                class: 'TaxCalculator',
-                balance: 0,
-                federalBrackets: [{ rate: 0.10, upTo: null }],
-                ltcgBrackets: [{ rate: 0.15, upTo: null }],
-                stateRate: 0.044,
-                standardDeduction: 0,
-                initialMagi: 0,
-            }],
-        },
+    const config = testConfig({
+        ordinaryIncomeCeiling: 0,
+        withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 }],
+        spendingOrder: [taxSpender()],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, TaxCalculator, Cash } });
 
@@ -223,10 +163,7 @@ test('produce\'s ordinaryIncomeCeiling does not limit non-TraditionalIra account
 });
 
 test('spend withdraws from cash and posts a journal entry to the expense category', () => {
-    const config = new Config({
-        Economy: ZERO_ECONOMY,
-        Cash: { balance: 1500, withdrawalOrder: [], spendingOrder: [] },
-    });
+    const config = testConfig({ balance: 1500 });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
     const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
 
@@ -238,26 +175,13 @@ test('spend withdraws from cash and posts a journal entry to the expense categor
 });
 
 test('runYear produces the total owed by all spenders, then spends it per category', () => {
-    const config = new Config({
-        Economy: ZERO_ECONOMY,
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 20000 }],
-            spendingOrder: [
-                { name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 },
-                {
-                    name: 'Tax',
-                    class: 'TaxCalculator',
-                    balance: -3000,
-                    federalBrackets: [{ rate: 0.10, upTo: null }],
-                    ltcgBrackets: [{ rate: 0.15, upTo: null }],
-                    stateRate: 0.044,
-                    standardDeduction: 0,
-                    initialMagi: 0,
-                },
-                { name: 'LivingExpense', balance: 2000 },
-            ],
-        },
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'Account', balance: 20000 }],
+        spendingOrder: [
+            { name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 },
+            taxSpender({ balance: -3000 }),
+            { name: 'LivingExpense', balance: 2000 },
+        ],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage, TaxCalculator, LivingExpense, Cash } });
     const account = bookkeeper.accounts.find((a) => a.name === 'Account');
@@ -278,10 +202,7 @@ test('runYear produces the total owed by all spenders, then spends it per catego
 });
 
 test('spend can carry cash negative -- produce brings it back to reconcile', () => {
-    const config = new Config({
-        Economy: ZERO_ECONOMY,
-        Cash: { balance: 100, withdrawalOrder: [], spendingOrder: [] },
-    });
+    const config = testConfig({ balance: 100 });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
     const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
 

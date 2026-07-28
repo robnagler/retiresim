@@ -4,27 +4,12 @@ import { NonSpousalInheritedIra } from '../src/NonSpousalInheritedIra.js';
 import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Cash } from '../src/Cash.js';
 import { TaxCalculator } from '../src/TaxCalculator.js';
-import { Config } from '../src/Config.js';
-
-const taxSpender = () => ({
-    name: 'Tax',
-    class: 'TaxCalculator',
-    balance: 0,
-    federalBrackets: [{ rate: 0.10, upTo: null }],
-    ltcgBrackets: [{ rate: 0.15, upTo: null }],
-    stateRate: 0.044,
-    standardDeduction: 0,
-    initialMagi: 0,
-});
+import { testConfig, taxSpender } from './support/testConfig.js';
 
 test('inherited in 2020 or later, earn distributes the balance straight-line over the years remaining until the 10-year deadline, taxable like a TraditionalIra', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 25000, inheritedYear: 2021 }],
-            spendingOrder: [taxSpender()],
-        },
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 25000, inheritedYear: 2021 }],
+        spendingOrder: [taxSpender()],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, TaxCalculator, Cash } });
 
@@ -38,13 +23,9 @@ test('inherited in 2020 or later, earn distributes the balance straight-line ove
 });
 
 test('inherited before 2020 (pre-SECURE-Act stretch), earn uses the beneficiary\'s own life expectancy, reduced by one each year since the first distribution year', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, inheritedYear: 2009, birthYear: 1970 }],
-            spendingOrder: [taxSpender()],
-        },
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, inheritedYear: 2009, birthYear: 1970 }],
+        spendingOrder: [taxSpender()],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, TaxCalculator, Cash } });
 
@@ -59,13 +40,9 @@ test('inherited before 2020 (pre-SECURE-Act stretch), earn uses the beneficiary\
 });
 
 test('the year a pre-2020 IRA was inherited, before its first distribution year, earn returns no distribution', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.05 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, inheritedYear: 2009, birthYear: 1970 }],
-            spendingOrder: [],
-        },
+    const config = testConfig({
+        sp500Rate: 0.05,
+        withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, inheritedYear: 2009, birthYear: 1970 }],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, Cash } });
 
@@ -77,13 +54,8 @@ test('the year a pre-2020 IRA was inherited, before its first distribution year,
 });
 
 test('earn throws when the year is before the account was inherited', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, inheritedYear: 2009, birthYear: 1970 }],
-            spendingOrder: [],
-        },
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, inheritedYear: 2009, birthYear: 1970 }],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, Cash } });
 

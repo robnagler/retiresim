@@ -13,17 +13,10 @@ import { LivingExpense } from '../src/LivingExpense.js';
 import { Cash } from '../src/Cash.js';
 import { JournalEntry } from '../src/JournalEntry.js';
 import { Posting } from '../src/Posting.js';
-import { Config } from '../src/Config.js';
+import { testConfig, taxSpender } from './support/testConfig.js';
 
 test('runYear grows an account and reconciles', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.05 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000 }],
-            spendingOrder: [],
-        },
-    });
+    const config = testConfig({ sp500Rate: 0.05, withdrawalOrder: [{ name: 'Account', balance: 1000 }] });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
     bookkeeper.runYear(2026);
     assert.equal(bookkeeper.accounts[0].balance, 1050);
@@ -31,13 +24,9 @@ test('runYear grows an account and reconciles', () => {
 });
 
 test('runYear pays down a mortgage and reconciles', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000000 }],
-            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
-        },
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'Account', balance: 1000000 }],
+        spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage, Cash } });
     bookkeeper.runYear(2026);
@@ -48,13 +37,9 @@ test('runYear pays down a mortgage and reconciles', () => {
 });
 
 test('runYear wipes the mortgage balance at sellYear and reconciles, and netWorth stops being reduced by it', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 1000000, basis: 1000000 }],
-            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055, sellYear: 2026 }],
-        },
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 1000000, basis: 1000000 }],
+        spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055, sellYear: 2026 }],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, Mortgage, Cash } });
 
@@ -67,16 +52,12 @@ test('runYear wipes the mortgage balance at sellYear and reconciles, and netWort
 });
 
 test('constructor resolves multiple instances of the same class via a dash-suffixed name, no explicit class needed', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 2000000 }],
-            spendingOrder: [
-                { name: 'Mortgage-E26', balance: -100000, rate: 0.06, endYear: 2055 },
-                { name: 'Mortgage-7999', balance: -200000, rate: 0.06, endYear: 2050 },
-            ],
-        },
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'Account', balance: 2000000 }],
+        spendingOrder: [
+            { name: 'Mortgage-E26', balance: -100000, rate: 0.06, endYear: 2055 },
+            { name: 'Mortgage-7999', balance: -200000, rate: 0.06, endYear: 2050 },
+        ],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage, Cash } });
 
@@ -90,13 +71,9 @@ test('constructor resolves multiple instances of the same class via a dash-suffi
 });
 
 test('constructor builds accounts from Cash\'s withdrawalOrder and spendingOrder, resolving each one\'s class', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000 }],
-            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
-        },
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'Account', balance: 1000 }],
+        spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
     });
 
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage, Cash } });
@@ -111,13 +88,9 @@ test('constructor builds accounts from Cash\'s withdrawalOrder and spendingOrder
 });
 
 test('report dumps each account name and balance as a table', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000 }],
-            spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
-        },
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'Account', balance: 1000 }],
+        spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage, Cash } });
 
@@ -133,32 +106,20 @@ test('report dumps each account name and balance as a table', () => {
 });
 
 test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA + Cash balances plus Mortgage (already negative), excluding LivingExpense/Tax', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 700,
-            withdrawalOrder: [
-                { name: 'TaxableAccount', balance: 1000, basis: 0 },
-                { name: 'TraditionalIra', balance: 2000, birthYear: 2000 },
-                { name: 'RothIra', balance: 3000, withdraw: 0 },
-                { name: 'NonSpousalInheritedIra', balance: 4000, birthYear: 2000, inheritedYear: 2021 },
-                { name: 'HsaAccount', balance: 5000, withdraw: 0 },
-            ],
-            spendingOrder: [
-                { name: 'Mortgage', balance: -6000, rate: 0.06, endYear: 2100 },
-                { name: 'LivingExpense', balance: 700 },
-                {
-                    name: 'Tax',
-                    class: 'TaxCalculator',
-                    balance: -50,
-                    federalBrackets: [{ rate: 0.10, upTo: null }],
-                    ltcgBrackets: [{ rate: 0.15, upTo: null }],
-                    stateRate: 0.044,
-                    standardDeduction: 0,
-                    initialMagi: 0,
-                },
-            ],
-        },
+    const config = testConfig({
+        balance: 700,
+        withdrawalOrder: [
+            { name: 'TaxableAccount', balance: 1000, basis: 0 },
+            { name: 'TraditionalIra', balance: 2000, birthYear: 2000 },
+            { name: 'RothIra', balance: 3000, withdraw: 0 },
+            { name: 'NonSpousalInheritedIra', balance: 4000, birthYear: 2000, inheritedYear: 2021 },
+            { name: 'HsaAccount', balance: 5000, withdraw: 0 },
+        ],
+        spendingOrder: [
+            { name: 'Mortgage', balance: -6000, rate: 0.06, endYear: 2100 },
+            { name: 'LivingExpense', balance: 700 },
+            taxSpender({ balance: -50 }),
+        ],
     });
     const bookkeeper = new Bookkeeper({
         config,
@@ -169,14 +130,7 @@ test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA + Cash balanc
 });
 
 test('reportTransactions dumps each journal entry for the given year as a category/source/dest/amount table', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.1 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000 }],
-            spendingOrder: [],
-        },
-    });
+    const config = testConfig({ sp500Rate: 0.1, withdrawalOrder: [{ name: 'Account', balance: 1000 }] });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
 
     bookkeeper.runYear(2026);
@@ -188,10 +142,7 @@ test('reportTransactions dumps each journal entry for the given year as a catego
 });
 
 test('reportTransactions is empty (just the header) for a year with no journal entries', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
-    });
+    const config = testConfig();
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
 
     const rv = bookkeeper.reportTransactions(2026);
@@ -201,14 +152,7 @@ test('reportTransactions is empty (just the header) for a year with no journal e
 });
 
 test('reportYear combines that year\'s transactions and the current balances table under a year header', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.1 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000 }],
-            spendingOrder: [],
-        },
-    });
+    const config = testConfig({ sp500Rate: 0.1, withdrawalOrder: [{ name: 'Account', balance: 1000 }] });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
 
     bookkeeper.runYear(2026);
@@ -220,23 +164,7 @@ test('reportYear combines that year\'s transactions and the current balances tab
 });
 
 test('taxCalculator is found among accounts by type, and its postAmount posts through this bookkeeper', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [],
-            spendingOrder: [{
-                name: 'Tax',
-                class: 'TaxCalculator',
-                balance: 0,
-                federalBrackets: [{ rate: 0.10, upTo: null }],
-                ltcgBrackets: [{ rate: 0.15, upTo: null }],
-                stateRate: 0.044,
-                standardDeduction: 0,
-                initialMagi: 0,
-            }],
-        },
-    });
+    const config = testConfig({ spendingOrder: [taxSpender()] });
     const bookkeeper = new Bookkeeper({ config, classes: { TaxCalculator, Cash } });
 
     bookkeeper.taxCalculator.postAmount('OrdinaryIncome', 1000, 2026, bookkeeper);
@@ -245,36 +173,19 @@ test('taxCalculator is found among accounts by type, and its postAmount posts th
 });
 
 test('taxCalculator is undefined when no TaxCalculator is configured -- lets accounts be tested without a Tax spender', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
-    });
+    const config = testConfig();
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
 
     assert.equal(bookkeeper.taxCalculator, undefined);
 });
 
 test('a gain realized to cover a shortfall is taxed the same year it is realized', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'TaxableAccount', balance: 1000, basis: 200 }],
-            spendingOrder: [
-                { name: 'LivingExpense', balance: 1000 },
-                {
-                    name: 'Tax',
-                    class: 'TaxCalculator',
-                    balance: 0,
-                    federalBrackets: [{ rate: 0.10, upTo: null }],
-                    ltcgBrackets: [{ rate: 0.15, upTo: null }],
-                    stateRate: 0.044,
-                    standardDeduction: 0,
-                    ssProvisionalIncomeThresholds: { low: 0, high: 0 },
-                    initialMagi: 0,
-                },
-            ],
-        },
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'TaxableAccount', balance: 1000, basis: 200 }],
+        spendingOrder: [
+            { name: 'LivingExpense', balance: 1000 },
+            taxSpender({ ssProvisionalIncomeThresholds: { low: 0, high: 0 } }),
+        ],
     });
     const bookkeeper = new Bookkeeper({
         config,
@@ -294,14 +205,7 @@ test('a gain realized to cover a shortfall is taxed the same year it is realized
 });
 
 test('runYear throws when the journal does not match an account change', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.05 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000 }],
-            spendingOrder: [],
-        },
-    });
+    const config = testConfig({ sp500Rate: 0.05, withdrawalOrder: [{ name: 'Account', balance: 1000 }] });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
     bookkeeper.post(new JournalEntry({
         year: 2026,

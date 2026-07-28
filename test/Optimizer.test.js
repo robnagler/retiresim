@@ -12,6 +12,7 @@ import { TaxCalculator } from '../src/TaxCalculator.js';
 import { Salary } from '../src/Salary.js';
 import { SocialSecurity, MIN_CLAIM_AGE, MAX_CLAIM_AGE } from '../src/SocialSecurity.js';
 import { Cash } from '../src/Cash.js';
+import { testConfigData, taxSpender } from './support/testConfig.js';
 
 // Captures console.log output for the duration of fn, restoring it
 // afterward even if fn throws.
@@ -68,16 +69,12 @@ test('run returns one {candidate, score} entry per input candidate, in input ord
 // LivingExpense amount -- more Salary years strictly preserves more
 // TaxableAccount balance, giving an unambiguous, hand-computable optimum.
 test('run wired to a real Config/Bookkeeper/Simulator picks the Salary end year that preserves the most net worth', () => {
-    const baseData = {
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
+    const baseData = testConfigData({
         Simulator: { startYear: 2026, endYear: 2030 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'TaxableAccount', balance: 200000, basis: 200000 }],
-            incomeOrder: [{ name: 'Salary', balance: 0, monthlyAmount: 2000, endYear: 0 }],
-            spendingOrder: [{ name: 'LivingExpense', balance: 24000 }],
-        },
-    };
+        withdrawalOrder: [{ name: 'TaxableAccount', balance: 200000, basis: 200000 }],
+        incomeOrder: [{ name: 'Salary', balance: 0, monthlyAmount: 2000, endYear: 0 }],
+        spendingOrder: [{ name: 'LivingExpense', balance: 24000 }],
+    });
     const classes = { TaxableAccount, LivingExpense, Salary, Cash };
     const evaluate = (candidateEndYear) => {
         const data = structuredClone(baseData);
@@ -107,16 +104,12 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the Salary end year 
 // the missed years), so the optimum lands at 68, not an endpoint --
 // still unambiguous and hand-computable.
 test('run wired to a real Config/Bookkeeper/Simulator picks the SS claim age that preserves the most net worth', () => {
-    const baseData = {
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
+    const baseData = testConfigData({
         Simulator: { startYear: 2026, endYear: 2030 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'TaxableAccount', balance: 100000, basis: 100000 }],
-            incomeOrder: [{ name: 'SocialSecurity', balance: 0, birthYear: 1958, claimAge: 0, fraMonthlyBenefit: 2000 }],
-            spendingOrder: [{ name: 'LivingExpense', balance: 10000 }],
-        },
-    };
+        withdrawalOrder: [{ name: 'TaxableAccount', balance: 100000, basis: 100000 }],
+        incomeOrder: [{ name: 'SocialSecurity', balance: 0, birthYear: 1958, claimAge: 0, fraMonthlyBenefit: 2000 }],
+        spendingOrder: [{ name: 'LivingExpense', balance: 10000 }],
+    });
     const classes = { TaxableAccount, LivingExpense, SocialSecurity, Cash };
     const evaluate = (candidateClaimAge) => {
         const data = structuredClone(baseData);
@@ -145,30 +138,17 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the SS claim age tha
 // be withdrawn (and taxed the same way) in year 2 -- so the two candidates
 // diverge by exactly the tax the Infinity run pays that the 0 run avoids.
 test('run wired to a real Config/Bookkeeper/Simulator picks the ordinary-income ceiling that avoids realizing avoidable tax', () => {
-    const baseData = {
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
+    const baseData = testConfigData({
         Simulator: { startYear: 2026, endYear: 2027 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [
-                { name: 'TraditionalIra', balance: 50000, birthYear: 2000 },
-                { name: 'RothIra', balance: 50000, withdraw: 0 },
-            ],
-            spendingOrder: [
-                { name: 'LivingExpense', balance: 10000 },
-                {
-                    name: 'Tax',
-                    class: 'TaxCalculator',
-                    balance: 0,
-                    federalBrackets: [{ rate: 0.20, upTo: null }],
-                    ltcgBrackets: [{ rate: 0.15, upTo: null }],
-                    stateRate: 0,
-                    standardDeduction: 0,
-                    initialMagi: 0,
-                },
-            ],
-        },
-    };
+        withdrawalOrder: [
+            { name: 'TraditionalIra', balance: 50000, birthYear: 2000 },
+            { name: 'RothIra', balance: 50000, withdraw: 0 },
+        ],
+        spendingOrder: [
+            { name: 'LivingExpense', balance: 10000 },
+            taxSpender({ federalBrackets: [{ rate: 0.20, upTo: null }], stateRate: 0 }),
+        ],
+    });
     const classes = { TraditionalIra, RothIra, LivingExpense, TaxCalculator, Cash };
     const evaluate = (candidateCeiling) => {
         const data = structuredClone(baseData);
@@ -244,15 +224,11 @@ test('printNetWorthTable prints a full candidate table with the winner marked', 
 // same shape as the moved-from-main.js behavior, now exercised directly
 // against Optimizer.runAll() instead of a free function.
 test('runAll catches InsufficientFundsError per-candidate and keeps the grid running', () => {
-    const baseData = {
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
+    const baseData = testConfigData({
         Simulator: { startYear: 2026, endYear: 2026 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'TaxableAccount', balance: 1000, basis: 1000 }],
-            spendingOrder: [{ name: 'LivingExpense', balance: 0 }],
-        },
-    };
+        withdrawalOrder: [{ name: 'TaxableAccount', balance: 1000, basis: 1000 }],
+        spendingOrder: [{ name: 'LivingExpense', balance: 0 }],
+    });
     const classes = { TaxableAccount, LivingExpense, Cash };
     // 500 is fully covered by the 1000-balance TaxableAccount; 2000 isn't.
     const variable = {

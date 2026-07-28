@@ -3,17 +3,10 @@ import assert from 'node:assert/strict';
 import { RothIra } from '../src/RothIra.js';
 import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Cash } from '../src/Cash.js';
-import { Config } from '../src/Config.js';
+import { testConfig } from './support/testConfig.js';
 
 test('earn withdrawal is not taxable -- does not post to OrdinaryIncome, and lands in Cash', () => {
-    const config = new Config({
-        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
-        Cash: {
-            balance: 0,
-            withdrawalOrder: [{ name: 'RothIra', balance: 1000, withdraw: 300 }],
-            spendingOrder: [],
-        },
-    });
+    const config = testConfig({ withdrawalOrder: [{ name: 'RothIra', balance: 1000, withdraw: 300 }] });
     const bookkeeper = new Bookkeeper({ config, classes: { RothIra, Cash } });
 
     bookkeeper.runYear(2026);
