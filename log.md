@@ -2,6 +2,12 @@
 
 ## 2026-07-28
 
+* 15:06:31 **Update**: Flattened the repeated "construct Config, then construct the class under test from it" pattern in LivingExpense/Account/TaxableAccount/Mortgage/Medicare tests into a single local build()/build(overrides) helper per file, returning the finished instance directly instead of just the config. 144/144 tests pass. Extended the flatten-consolidation memory with this second confirmed instance of the same principle. Not committed yet.
+* 15:06:00 **Prompt**: "livingexpense test is very repetitive. [...] is repeated too many times. call a single function inside livingexpense that does this. other tests are simialr. add cocnept to your refactoring memorry"
+* 15:04:16 **Update**: Committed as `aae0384` and pushed `9209d66..aae0384` to origin/main.
+* 15:03:00 **Prompt**: "gckp"
+* 15:00:00 **Prompt**: (added retroactively, missed logging it in real time) "is cfg.js updated?"
+* 15:00:00 **Answer**: (added retroactively, missed logging it in real time) No -- config/cfg.json never set the old ceiling field manually, so nothing needed renaming; the optimizer sets the new fields itself per candidate when searching.
 * 14:59:54 **Update**: Phase 4 done -- Cash.produce()'s single ordinaryIncomeCeiling generalized into three tax categories (ltcg/income/taxFree, Cash.js's categoryOf()), each with its own ceiling (ltcgCeiling/incomeCeiling; taxFree never capped) and a searchable categoryOrder deciding draw-down order. Found and fixed a real unit-conversion bug while building it: ltcg withdrawals aren't 1:1 with realized gain the way IRA withdrawals are 1:1 with ordinary income, so the ceiling has to convert back through the account's basis fraction. Unset categoryOrder/ceilings fall back to the original literal withdrawalOrder walk, so every prior config/test is unaffected. Replaced main.js's ordinary-income-ceiling optimizer variable with a richer one searching all 6 category orderings x each capped category's bracket-boundary ceilings. 144/144 tests pass. Updated CLAUDE.md, removed the completed TODO item. Not committed yet.
 * 14:51:02 **Update**: Committed as `9209d66` and pushed `27be833..9209d66` to origin/main.
 * 14:50:00 **Prompt**: "gckp" (then, mid-turn: "phase 4")

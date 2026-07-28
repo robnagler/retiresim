@@ -4,25 +4,24 @@ import { TaxableAccount } from '../src/TaxableAccount.js';
 import { Config } from '../src/Config.js';
 import { FakeBookkeeper } from './support/FakeBookkeeper.js';
 
+const build = () => new TaxableAccount({ config: new Config({ TaxableAccount: { balance: 1000, basis: 600 } }) });
+
 test('deposit increases balance and basis equally', () => {
-    const config = new Config({ TaxableAccount: { balance: 1000, basis: 600 } });
-    const a = new TaxableAccount({ config });
+    const a = build();
     a.deposit(200);
     assert.equal(a.balance, 1200);
     assert.equal(a.basis, 800);
 });
 
 test('grow increases balance but not basis', () => {
-    const config = new Config({ TaxableAccount: { balance: 1000, basis: 600 } });
-    const a = new TaxableAccount({ config });
+    const a = build();
     a.grow(0.1);
     assert.equal(a.balance, 1100);
     assert.equal(a.basis, 600);
 });
 
 test('withdraw reduces balance and basis proportionally and returns realized gain', () => {
-    const config = new Config({ TaxableAccount: { balance: 1000, basis: 600 } });
-    const a = new TaxableAccount({ config });
+    const a = build();
     const bookkeeper = new FakeBookkeeper();
     const rv = a.withdraw(500, bookkeeper, 2026);
     assert.equal(rv.balance, 500);
@@ -33,8 +32,7 @@ test('withdraw reduces balance and basis proportionally and returns realized gai
 });
 
 test('withdraw reports the gain to bookkeeper.taxCalculator.postAmount as LtcgIncome', () => {
-    const config = new Config({ TaxableAccount: { balance: 1000, basis: 600 } });
-    const a = new TaxableAccount({ config });
+    const a = build();
     const bookkeeper = new FakeBookkeeper();
 
     a.withdraw(500, bookkeeper, 2026);

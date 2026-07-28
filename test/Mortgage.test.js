@@ -4,9 +4,12 @@ import { Mortgage } from '../src/Mortgage.js';
 import { Config } from '../src/Config.js';
 import { FakeBookkeeper } from './support/FakeBookkeeper.js';
 
+const build = (overrides = {}) => new Mortgage({
+    config: new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2055, ...overrides } }),
+});
+
 test('the derived monthly payment matches the standard fixed-payment amortization formula ($200,000, 6%, 30-year term)', () => {
-    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2055 } });
-    const m = new Mortgage({ config });
+    const m = build();
     m.makePayment(2026);
     const r = 0.06 / 12;
     const months = 30 * 12;
@@ -15,8 +18,7 @@ test('the derived monthly payment matches the standard fixed-payment amortizatio
 });
 
 test('makePayment amortizes principal and interest for one year', () => {
-    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2055 } });
-    const m = new Mortgage({ config });
+    const m = build();
     const rv = m.makePayment(2026);
     assert.ok(rv.principal > 0);
     assert.ok(rv.interest > 0);
@@ -25,15 +27,13 @@ test('makePayment amortizes principal and interest for one year', () => {
 });
 
 test('due reports the full payment (principal + interest), not interest alone -- Cash pays one check covering both', () => {
-    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2055 } });
-    const m = new Mortgage({ config });
+    const m = build();
     const rv = m.makePayment(2026);
     assert.deepEqual(m.due(), { account: 'MortgagePayment', amount: rv.principal + rv.interest });
 });
 
 test('the balance amortizes to (approximately) zero by endYear when run every year', () => {
-    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2030 } });
-    const m = new Mortgage({ config });
+    const m = build({ endYear: 2030 });
     for (let year = 2026; year <= 2030; year++) {
         m.makePayment(year);
     }
@@ -41,14 +41,12 @@ test('the balance amortizes to (approximately) zero by endYear when run every ye
 });
 
 test('makePayment throws when endYear is not after the given year', () => {
-    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2025 } });
-    const m = new Mortgage({ config });
+    const m = build({ endYear: 2025 });
     assert.throws(() => m.makePayment(2026), /endYear=2025/);
 });
 
 test('runYear posts principal to the ledger and reports interest to postAmount as MortgageInterestDeduction -- distinct from the MortgagePayment cash-flow category due() uses', () => {
-    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2055 } });
-    const m = new Mortgage({ config });
+    const m = build();
     const bookkeeper = new FakeBookkeeper();
 
     m.runYear({ year: 2026, bookkeeper });
@@ -60,8 +58,7 @@ test('runYear posts principal to the ledger and reports interest to postAmount a
 });
 
 test('runYear stops charging a payment once year is past endYear', () => {
-    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2026 } });
-    const m = new Mortgage({ config });
+    const m = build({ endYear: 2026 });
     const bookkeeper = new FakeBookkeeper();
     m.runYear({ year: 2026, bookkeeper });
     const balanceAfterPayoff = m.balance;
@@ -76,8 +73,7 @@ test('runYear stops charging a payment once year is past endYear', () => {
 });
 
 test('runYear wipes the remaining balance to zero and stops paying once year reaches sellYear', () => {
-    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2055, sellYear: 2030 } });
-    const m = new Mortgage({ config });
+    const m = build({ sellYear: 2030 });
     const bookkeeper = new FakeBookkeeper();
     for (let year = 2026; year < 2030; year++) {
         m.runYear({ year, bookkeeper });
@@ -96,8 +92,7 @@ test('runYear wipes the remaining balance to zero and stops paying once year rea
 });
 
 test('runYear posts the sellYear forgiveness only once -- later years touch nothing further', () => {
-    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2055, sellYear: 2026 } });
-    const m = new Mortgage({ config });
+    const m = build({ sellYear: 2026 });
     const bookkeeper = new FakeBookkeeper();
     m.runYear({ year: 2026, bookkeeper });
     assert.equal(bookkeeper.ledger.length, 1);
@@ -109,8 +104,7 @@ test('runYear posts the sellYear forgiveness only once -- later years touch noth
 });
 
 test('runYear ignores sellYear when it is not set, behaving exactly as before', () => {
-    const config = new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2055 } });
-    const m = new Mortgage({ config });
+    const m = build();
     const bookkeeper = new FakeBookkeeper();
 
     m.runYear({ year: 2026, bookkeeper });
