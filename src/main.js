@@ -49,7 +49,7 @@ const DEFAULT_CONFIG_DATA = {
         ],
         incomeOrder: [
             { name: 'Salary', balance: 0, rate: 0, monthlyAmount: 12500, endYear: 2035 },
-            { name: 'SocialSecurity', balance: 0, rate: 0, birthYear: 1955, claimAge: 67, fraMonthlyBenefit: 2500 },
+            { name: 'SocialSecurity', balance: 0, rate: 0, birthYear: 1955, claimAge: 67, fraMonthlyBenefit: 2500, cola: 0.025 },
             { name: 'Pension', balance: 0, rate: 0, amount: 20000 },
         ],
         spendingOrder: [

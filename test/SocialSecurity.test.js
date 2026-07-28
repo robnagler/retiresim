@@ -6,11 +6,11 @@ import { Cash } from '../src/Cash.js';
 import { TaxCalculator } from '../src/TaxCalculator.js';
 import { Config } from '../src/Config.js';
 
-const buildConfig = ({ birthYear, claimAge, fraMonthlyBenefit = 2500 }) => new Config({
+const buildConfig = ({ birthYear, claimAge, fraMonthlyBenefit = 2500, cola = 0 }) => new Config({
     Cash: {
         balance: 0,
         withdrawalOrder: [],
-        incomeOrder: [{ name: 'SocialSecurity', balance: 0, rate: 0, birthYear, claimAge, fraMonthlyBenefit }],
+        incomeOrder: [{ name: 'SocialSecurity', balance: 0, rate: 0, birthYear, claimAge, fraMonthlyBenefit, cola }],
         spendingOrder: [{
             name: 'Tax',
             class: 'TaxCalculator',
@@ -96,4 +96,33 @@ test('claimAgeCandidates excludes already-passed ages -- someone already 65 cann
 
 test('claimAgeCandidates clamps to a single candidate (claim now) once already past 70', () => {
     assert.deepEqual(claimAgeCandidates({ birthYear: 1950, asOfYear: 2026 }), [70]);
+});
+
+test('runYear applies cola to monthlyAmount every year benefits are being paid, compounding forward', () => {
+    const bookkeeper = new Bookkeeper({
+        config: buildConfig({ birthYear: 1959, claimAge: 67, fraMonthlyBenefit: 4000, cola: 0.02 }),
+        classes: { SocialSecurity, TaxCalculator, Cash },
+    });
+
+    bookkeeper.runYear(2026);
+    assert.equal(bookkeeper.balanceChange('SocialSecurityBenefit', 2026), 4000 * 12);
+
+    bookkeeper.runYear(2027);
+    assert.equal(bookkeeper.balanceChange('SocialSecurityBenefit', 2027), 4000 * 1.02 * 12);
+
+    bookkeeper.runYear(2028);
+    assert.equal(bookkeeper.balanceChange('SocialSecurityBenefit', 2028), 4000 * 1.02 * 1.02 * 12);
+});
+
+test('runYear does not apply cola before startYear -- no accrual while not yet claimed', () => {
+    const bookkeeper = new Bookkeeper({
+        config: buildConfig({ birthYear: 1963, claimAge: 67, fraMonthlyBenefit: 4000, cola: 0.02 }),
+        classes: { SocialSecurity, TaxCalculator, Cash },
+    });
+    const ss = bookkeeper.accounts.find((a) => a.name === 'SocialSecurity');
+
+    bookkeeper.runYear(2026);
+    bookkeeper.runYear(2027);
+
+    assert.equal(ss.monthlyAmount, 4000);
 });

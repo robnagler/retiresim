@@ -2,6 +2,19 @@
 
 ## 2026-07-27
 
+* 19:36:54 **Prompt**: "gckp"
+* 19:33:03 **Update**: Added SocialSecurity COLA -- monthlyAmount now grows by a new required cfg.cola every year once payments start (runYear() override, no accrual before startYear), same shape as LivingExpense's inflation growth. Made cola required (no silent default) so every fixture/config needed updating; added tests for the compounding and pre-claim-no-accrual behavior. 121/121 tests pass. Updated CLAUDE.md and config/cfg.json's notes. Not committed yet.
+* 19:30:28 **Prompt**: "yes add cola."
+* 19:29:00 **Prompt**: (added retroactively, missed logging it in real time) "does socialsecurity have a cola?"
+* 19:29:00 **Answer**: No -- monthlyAmount is computed once at claim and never grows; config/cfg.json's own notes already flag cola as an unsupported leftover field. Offered to add it, same shape as LivingExpense's rate-based growth.
+* 19:20:00 **Prompt**: (added retroactively, missed logging it in real time) asked about a LivingExpense growth line seen in a real --debug run [specific figures omitted]
+* 19:20:00 **Answer**: Expected -- LivingExpense inherits Account's generic growth machinery (rate=inflation, balance=this year's expense amount), reused under the same growth/UnrealizedGrowth label real investment accounts use, which is a bit of a misnomer here but not a bug. Offered to split it into a distinct category if the shared label is confusing.
+* 19:15:00 **Prompt**: (added retroactively, missed logging it in real time) asked what extending the ordinary-income-ceiling mechanism to ltcgBrackets would do
+* 19:15:00 **Answer**: Same shape (cap realized gain, fall through to the next account), but more involved -- LTCG brackets stack on top of ordinary income and a TaxableAccount withdrawal is only partially gain, not 1:1 like a Traditional IRA withdrawal, so it needs solving backwards for the withdrawal size, not just a direct cap. Recommended treating it as its own slice; asked whether to build it.
+* 19:10:00 **Prompt**: (added retroactively, missed logging it in real time) asked what the 10/40/infinity ceiling candidates actually represent
+* 19:10:00 **Answer**: Clarified they come from federalBrackets (ordinary-income brackets), not ltcgBrackets -- correct for what the ceiling caps (TraditionalIra withdrawals, which are ordinary income). Noted the actual ltcgBrackets thresholds exist in config but aren't used by any variable yet.
+* 19:05:00 **Prompt**: (added retroactively, missed logging it in real time) "spending excludes mortgage and medicare. anything else?"
+* 19:05:00 **Answer**: Yes -- taxes are also their own separate spendingOrder line, not folded into LivingExpense's inflation-adjusted bucket. Those three (mortgage, Medicare, tax) plus LivingExpense are the complete spender list today.
 * 18:45:46 **Update**: Committed as `2921e3f` and pushed `8187834..2921e3f` to origin/main.
 * 18:45:27 **Prompt**: "gckp"
 * 18:30:59 **Update**: Added InsufficientFundsError (carries the year) thrown by Cash.produce(). main.js now catches it per-candidate during an optimizer sweep instead of the whole grid aborting -- that candidate is scored 0 and displayed as "0 (YYYY)", the rest of the grid (that variable's remaining candidates, and every other variable) still runs; --debug skips the detailed report if the winner itself failed, with a short note instead of crashing. 119/119 tests pass. Updated CLAUDE.md. Not committed yet.

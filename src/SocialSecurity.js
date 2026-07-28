@@ -44,6 +44,22 @@ export class SocialSecurity extends Account {
         bookkeeper.taxCalculator?.postAmount('SocialSecurityBenefit', amount, year, bookkeeper);
         return { amount };
     }
+
+    // Real SS benefits get an annual cost-of-living adjustment once
+    // payments start -- applied to monthlyAmount (already claim-age
+    // adjusted) every year it's paid, same shape as LivingExpense's
+    // rate-based growth, just targeting monthlyAmount instead of balance.
+    // Runs after earn() each year (Bookkeeper.runYear() calls cash.earn()
+    // before the accounts loop), so a given year's payment always uses
+    // the prior year's amount and next year's is the one that's grown --
+    // overrides Account.runYear() entirely since balance/rate are inert
+    // boilerplate for SocialSecurity (see claimAgeCandidates() usage
+    // elsewhere), not something worth a no-op growth posting.
+    runYear({ year }) {
+        if (year >= this.startYear) {
+            this.monthlyAmount *= 1 + this.cfg.cola;
+        }
+    }
 }
 
 // Claim ages already passed as of asOfYear aren't real, actionable

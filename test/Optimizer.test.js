@@ -97,7 +97,7 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the SS claim age tha
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'TaxableAccount', balance: 100000, rate: 0, basis: 100000 }],
-            incomeOrder: [{ name: 'SocialSecurity', balance: 0, rate: 0, birthYear: 1958, claimAge: 0, fraMonthlyBenefit: 2000 }],
+            incomeOrder: [{ name: 'SocialSecurity', balance: 0, rate: 0, birthYear: 1958, claimAge: 0, fraMonthlyBenefit: 2000, cola: 0 }],
             spendingOrder: [{ name: 'LivingExpense', balance: 10000, rate: 0 }],
         },
     };
