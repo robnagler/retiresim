@@ -2,6 +2,9 @@
 
 ## 2026-07-28
 
+* 14:59:54 **Update**: Phase 4 done -- Cash.produce()'s single ordinaryIncomeCeiling generalized into three tax categories (ltcg/income/taxFree, Cash.js's categoryOf()), each with its own ceiling (ltcgCeiling/incomeCeiling; taxFree never capped) and a searchable categoryOrder deciding draw-down order. Found and fixed a real unit-conversion bug while building it: ltcg withdrawals aren't 1:1 with realized gain the way IRA withdrawals are 1:1 with ordinary income, so the ceiling has to convert back through the account's basis fraction. Unset categoryOrder/ceilings fall back to the original literal withdrawalOrder walk, so every prior config/test is unaffected. Replaced main.js's ordinary-income-ceiling optimizer variable with a richer one searching all 6 category orderings x each capped category's bracket-boundary ceilings. 144/144 tests pass. Updated CLAUDE.md, removed the completed TODO item. Not committed yet.
+* 14:51:02 **Update**: Committed as `9209d66` and pushed `27be833..9209d66` to origin/main.
+* 14:50:00 **Prompt**: "gckp" (then, mid-turn: "phase 4")
 * 14:46:28 **Update**: Phase 3 done -- new LumpSum.js posts a one-time spending amount only in specific configured years (cfg.amounts, a year-to-dollar-amount map), same shape as LivingExpense but year-gated instead of every-year. Registered in main.js's class list. 140/140 tests pass. Updated CLAUDE.md, removed the completed TODO item. Not committed yet.
 * 14:44:20 **Prompt**: "phase 3"
 * 14:44:08 **Update**: Committed as `27be833` and pushed `c34519f..27be833` to origin/main.

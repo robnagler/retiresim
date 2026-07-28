@@ -18,12 +18,20 @@ export function testConfigData({
     withdrawalOrder = [],
     incomeOrder = [],
     spendingOrder = [],
-    ordinaryIncomeCeiling,
+    ltcgCeiling,
+    incomeCeiling,
+    categoryOrder,
     ...rest
 } = {}) {
     const cash = { balance, withdrawalOrder, incomeOrder, spendingOrder };
-    if (ordinaryIncomeCeiling !== undefined) {
-        cash.ordinaryIncomeCeiling = ordinaryIncomeCeiling;
+    if (ltcgCeiling !== undefined) {
+        cash.ltcgCeiling = ltcgCeiling;
+    }
+    if (incomeCeiling !== undefined) {
+        cash.incomeCeiling = incomeCeiling;
+    }
+    if (categoryOrder !== undefined) {
+        cash.categoryOrder = categoryOrder;
     }
     return {
         Economy: { inflationRate, interestRate, sp500Rate },

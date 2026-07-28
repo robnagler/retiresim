@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { Cash } from '../src/Cash.js';
 import { Account } from '../src/Account.js';
 import { TraditionalIra } from '../src/TraditionalIra.js';
+import { NonSpousalInheritedIra } from '../src/NonSpousalInheritedIra.js';
+import { RothIra } from '../src/RothIra.js';
 import { TaxableAccount } from '../src/TaxableAccount.js';
 import { Mortgage } from '../src/Mortgage.js';
 import { TaxCalculator } from '../src/TaxCalculator.js';
@@ -112,9 +114,9 @@ test('produce does not post to LtcgIncome for non-TaxableAccount withdrawals', (
     assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 0);
 });
 
-test('produce caps TraditionalIra withdrawals at ordinaryIncomeCeiling, falling through to the next account for the remainder', () => {
+test('produce caps TraditionalIra withdrawals at incomeCeiling, falling through to the next account for the remainder', () => {
     const config = testConfig({
-        ordinaryIncomeCeiling: 3000,
+        incomeCeiling: 3000,
         withdrawalOrder: [
             { name: 'TraditionalIra', balance: 5000, birthYear: 2000 },
             { name: 'Account', balance: 1000 },
@@ -130,9 +132,9 @@ test('produce caps TraditionalIra withdrawals at ordinaryIncomeCeiling, falling 
     ]);
 });
 
-test('produce\'s ordinaryIncomeCeiling accounts for OrdinaryIncome already posted this year (e.g. Salary), leaving less room', () => {
+test('produce\'s incomeCeiling accounts for OrdinaryIncome already posted this year (e.g. Salary), leaving less room', () => {
     const config = testConfig({
-        ordinaryIncomeCeiling: 3000,
+        incomeCeiling: 3000,
         withdrawalOrder: [
             { name: 'TraditionalIra', balance: 5000, birthYear: 2000 },
             { name: 'Account', balance: 5000 },
@@ -149,9 +151,9 @@ test('produce\'s ordinaryIncomeCeiling accounts for OrdinaryIncome already poste
     ]);
 });
 
-test('produce\'s ordinaryIncomeCeiling does not limit non-TraditionalIra accounts', () => {
+test('produce\'s incomeCeiling does not limit ltcg-category (TaxableAccount) withdrawals', () => {
     const config = testConfig({
-        ordinaryIncomeCeiling: 0,
+        incomeCeiling: 0,
         withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 }],
         spendingOrder: [taxSpender()],
     });
@@ -160,6 +162,87 @@ test('produce\'s ordinaryIncomeCeiling does not limit non-TraditionalIra account
     const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 5000, year: 2026, bookkeeper });
 
     assert.deepEqual(rv, [{ account: 'Taxable', amount: 5000 }]);
+});
+
+test('produce caps TaxableAccount withdrawals at ltcgCeiling based on realized gain, falling through for the remainder', () => {
+    // 6000/10000 basis fraction -- each $1 withdrawn realizes $0.40 of
+    // gain, so a $2500 ltcgCeiling allows a $6250 withdrawal (2500/0.4)
+    // before the room runs out.
+    const config = testConfig({
+        ltcgCeiling: 2500,
+        withdrawalOrder: [
+            { name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 },
+            { name: 'Account', balance: 5000 },
+        ],
+        spendingOrder: [taxSpender()],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, Account, TaxCalculator, Cash } });
+
+    const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 8000, year: 2026, bookkeeper });
+
+    assert.deepEqual(rv, [
+        { account: 'Taxable', amount: 6250 },
+        { account: 'Account', amount: 1750 },
+    ]);
+    assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 2500);
+});
+
+test('produce\'s ltcgCeiling does not limit income-category (TraditionalIra) withdrawals', () => {
+    const config = testConfig({
+        ltcgCeiling: 0,
+        withdrawalOrder: [{ name: 'TraditionalIra', balance: 5000, birthYear: 2000 }],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra, Cash } });
+
+    const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 3000, year: 2026, bookkeeper });
+
+    assert.deepEqual(rv, [{ account: 'TraditionalIra', amount: 3000 }]);
+});
+
+test('produce walks categoryOrder category-by-category when set, ignoring withdrawalOrder\'s literal sequence', () => {
+    // withdrawalOrder lists TraditionalIra (income) before RothIra
+    // (taxFree), but categoryOrder puts taxFree first.
+    const config = testConfig({
+        categoryOrder: ['taxFree', 'income'],
+        withdrawalOrder: [
+            { name: 'TraditionalIra', balance: 5000, birthYear: 2000 },
+            { name: 'Roth', class: 'RothIra', balance: 2000, withdraw: 0 },
+        ],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra, RothIra, Cash } });
+
+    const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 3000, year: 2026, bookkeeper });
+
+    assert.deepEqual(rv, [
+        { account: 'Roth', amount: 2000 },
+        { account: 'TraditionalIra', amount: 1000 },
+    ]);
+});
+
+test('produce\'s income category room already reflects an inherited account\'s forced RMD, posted via earn() before produce() runs', () => {
+    const config = testConfig({
+        incomeCeiling: 6000,
+        withdrawalOrder: [
+            { name: 'Inherited', class: 'NonSpousalInheritedIra', balance: 25000, inheritedYear: 2021 },
+            { name: 'Account', balance: 5000 },
+        ],
+        spendingOrder: [taxSpender()],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, Account, TaxCalculator, Cash } });
+    // deadline 2031, 2026 has 6 years remaining -- forces a 25000/6 RMD,
+    // already posted to OrdinaryIncome before produce() runs (see
+    // Bookkeeper.runYear()'s call order).
+    bookkeeper.earners.find((a) => a.name === 'Inherited').earn(2026, bookkeeper);
+
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
+    const rv = cash.produce({ amount: 4000, year: 2026, bookkeeper });
+
+    const rmd = 25000 / 6;
+    const roomLeft = 6000 - rmd;
+    assert.deepEqual(rv, [
+        { account: 'Inherited', amount: roomLeft },
+        { account: 'Account', amount: 4000 - roomLeft },
+    ]);
 });
 
 test('spend withdraws from cash and posts a journal entry to the expense category', () => {

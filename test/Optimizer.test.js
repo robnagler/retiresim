@@ -128,42 +128,62 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the SS claim age tha
     assert.equal(rv.score, 179600);
 });
 
-// Same shape again, applied to CLAUDE.md's Withdrawal ordinary-income
-// ceiling. A ceiling of 0 forces every shortfall away from TraditionalIra
-// (ordinary income, taxed) onto RothIra (no tax consequence, see
-// RothIra.js); Infinity (no cap) lets TraditionalIra cover everything.
-// Two years: year 1's shortfall is just LivingExpense; the ceiling=0 run
-// accrues no tax (never touches TraditionalIra), while the Infinity run
-// accrues federal tax on that year's ordinary income, which itself has to
-// be withdrawn (and taxed the same way) in year 2 -- so the two candidates
-// diverge by exactly the tax the Infinity run pays that the 0 run avoids.
-test('run wired to a real Config/Bookkeeper/Simulator picks the ordinary-income ceiling that avoids realizing avoidable tax', () => {
+// Same shape again, applied to CLAUDE.md's withdrawal category order +
+// ceilings. Single-tier federalBrackets/ltcgBrackets means every
+// ltcgCeiling/incomeCeiling candidate collapses to Infinity (no cap), so
+// the only thing distinguishing the 6 candidates is which category is
+// FIRST in categoryOrder -- each account has plenty of balance to cover
+// the whole shortfall alone, so later categories are never touched. Two
+// years, LivingExpense=10000/year, 0% tax-free (Roth) vs 10% ltcg
+// (Taxable, basis=0 so every dollar withdrawn is pure gain) vs 30%
+// ordinary income (TraditionalIra): year 1's shortfall is untaxed cash
+// draw either way, but the resulting tax liability (0 / 1000 / 3000)
+// has to be paid out of the SAME category again in year 2, so the three
+// behaviors diverge by exactly that avoided-or-not tax.
+test('run wired to a real Config/Bookkeeper/Simulator picks the withdrawal category order that avoids realizing avoidable tax', () => {
     const baseData = testConfigData({
         Simulator: { startYear: 2026, endYear: 2027 },
         withdrawalOrder: [
-            { name: 'TraditionalIra', balance: 50000, birthYear: 2000 },
-            { name: 'RothIra', balance: 50000, withdraw: 0 },
+            { name: 'Taxable', class: 'TaxableAccount', balance: 100000, basis: 0 },
+            { name: 'Trad', class: 'TraditionalIra', balance: 100000, birthYear: 2000 },
+            { name: 'Roth', class: 'RothIra', balance: 100000, withdraw: 0 },
         ],
         spendingOrder: [
             { name: 'LivingExpense', balance: 10000 },
-            taxSpender({ federalBrackets: [{ rate: 0.20, upTo: null }], stateRate: 0 }),
+            taxSpender({ federalBrackets: [{ rate: 0.30, upTo: null }], ltcgBrackets: [{ rate: 0.10, upTo: null }], stateRate: 0 }),
         ],
     });
-    const classes = { TraditionalIra, RothIra, LivingExpense, TaxCalculator, Cash };
-    const evaluate = (candidateCeiling) => {
+    const classes = { TaxableAccount, TraditionalIra, RothIra, LivingExpense, TaxCalculator, Cash };
+    const evaluate = (candidate) => {
         const data = structuredClone(baseData);
-        data.Cash.ordinaryIncomeCeiling = candidateCeiling;
+        data.Cash.categoryOrder = candidate.categoryOrder;
+        data.Cash.ltcgCeiling = candidate.ltcgCeiling;
+        data.Cash.incomeCeiling = candidate.incomeCeiling;
         const config = new Config(data);
         const bookkeeper = new Bookkeeper({ config, classes });
         new Simulator({ bookkeeper, config }).run();
         return bookkeeper.netWorth();
     };
+    // Mirrors Optimizer.js's OPTIMIZE_VARIABLES entry exactly (candidates
+    // aren't imported since CATEGORY_ORDERS/categoryOrderCandidate aren't
+    // exported -- this is deliberately re-derived to prove the real
+    // pipeline end to end, same as the SS claim age test above does for
+    // its own variable).
+    const orders = [
+        ['ltcg', 'income', 'taxFree'],
+        ['ltcg', 'taxFree', 'income'],
+        ['income', 'ltcg', 'taxFree'],
+        ['income', 'taxFree', 'ltcg'],
+        ['taxFree', 'ltcg', 'income'],
+        ['taxFree', 'income', 'ltcg'],
+    ];
+    const candidates = orders.map((categoryOrder) => ({ categoryOrder, ltcgCeiling: Infinity, incomeCeiling: Infinity }));
 
-    const rv = new Optimizer().run([0, Infinity], evaluate);
+    const rv = new Optimizer().run(candidates, evaluate);
 
-    assert.deepEqual(rv.all.map((r) => r.score), [80000, 78000]);
-    assert.equal(rv.best, 0);
-    assert.equal(rv.score, 80000);
+    assert.deepEqual(rv.all.map((r) => r.score), [279000, 279000, 277000, 277000, 280000, 280000]);
+    assert.deepEqual(rv.best.categoryOrder, ['taxFree', 'ltcg', 'income']);
+    assert.equal(rv.score, 280000);
 });
 
 // Phase 1 (CLAUDE.md TODO): Optimizer now owns the whole candidate-

@@ -1,6 +1,22 @@
 import { Account } from './Account.js';
 import { TraditionalIra } from './TraditionalIra.js';
+import { TaxableAccount } from './TaxableAccount.js';
 import { InsufficientFundsError } from './InsufficientFundsError.js';
+
+// Every withdrawalOrder account falls into exactly one tax category:
+// realized capital gains (TaxableAccount), ordinary income (TraditionalIra
+// and its NonSpousalInheritedIra subclass), or no tax consequence at all
+// (everything else -- RothIra/HsaAccount). Order matters: TaxableAccount
+// isn't a TraditionalIra, so this is safe as a plain if-chain.
+function categoryOf(account) {
+    if (account instanceof TaxableAccount) {
+        return 'ltcg';
+    }
+    if (account instanceof TraditionalIra) {
+        return 'income';
+    }
+    return 'taxFree';
+}
 
 export class Cash extends Account {
     constructor({ name, config, accounts, spenders }) {
@@ -56,42 +72,86 @@ export class Cash extends Account {
         bookkeeper.simplePost(year, 'spend', this.name, account, amount);
     }
 
-    // Caps withdrawals from ordinary-income accounts (TraditionalIra and
-    // its NonSpousalInheritedIra subclass) at cfg.ordinaryIncomeCeiling,
-    // reading this year's already-posted OrdinaryIncome (Salary/Pension/
-    // RMDs, posted by cash.earn() before produce() runs -- see
-    // Bookkeeper.runYear()'s call order) so the room left already
-    // reflects this year's other ordinary income. A capped account still
-    // contributes up to that room, then produce()'s loop falls through
-    // to the next account in withdrawalOrder for the remainder. Unset
-    // (undefined) means no cap -- today's drain-fully behavior, so every
-    // existing config/test is unaffected. Ignores the knock-on effect of
-    // ordinary income on Social Security's taxability (the "tax
-    // torpedo") -- a real refinement, not needed for this first cut.
-    ordinaryIncomeRoom(source, year, bookkeeper) {
-        if (!(source instanceof TraditionalIra) || this.cfg.ordinaryIncomeCeiling == null) {
-            return Infinity;
+    // Caps withdrawals from a category's accounts at that category's
+    // ceiling (cfg.ltcgCeiling for TaxableAccount, cfg.incomeCeiling for
+    // TraditionalIra/NonSpousalInheritedIra), reading this year's
+    // already-posted LtcgIncome/OrdinaryIncome (posted by cash.earn()
+    // before produce() runs -- see Bookkeeper.runYear()'s call order) so
+    // the room left already reflects this year's other income in that
+    // category. This is exactly why an inherited account's already-forced
+    // RMD needs no special case: it posted to OrdinaryIncome via earn()
+    // before produce() ever runs, so the income category's room already
+    // reflects it. taxFree accounts (RothIra/HsaAccount) are never capped
+    // -- no tax cost to drawing them. A capped account still contributes
+    // up to its room, then produce() falls through to the next account for
+    // the remainder. Unset ceilings mean no cap -- today's drain-fully
+    // behavior, so every existing config/test is unaffected. Ignores the
+    // knock-on effect of ordinary income on Social Security's taxability
+    // (the "tax torpedo") -- a real refinement, not needed for this cut.
+    //
+    // Return value is always in withdrawal-amount terms, not tax-category
+    // dollars -- for 'income' those are the same thing (every withdrawn
+    // dollar is a dollar of ordinary income), but for 'ltcg' a withdrawal
+    // is only partially gain (TaxableAccount.withdraw()'s basis fraction),
+    // so the raw gain-room has to be converted back into a withdrawal
+    // amount by dividing by that same gain fraction.
+    categoryRoom(source, year, bookkeeper) {
+        const category = categoryOf(source);
+        if (category === 'ltcg') {
+            if (this.cfg.ltcgCeiling == null) {
+                return Infinity;
+            }
+            const gainRoom = Math.max(0, this.cfg.ltcgCeiling - bookkeeper.balanceChange('LtcgIncome', year));
+            const gainFraction = source.balance > 0 ? 1 - source.basis / source.balance : 0;
+            return gainFraction > 0 ? gainRoom / gainFraction : Infinity;
         }
-        return Math.max(0, this.cfg.ordinaryIncomeCeiling - bookkeeper.balanceChange('OrdinaryIncome', year));
+        if (category === 'income') {
+            return this.cfg.incomeCeiling == null ? Infinity : Math.max(0, this.cfg.incomeCeiling - bookkeeper.balanceChange('OrdinaryIncome', year));
+        }
+        return Infinity;
+    }
+
+    // Accounts in one category, preserving their relative order from
+    // cfg.withdrawalOrder as the within-category sub-order -- that
+    // sub-order isn't itself searched by the optimizer, only which
+    // category goes first/second/third.
+    accountsInCategory(category) {
+        return this.cfg.withdrawalOrder
+            .map(({ name: n }) => this.accounts.find((account) => account.name === n))
+            .filter((account) => categoryOf(account) === category);
     }
 
     produce({ amount, year, bookkeeper }) {
         const rv = [];
         let r = amount;
-        for (const { name: n } of this.cfg.withdrawalOrder) {
+        const withdrawFrom = (source) => {
             if (r <= 0) {
-                break;
+                return;
             }
-            const source = this.accounts.find((account) => account.name === n);
-            const w = Math.min(r, source.balance, this.ordinaryIncomeRoom(source, year, bookkeeper));
+            const w = Math.min(r, source.balance, this.categoryRoom(source, year, bookkeeper));
             if (w <= 0) {
-                continue;
+                return;
             }
             source.withdraw(w, bookkeeper, year);
             this.deposit(w);
             bookkeeper.simplePost(year, `${source.constructor.name}Withdrawal`, source.name, this.name, w);
-            rv.push({ account: n, amount: w });
+            rv.push({ account: source.name, amount: w });
             r -= w;
+        };
+        // cfg.categoryOrder walks accounts category-by-category (the
+        // optimizer's search axis); unset falls back to cfg.withdrawalOrder
+        // literally, as before categories existed, so every existing
+        // config/test keeps working unchanged.
+        if (this.cfg.categoryOrder) {
+            for (const category of this.cfg.categoryOrder) {
+                for (const source of this.accountsInCategory(category)) {
+                    withdrawFrom(source);
+                }
+            }
+        } else {
+            for (const { name: n } of this.cfg.withdrawalOrder) {
+                withdrawFrom(this.accounts.find((account) => account.name === n));
+            }
         }
         if (r > 0.005) {
             throw new InsufficientFundsError({ shortfall: r, amount, year, accounts: this.accounts });

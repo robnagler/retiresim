@@ -2,10 +2,6 @@
 
 ## TODO
 - Add an optimizer variable to spend the HSA on Medicare or not
-- Add an optimizer variable to change the order of
-  Roth/inherited/trad with a cap at tax brackets so for example
-  withdraw inherited until first tax bracket, then withdraw rest from
-  roth. Maybe have another tax bracket or two after that.
 - Introduce random numbers based on a fixed (committed) seed table so
   runs are reproducable. Any random values generated are always in the
   same order at module startup (see crashes below)
@@ -58,7 +54,7 @@ Orchestration (this diverged from the original `Household.js`/`Ledger.js` split 
 
 * `Config.js` -- reads static/json config, resolves per-account settings (age, salary trajectory, retirement date, SS claiming age/amount live here)
 * `Bookkeeper.js` -- builds accounts from config, owns the journal (`JournalEntry`/`Posting`), drives `runYear()` across all accounts, runs the reconciliation check (`_reconcile()`), and reports a year's transactions/balances (`reportTransactions()`, `reportYear()`)
-* `Cash.js` -- the year's cash orchestrator: `runYear()` first grows the idle balance at half of `bookkeeper.economy.interestRate` (not the full rate -- idle spending cash sits somewhere lower-yield than invested accounts), then collects income (`earn()`), pays spenders in order, then covers shortfalls by withdrawing from accounts in `withdrawalOrder` (`produce()`) -- `produce()` runs before spenders' `prepareNextYear()` so a shortfall-covering withdrawal's realized gains/income are taxed the same year they're realized, not dropped. `produce()` caps withdrawals from ordinary-income accounts (`TraditionalIra`/`NonSpousalInheritedIra`) at `cfg.ordinaryIncomeCeiling` when set, falling through to the next account in `withdrawalOrder` for the remainder. Throws `InsufficientFundsError` (`src/InsufficientFundsError.js`, carries `year`) when no account can cover the rest of the shortfall
+* `Cash.js` -- the year's cash orchestrator: `runYear()` first grows the idle balance at half of `bookkeeper.economy.interestRate` (not the full rate -- idle spending cash sits somewhere lower-yield than invested accounts), then collects income (`earn()`), pays spenders in order, then covers shortfalls by withdrawing from accounts in `withdrawalOrder` (`produce()`) -- `produce()` runs before spenders' `prepareNextYear()` so a shortfall-covering withdrawal's realized gains/income are taxed the same year they're realized, not dropped. Every `withdrawalOrder` account falls into one of three tax categories (`categoryOf()`): `ltcg` (`TaxableAccount`), `income` (`TraditionalIra`/`NonSpousalInheritedIra`), or `taxFree` (everything else -- `RothIra`/`HsaAccount`, never capped). `produce()` caps withdrawals from the `ltcg`/`income` categories at `cfg.ltcgCeiling`/`cfg.incomeCeiling` when set (`categoryRoom()` -- for `ltcg` this converts the realized-gain room back into a withdrawal-amount room via the account's basis fraction, since a withdrawal isn't 1:1 gain the way an IRA withdrawal is 1:1 ordinary income), falling through to the next account for the remainder. `cfg.categoryOrder` (an array of the three category names) walks accounts category-by-category instead of `withdrawalOrder`'s literal sequence when set -- the within-category sub-order still follows each account's position in `withdrawalOrder`. Unset `categoryOrder`/ceilings fall back to walking `withdrawalOrder` literally with no cap, so every pre-category config/test is unaffected. Throws `InsufficientFundsError` (`src/InsufficientFundsError.js`, carries `year`) when no account can cover the rest of the shortfall
 * `Simulator.js` -- thin year-by-year loop calling `bookkeeper.runYear(year)`, with an optional per-year callback (`run(onYear)`)
 * `Optimizer.js` -- owns all of the optimization stuff, including running the simulator (`OPTIMIZE_VARIABLES`, the generic `run(candidates, evaluate)` brute-force search, `buildPipeline()` (`Config` -> `Bookkeeper`, `Simulator` run left to the caller), `runAll(configData, classes, variables)` (evaluates every `OPTIMIZE_VARIABLES` entry via `Config` -> `Bookkeeper` -> `Simulator` -> `Bookkeeper.netWorth()`, catching `InsufficientFundsError` per-candidate -- scored 0, displayed as `0 (YYYY)`, the rest of that variable's candidates and every other variable still run), and the console reporting (`printNetWorthTable()`/`formatScore()`: collapses to one flagged line when every candidate ties, only one candidate is legal, or every candidate ran out of money, instead of printing a table that looks like a real tradeoff was searched when none was found)
 * `main.js` -- thin dispatcher: builds `classes`/loads `configData` (`node src/main.js [--debug] [path/to/config.json]`, otherwise runs an illustrative built-in scenario), then either calls `new Optimizer().runAll(configData, classes, OPTIMIZE_VARIABLES)` (default -- prints a candidate/net-worth table per variable), or, under `--debug`, skips the optimizer entirely and runs one `Config` -> `Bookkeeper` -> `Simulator` pass using the input cfg values exactly as given (no candidate substitution), printing the full per-year `reportYear()` report -- `--debug` is for inspecting one scenario's accounting in detail, not the optimizer's winning candidates
@@ -205,29 +201,36 @@ integration test for `runAll()`'s `InsufficientFundsError` handling, all
 previously untested since they were free functions in `main.js`, which had
 no test file.
 
-**Withdrawal ordinary-income ceiling** -- **done** (first slice of
-"withdrawal source/order," the largest of the five variables). Rather than
-a full per-year combinatorial search over which account(s) to draw from,
-this is deliberately the simplest structure that lets a shortfall span
-multiple accounts in one year: `Cash.produce()` (`src/Cash.js`) caps
-withdrawals from `TraditionalIra`/`NonSpousalInheritedIra` at one config
-number, `cfg.ordinaryIncomeCeiling` (reading that year's already-posted
-`OrdinaryIncome` from Salary/Pension/RMDs, since `cash.earn()` runs before
-`produce()` -- see `Bookkeeper.runYear()`), then falls through to the next
-account in `withdrawalOrder` (Roth/HSA, no tax consequence) for the
-remainder -- no new control flow, the existing walk-the-list loop just
-stops early on a capped account. Unset means no cap (today's drain-fully
-behavior), so every existing config/test is unaffected. Deliberately
-ignores the knock-on effect of ordinary income on Social Security's
-taxability (the "tax torpedo") -- a real refinement, not needed for this
-first cut. Wired into `main.js`'s `OPTIMIZE_VARIABLES`: candidates are the
-federal bracket boundaries themselves plus "no cap" (the interesting
-choices are "fill up to the top of this bracket," not arbitrary dollar
-amounts). An integration test in `test/Optimizer.test.js` proves the real
-pipeline with a hand-computable case: capping withdrawals away from
-`TraditionalIra` onto tax-free `RothIra` avoids realizing tax that a
-higher ceiling would have to pay (and then withdraw more to cover) the
-following year.
+**Withdrawal category order + ceilings** -- **done** (first slice of
+"withdrawal source/order," the largest of the five variables). Started as
+a single `cfg.ordinaryIncomeCeiling` (one number, capping only
+`TraditionalIra`/`NonSpousalInheritedIra`), then generalized to three tax
+categories -- `ltcg`/`income`/`taxFree` (`Cash.js`'s `categoryOf()`) --
+each with its own ceiling (`cfg.ltcgCeiling`/`cfg.incomeCeiling`;
+`taxFree` is never capped, no tax cost to drawing it) and a searchable
+`cfg.categoryOrder` deciding which category gets drawn down first,
+second, third (`Cash.produce()`'s `categoryRoom()`/`accountsInCategory()`).
+The `ltcg` ceiling needed one wrinkle `income` doesn't: a
+`TraditionalIra` withdrawal is 1:1 ordinary income, but a `TaxableAccount`
+withdrawal is only partially gain (`TaxableAccount.withdraw()`'s basis
+fraction), so `categoryRoom()` converts the raw gain-room back into a
+withdrawal-amount room by dividing by that fraction. Unset
+`categoryOrder`/ceilings fall back to walking `withdrawalOrder` literally
+with no cap (today's original drain-fully behavior), so every
+pre-category config/test is unaffected. Deliberately ignores the
+knock-on effect of ordinary income on Social Security's taxability (the
+"tax torpedo") -- a real refinement, not needed for this cut. Wired into
+`main.js`'s `OPTIMIZE_VARIABLES`: candidates are the cross product of all
+6 category orderings with each capped category's bracket-boundary
+ceilings plus "no cap" (the interesting choices are "fill up to the top
+of this bracket," not arbitrary dollar amounts) -- `taxFree` is never a
+ceiling candidate axis. An integration test in `test/Optimizer.test.js`
+proves the real pipeline with a hand-computable case: three accounts
+(`TaxableAccount`/`TraditionalIra`/`RothIra`), each large enough to cover
+the whole shortfall alone, so only which category is *first* in
+`categoryOrder` matters -- `taxFree` first beats `ltcg` first beats
+`income` first, by exactly the tax each defers to (and then has to
+withdraw more to cover) the following year.
 
 **Mortgage sell year** -- **done**, replaces "extra mortgage principal
 payments" in Optimize Variables (dropped, not deferred -- the user chose

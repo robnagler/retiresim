@@ -5,6 +5,33 @@ import { Simulator } from './Simulator.js';
 import { claimAgeCandidates } from './SocialSecurity.js';
 import { InsufficientFundsError } from './InsufficientFundsError.js';
 
+// All 6 orderings of the 3 withdrawal tax categories (see Cash.js's
+// categoryOf()) -- written out literally rather than computed, since the
+// set is fixed and tiny.
+const CATEGORY_ORDERS = [
+    ['ltcg', 'income', 'taxFree'],
+    ['ltcg', 'taxFree', 'income'],
+    ['income', 'ltcg', 'taxFree'],
+    ['income', 'taxFree', 'ltcg'],
+    ['taxFree', 'ltcg', 'income'],
+    ['taxFree', 'income', 'ltcg'],
+];
+
+// candidate is a plain object (categoryOrder/ltcgCeiling/incomeCeiling),
+// not a primitive -- toString() gives printNetWorthTable's String(candidate)
+// a readable label instead of "[object Object]".
+function categoryOrderCandidate(categoryOrder, ltcgCeiling, incomeCeiling) {
+    return {
+        categoryOrder,
+        ltcgCeiling,
+        incomeCeiling,
+        toString() {
+            const fmt = (v) => (v === Infinity ? 'inf' : v);
+            return `${categoryOrder.join('>')} ltcg<=${fmt(ltcgCeiling)} income<=${fmt(incomeCeiling)}`;
+        },
+    };
+}
+
 // CLAUDE.md's "Optimize Variables": one entry per implemented variable.
 // candidates() lists the values to try; apply() overrides a cloned
 // config's field for one candidate.
@@ -22,17 +49,32 @@ export const OPTIMIZE_VARIABLES = [
         },
     },
     {
-        label: 'Withdrawal ordinary-income ceiling',
-        // Candidates are the federal bracket boundaries themselves (plus
-        // "no cap") -- the interesting choices are "fill up to the top of
-        // this bracket," not arbitrary dollar amounts in between.
+        label: 'Withdrawal category order + ceilings',
+        // Searches which tax category (realized gains / ordinary income /
+        // tax-free) gets drawn down first, second, third, crossed with
+        // each of the two capped categories' bracket-boundary ceilings
+        // (plus "no cap") -- the interesting choices are "fill up to the
+        // top of this bracket," not arbitrary dollar amounts in between.
+        // taxFree is never a ceiling candidate axis -- it's never capped
+        // (see Cash.categoryRoom()).
         candidates: (configData) => {
             const tax = configData.Cash.spendingOrder.find((e) => e.class === 'TaxCalculator');
-            const bounds = tax.federalBrackets.map((b) => b.upTo).filter((upTo) => upTo !== null);
-            return [...bounds, Infinity];
+            const ltcgCeilings = [...tax.ltcgBrackets.map((b) => b.upTo).filter((upTo) => upTo !== null), Infinity];
+            const incomeCeilings = [...tax.federalBrackets.map((b) => b.upTo).filter((upTo) => upTo !== null), Infinity];
+            const rv = [];
+            for (const categoryOrder of CATEGORY_ORDERS) {
+                for (const ltcgCeiling of ltcgCeilings) {
+                    for (const incomeCeiling of incomeCeilings) {
+                        rv.push(categoryOrderCandidate(categoryOrder, ltcgCeiling, incomeCeiling));
+                    }
+                }
+            }
+            return rv;
         },
         apply: (data, candidate) => {
-            data.Cash.ordinaryIncomeCeiling = candidate;
+            data.Cash.categoryOrder = candidate.categoryOrder;
+            data.Cash.ltcgCeiling = candidate.ltcgCeiling;
+            data.Cash.incomeCeiling = candidate.incomeCeiling;
         },
     },
 ];
