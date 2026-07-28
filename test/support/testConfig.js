@@ -18,17 +18,19 @@ export function testConfigData({
     withdrawalOrder = [],
     incomeOrder = [],
     spendingOrder = [],
-    ltcgCeiling,
-    incomeCeiling,
+    ltcgCeilingBracket,
+    incomeCeilingBracket,
     categoryOrder,
     ...rest
 } = {}) {
     const cash = { balance, withdrawalOrder, incomeOrder, spendingOrder };
-    if (ltcgCeiling !== undefined) {
-        cash.ltcgCeiling = ltcgCeiling;
+    // Explicit undefined checks, not truthiness -- 0 is a valid bracket
+    // index (the first/lowest bracket) and must not be dropped.
+    if (ltcgCeilingBracket !== undefined) {
+        cash.ltcgCeilingBracket = ltcgCeilingBracket;
     }
-    if (incomeCeiling !== undefined) {
-        cash.incomeCeiling = incomeCeiling;
+    if (incomeCeilingBracket !== undefined) {
+        cash.incomeCeilingBracket = incomeCeilingBracket;
     }
     if (categoryOrder !== undefined) {
         cash.categoryOrder = categoryOrder;

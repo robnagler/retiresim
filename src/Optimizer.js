@@ -17,17 +17,41 @@ const CATEGORY_ORDERS = [
     ['taxFree', 'income', 'ltcg'],
 ];
 
-// candidate is a plain object (categoryOrder/ltcgCeiling/incomeCeiling),
-// not a primitive -- toString() gives printNetWorthTable's String(candidate)
-// a readable label instead of "[object Object]".
-function categoryOrderCandidate(categoryOrder, ltcgCeiling, incomeCeiling) {
+// Display-only labels -- Cash.js's categoryOf() return values
+// ('ltcg'/'income'/'taxFree') are the real cfg identifiers and stay as
+// they are; these are just friendlier column text (the account types each
+// category is mostly drawn from: Taxable -> Tax, TraditionalIra -> Trad,
+// RothIra/HsaAccount -> Roth).
+const CATEGORY_LABEL = { ltcg: 'Tax', income: 'Trad', taxFree: 'Roth' };
+const fmtCeiling = (v) => (v === Infinity ? 'none' : v.toLocaleString());
+
+// candidate is a plain object (categoryOrder/ltcgCeilingBracket/
+// incomeCeilingBracket), not a primitive. `columns` gives
+// printNetWorthTable() a real multi-column table instead of cramming
+// everything into one long "Candidate" string -- a candidate this shaped
+// (126 of them, once per category-order/ceiling-bracket combination) is
+// unreadable as a single column. `toString()` is still needed as a
+// fallback for the "every candidate ran out of money" list, which doesn't
+// build a columnar table. ltcgBrackets/federalBrackets are the *current*
+// (Simulator.startYear) bracket tables, passed in only for display --
+// the ceiling actually applied at simulation time is resolved fresh each
+// year against the live, already-grown tables (see Cash.categoryRoom()),
+// so the real dollar amount enforced later in the simulation will be
+// higher than what's shown here.
+function categoryOrderCandidate(categoryOrder, ltcgCeilingBracket, incomeCeilingBracket, ltcgBrackets, federalBrackets) {
+    const ltcgDisplay = ltcgCeilingBracket == null ? Infinity : ltcgBrackets[ltcgCeilingBracket].upTo;
+    const incomeDisplay = incomeCeilingBracket == null ? Infinity : federalBrackets[incomeCeilingBracket].upTo;
     return {
         categoryOrder,
-        ltcgCeiling,
-        incomeCeiling,
+        ltcgCeilingBracket,
+        incomeCeilingBracket,
+        columns: {
+            Order: categoryOrder.map((c) => CATEGORY_LABEL[c]).join(' > '),
+            'Tax cap': fmtCeiling(ltcgDisplay),
+            'Trad cap': fmtCeiling(incomeDisplay),
+        },
         toString() {
-            const fmt = (v) => (v === Infinity ? 'inf' : v);
-            return `${categoryOrder.join('>')} ltcg<=${fmt(ltcgCeiling)} income<=${fmt(incomeCeiling)}`;
+            return `${categoryOrder.join('>')} ltcg<=${fmtCeiling(ltcgDisplay)} income<=${fmtCeiling(incomeDisplay)}`;
         },
     };
 }
@@ -52,20 +76,24 @@ export const OPTIMIZE_VARIABLES = [
         label: 'Withdrawal category order + ceilings',
         // Searches which tax category (realized gains / ordinary income /
         // tax-free) gets drawn down first, second, third, crossed with
-        // each of the two capped categories' bracket-boundary ceilings
-        // (plus "no cap") -- the interesting choices are "fill up to the
-        // top of this bracket," not arbitrary dollar amounts in between.
+        // each of the two capped categories' bracket-index ceilings (plus
+        // "no cap") -- the interesting choices are "fill up to the top of
+        // this bracket," not arbitrary dollar amounts in between. Indices,
+        // not dollar amounts -- Cash.categoryRoom() resolves the index
+        // against that year's live bracket table, so the applied ceiling
+        // grows every year along with the real brackets (see Cash.js).
         // taxFree is never a ceiling candidate axis -- it's never capped
         // (see Cash.categoryRoom()).
         candidates: (configData) => {
             const tax = configData.Cash.spendingOrder.find((e) => e.class === 'TaxCalculator');
-            const ltcgCeilings = [...tax.ltcgBrackets.map((b) => b.upTo).filter((upTo) => upTo !== null), Infinity];
-            const incomeCeilings = [...tax.federalBrackets.map((b) => b.upTo).filter((upTo) => upTo !== null), Infinity];
+            const finiteIndices = (brackets) => [...brackets.keys()].filter((i) => brackets[i].upTo !== null);
+            const ltcgCeilings = [...finiteIndices(tax.ltcgBrackets), undefined];
+            const incomeCeilings = [...finiteIndices(tax.federalBrackets), undefined];
             const rv = [];
             for (const categoryOrder of CATEGORY_ORDERS) {
-                for (const ltcgCeiling of ltcgCeilings) {
-                    for (const incomeCeiling of incomeCeilings) {
-                        rv.push(categoryOrderCandidate(categoryOrder, ltcgCeiling, incomeCeiling));
+                for (const ltcgCeilingBracket of ltcgCeilings) {
+                    for (const incomeCeilingBracket of incomeCeilings) {
+                        rv.push(categoryOrderCandidate(categoryOrder, ltcgCeilingBracket, incomeCeilingBracket, tax.ltcgBrackets, tax.federalBrackets));
                     }
                 }
             }
@@ -73,8 +101,8 @@ export const OPTIMIZE_VARIABLES = [
         },
         apply: (data, candidate) => {
             data.Cash.categoryOrder = candidate.categoryOrder;
-            data.Cash.ltcgCeiling = candidate.ltcgCeiling;
-            data.Cash.incomeCeiling = candidate.incomeCeiling;
+            data.Cash.ltcgCeilingBracket = candidate.ltcgCeilingBracket;
+            data.Cash.incomeCeilingBracket = candidate.incomeCeilingBracket;
         },
     },
 ];
@@ -138,6 +166,16 @@ export class Optimizer extends Base {
             return;
         }
         console.log(`\n${label}`);
+        if (netWorth.all[0].candidate.columns) {
+            this.printColumnTable(netWorth, failedYears);
+        } else {
+            this.printSimpleTable(netWorth, failedYears);
+        }
+    }
+
+    // The common case: candidate is a primitive (or has a short toString())
+    // that reads fine as a single column.
+    printSimpleTable(netWorth, failedYears) {
         console.log(`  ${'Candidate'.padStart(9)}   ${'Net Worth'.padStart(12)}`);
         for (const { candidate, score } of netWorth.all) {
             const marker = candidate === netWorth.best ? '  <- best' : '';
@@ -145,18 +183,53 @@ export class Optimizer extends Base {
         }
     }
 
-    // Runs every variables entry against configData, printing a
-    // candidate/net-worth table for each.
+    // For a candidate with multiple independently-meaningful fields (e.g.
+    // category order crossed with two ceilings) -- a real table, one
+    // column per candidate.columns key plus Net Worth, widths computed
+    // from the longest value (including header) in each column.
+    printColumnTable(netWorth, failedYears) {
+        const keys = Object.keys(netWorth.all[0].candidate.columns);
+        const headers = [...keys, 'Net Worth'];
+        const rows = netWorth.all.map(({ candidate, score }) => [
+            ...keys.map((k) => candidate.columns[k]),
+            this.formatScore(candidate, score, failedYears),
+        ]);
+        const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i].length)));
+        // First column is the descriptive label (category order); every
+        // other column is a number and reads better right-justified.
+        const line = (cells) => cells.map((c, i) => (i === 0 ? c.padEnd(widths[i]) : c.padStart(widths[i]))).join('   ');
+        console.log(`  ${line(headers)}`);
+        netWorth.all.forEach(({ candidate }, i) => {
+            const marker = candidate === netWorth.best ? '  <- best' : '';
+            console.log(`  ${line(rows[i])}${marker}`);
+        });
+    }
+
+    // Runs every variables entry in sequence, printing a candidate/net-worth
+    // table for each -- a greedy/coordinate-ascent search, not a joint
+    // search over the full cross product of every variable (which grows
+    // combinatorially as more variables are added). Each variable's grid is
+    // evaluated against a `base` config carrying forward the winning
+    // candidate of every variable already run, and its own winner is then
+    // folded into `base` before the next variable runs -- so, e.g., the
+    // withdrawal category-order table already reflects the best SS claim
+    // age, and HSA-pays-Medicare already reflects both. This can miss the
+    // true joint optimum (coordinate ascent doesn't guarantee it, and a
+    // different variable order can land on a different combination), but is
+    // far cheaper than evaluating every combination and a real improvement
+    // over evaluating each variable in isolation against configData's own
+    // literal values, which ignored every other variable's optimum entirely.
     runAll(configData, classes, variables = OPTIMIZE_VARIABLES) {
+        const base = structuredClone(configData);
         for (const variable of variables) {
-            const candidates = variable.candidates(configData);
+            const candidates = variable.candidates(base);
             // Keyed by candidate: which ones hit InsufficientFundsError and
             // in what year, so the rest of the grid keeps running instead
             // of the whole process aborting on the first candidate that
             // runs out of money.
             const failedYears = new Map();
             const evaluate = (candidate) => {
-                const { config, bookkeeper } = this.buildPipeline(configData, classes, variable, candidate);
+                const { config, bookkeeper } = this.buildPipeline(base, classes, variable, candidate);
                 try {
                     new Simulator({ bookkeeper, config }).run();
                     return bookkeeper.netWorth();
@@ -170,6 +243,25 @@ export class Optimizer extends Base {
             };
             const rv = this.run(candidates, evaluate);
             this.printNetWorthTable(variable.label, rv, failedYears);
+            this.printBestBalances(base, classes, variable, rv.best, failedYears);
+            variable.apply(base, rv.best);
         }
+    }
+
+    // Re-runs just the winning candidate (evaluate() didn't keep any
+    // Bookkeeper around -- rebuilding once here is far cheaper than holding
+    // one per candidate in memory for the whole grid) to print its ending
+    // account balances (Bookkeeper.report()) under the net-worth table, so
+    // it's not just one summed number -- which account actually ended up
+    // holding the difference is exactly the kind of thing a single Net
+    // Worth score hides.
+    printBestBalances(base, classes, variable, best, failedYears) {
+        if (failedYears.has(best)) {
+            return;
+        }
+        const { config, bookkeeper } = this.buildPipeline(base, classes, variable, best);
+        new Simulator({ bookkeeper, config }).run();
+        console.log('  Ending balances (best candidate):');
+        console.log(bookkeeper.report());
     }
 }

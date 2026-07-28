@@ -5,6 +5,7 @@ import { Account } from '../src/Account.js';
 import { TraditionalIra } from '../src/TraditionalIra.js';
 import { NonSpousalInheritedIra } from '../src/NonSpousalInheritedIra.js';
 import { RothIra } from '../src/RothIra.js';
+import { HsaAccount } from '../src/HsaAccount.js';
 import { TaxableAccount } from '../src/TaxableAccount.js';
 import { Mortgage } from '../src/Mortgage.js';
 import { TaxCalculator } from '../src/TaxCalculator.js';
@@ -29,6 +30,92 @@ test('runYear grows the balance at half of Economy.interestRate, not the full ra
 
     assert.equal(cash.balance, 1000 * 1.02);
     assert.equal(bookkeeper.balanceChange('Cash', 2026), 20);
+});
+
+test('payDirect withdraws from the named source account and posts straight to the expense category, not through Cash', () => {
+    const config = testConfig({ withdrawalOrder: [{ name: 'Hsa', class: 'RothIra', balance: 5000, withdraw: 0 }] });
+    const bookkeeper = new Bookkeeper({ config, classes: { RothIra, Cash } });
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
+
+    const remaining = cash.payDirect({ amount: 1000, sourceAccount: 'Hsa', destCategory: 'MedicarePremium', year: 2026, bookkeeper });
+
+    const hsa = bookkeeper.accounts.find((a) => a.name === 'Hsa');
+    assert.equal(remaining, 0);
+    assert.equal(hsa.balance, 4000);
+    assert.equal(cash.balance, 0);
+    assert.equal(bookkeeper.balanceChange('Hsa', 2026), -1000);
+    assert.equal(bookkeeper.balanceChange('MedicarePremium', 2026), 1000);
+    assert.equal(bookkeeper.balanceChange('Cash', 2026), 0);
+});
+
+test('payDirect pays what the source account can cover and returns the rest as a shortfall, instead of throwing', () => {
+    const config = testConfig({ withdrawalOrder: [{ name: 'Hsa', class: 'RothIra', balance: 500, withdraw: 0 }] });
+    const bookkeeper = new Bookkeeper({ config, classes: { RothIra, Cash } });
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
+
+    const remaining = cash.payDirect({ amount: 1000, sourceAccount: 'Hsa', destCategory: 'MedicarePremium', year: 2026, bookkeeper });
+
+    const hsa = bookkeeper.accounts.find((a) => a.name === 'Hsa');
+    assert.equal(remaining, 500);
+    assert.equal(hsa.balance, 0);
+    assert.equal(bookkeeper.balanceChange('Hsa', 2026), -500);
+    assert.equal(bookkeeper.balanceChange('MedicarePremium', 2026), 500);
+});
+
+test('runYear routes a spender with cfg.payFrom directly to that account, bypassing Cash\'s own balance entirely', () => {
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'Hsa', class: 'RothIra', balance: 5000, withdraw: 0 }],
+        spendingOrder: [{ name: 'Expense', class: 'LivingExpense', balance: 1000, payFrom: 'Hsa' }],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { RothIra, LivingExpense, Cash } });
+
+    bookkeeper.runYear(2026);
+
+    const hsa = bookkeeper.accounts.find((a) => a.name === 'Hsa');
+    assert.equal(hsa.balance, 4000);
+    assert.equal(bookkeeper.balanceChange('LivingExpensePaid', 2026), 1000);
+    assert.equal(bookkeeper.accounts.find((a) => a.name === 'Cash').balance, 0);
+    assert.equal(bookkeeper.balanceChange('Cash', 2026), 0);
+});
+
+test('runYear falls back to the normal Cash/produce() path for whatever a payFrom account can\'t cover, instead of throwing', () => {
+    const config = testConfig({
+        withdrawalOrder: [
+            { name: 'Hsa', class: 'RothIra', balance: 300, withdraw: 0 },
+            { name: 'Account', balance: 5000 },
+        ],
+        spendingOrder: [{ name: 'Expense', class: 'LivingExpense', balance: 1000, payFrom: 'Hsa' }],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { RothIra, Account, LivingExpense, Cash } });
+
+    bookkeeper.runYear(2026);
+
+    const hsa = bookkeeper.accounts.find((a) => a.name === 'Hsa');
+    const account = bookkeeper.accounts.find((a) => a.name === 'Account');
+    assert.equal(hsa.balance, 0);
+    assert.equal(account.balance, 5000 - 700);
+    assert.equal(bookkeeper.balanceChange('LivingExpensePaid', 2026), 1000);
+    assert.equal(bookkeeper.accounts.find((a) => a.name === 'Cash').balance, 0);
+});
+
+test('runYear pays a spender without cfg.payFrom through the shared Cash pool as before, unaffected by other spenders using payFrom', () => {
+    const config = testConfig({
+        withdrawalOrder: [
+            { name: 'Account', balance: 5000 },
+            { name: 'Hsa', class: 'RothIra', balance: 5000, withdraw: 0 },
+        ],
+        spendingOrder: [
+            { name: 'FromHsa', class: 'LivingExpense', balance: 1000, payFrom: 'Hsa' },
+            { name: 'FromCash', class: 'LivingExpense', balance: 300 },
+        ],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { RothIra, Account, LivingExpense, Cash } });
+
+    bookkeeper.runYear(2026);
+
+    assert.equal(bookkeeper.accounts.find((a) => a.name === 'Hsa').balance, 4000);
+    assert.equal(bookkeeper.accounts.find((a) => a.name === 'Account').balance, 5000 - 300);
+    assert.equal(bookkeeper.balanceChange('LivingExpensePaid', 2026), 1300);
 });
 
 test('produce withdraws from accounts in withdrawalOrder and posts a journal entry per source', () => {
@@ -114,15 +201,16 @@ test('produce does not post to LtcgIncome for non-TaxableAccount withdrawals', (
     assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 0);
 });
 
-test('produce caps TraditionalIra withdrawals at incomeCeiling, falling through to the next account for the remainder', () => {
+test('produce caps TraditionalIra withdrawals at incomeCeilingBracket\'s resolved dollar amount, falling through to the next account for the remainder', () => {
     const config = testConfig({
-        incomeCeiling: 3000,
+        incomeCeilingBracket: 0,
         withdrawalOrder: [
             { name: 'TraditionalIra', balance: 5000, birthYear: 2000 },
             { name: 'Account', balance: 1000 },
         ],
+        spendingOrder: [taxSpender({ federalBrackets: [{ rate: 0.10, upTo: 3000 }, { rate: 0.22, upTo: null }] })],
     });
-    const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra, Cash } });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra, TaxCalculator, Cash } });
 
     const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 4000, year: 2026, bookkeeper });
 
@@ -132,15 +220,16 @@ test('produce caps TraditionalIra withdrawals at incomeCeiling, falling through 
     ]);
 });
 
-test('produce\'s incomeCeiling accounts for OrdinaryIncome already posted this year (e.g. Salary), leaving less room', () => {
+test('produce\'s incomeCeilingBracket accounts for OrdinaryIncome already posted this year (e.g. Salary), leaving less room', () => {
     const config = testConfig({
-        incomeCeiling: 3000,
+        incomeCeilingBracket: 0,
         withdrawalOrder: [
             { name: 'TraditionalIra', balance: 5000, birthYear: 2000 },
             { name: 'Account', balance: 5000 },
         ],
+        spendingOrder: [taxSpender({ federalBrackets: [{ rate: 0.10, upTo: 3000 }, { rate: 0.22, upTo: null }] })],
     });
-    const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra, Cash } });
+    const bookkeeper = new Bookkeeper({ config, classes: { Account, TraditionalIra, TaxCalculator, Cash } });
     bookkeeper.simplePost(2026, 'earn', 'TaxCalcInput', 'OrdinaryIncome', 2000);
 
     const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 4000, year: 2026, bookkeeper });
@@ -151,11 +240,11 @@ test('produce\'s incomeCeiling accounts for OrdinaryIncome already posted this y
     ]);
 });
 
-test('produce\'s incomeCeiling does not limit ltcg-category (TaxableAccount) withdrawals', () => {
+test('produce\'s incomeCeilingBracket does not limit ltcg-category (TaxableAccount) withdrawals', () => {
     const config = testConfig({
-        incomeCeiling: 0,
+        incomeCeilingBracket: 0,
         withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 }],
-        spendingOrder: [taxSpender()],
+        spendingOrder: [taxSpender({ federalBrackets: [{ rate: 0.10, upTo: 0 }, { rate: 0.22, upTo: null }] })],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, TaxCalculator, Cash } });
 
@@ -164,17 +253,17 @@ test('produce\'s incomeCeiling does not limit ltcg-category (TaxableAccount) wit
     assert.deepEqual(rv, [{ account: 'Taxable', amount: 5000 }]);
 });
 
-test('produce caps TaxableAccount withdrawals at ltcgCeiling based on realized gain, falling through for the remainder', () => {
+test('produce caps TaxableAccount withdrawals at ltcgCeilingBracket\'s resolved dollar amount based on realized gain, falling through for the remainder', () => {
     // 6000/10000 basis fraction -- each $1 withdrawn realizes $0.40 of
-    // gain, so a $2500 ltcgCeiling allows a $6250 withdrawal (2500/0.4)
+    // gain, so a $2500 ceiling allows a $6250 withdrawal (2500/0.4)
     // before the room runs out.
     const config = testConfig({
-        ltcgCeiling: 2500,
+        ltcgCeilingBracket: 0,
         withdrawalOrder: [
             { name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 },
             { name: 'Account', balance: 5000 },
         ],
-        spendingOrder: [taxSpender()],
+        spendingOrder: [taxSpender({ ltcgBrackets: [{ rate: 0.00, upTo: 2500 }, { rate: 0.15, upTo: null }] })],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, Account, TaxCalculator, Cash } });
 
@@ -187,9 +276,9 @@ test('produce caps TaxableAccount withdrawals at ltcgCeiling based on realized g
     assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 2500);
 });
 
-test('produce\'s ltcgCeiling does not limit income-category (TraditionalIra) withdrawals', () => {
+test('produce\'s ltcgCeilingBracket does not limit income-category (TraditionalIra) withdrawals', () => {
     const config = testConfig({
-        ltcgCeiling: 0,
+        ltcgCeilingBracket: 0,
         withdrawalOrder: [{ name: 'TraditionalIra', balance: 5000, birthYear: 2000 }],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra, Cash } });
@@ -197,6 +286,25 @@ test('produce\'s ltcgCeiling does not limit income-category (TraditionalIra) wit
     const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 3000, year: 2026, bookkeeper });
 
     assert.deepEqual(rv, [{ account: 'TraditionalIra', amount: 3000 }]);
+});
+
+test('produce falls back to an uncapped second pass over the same order when the capped pass alone would leave a shortfall, instead of throwing InsufficientFundsError', () => {
+    const config = testConfig({
+        incomeCeilingBracket: 0,
+        withdrawalOrder: [{ name: 'TraditionalIra', balance: 5000, birthYear: 2000 }],
+        spendingOrder: [taxSpender({ federalBrackets: [{ rate: 0.10, upTo: 100 }, { rate: 0.22, upTo: null }] })],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TraditionalIra, TaxCalculator, Cash } });
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
+
+    const rv = cash.produce({ amount: 3000, year: 2026, bookkeeper });
+
+    assert.deepEqual(rv, [
+        { account: 'TraditionalIra', amount: 100 },
+        { account: 'TraditionalIra', amount: 2900 },
+    ]);
+    assert.equal(bookkeeper.accounts.find((a) => a.name === 'TraditionalIra').balance, 2000);
+    assert.equal(cash.balance, 3000);
 });
 
 test('produce walks categoryOrder category-by-category when set, ignoring withdrawalOrder\'s literal sequence', () => {
@@ -219,14 +327,40 @@ test('produce walks categoryOrder category-by-category when set, ignoring withdr
     ]);
 });
 
+test('produce never withdraws from a real HsaAccount, even when it\'s first in categoryOrder/withdrawalOrder with plenty of balance -- only payFrom can spend it', () => {
+    const config = testConfig({
+        categoryOrder: ['taxFree', 'income'],
+        withdrawalOrder: [
+            { name: 'Hsa', class: 'HsaAccount', balance: 50000, withdraw: 0 },
+            { name: 'TraditionalIra', balance: 5000, birthYear: 2000 },
+        ],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { HsaAccount, TraditionalIra, Cash } });
+
+    const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 3000, year: 2026, bookkeeper });
+
+    assert.deepEqual(rv, [{ account: 'TraditionalIra', amount: 3000 }]);
+    assert.equal(bookkeeper.accounts.find((a) => a.name === 'Hsa').balance, 50000);
+});
+
+test('produce\'s uncapped fallback pass also skips a real HsaAccount, throwing InsufficientFundsError instead of draining it', () => {
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'Hsa', class: 'HsaAccount', balance: 50000, withdraw: 0 }],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { HsaAccount, Cash } });
+
+    assert.throws(() => bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 3000, year: 2026, bookkeeper }), /shortfall=3000/);
+    assert.equal(bookkeeper.accounts.find((a) => a.name === 'Hsa').balance, 50000);
+});
+
 test('produce\'s income category room already reflects an inherited account\'s forced RMD, posted via earn() before produce() runs', () => {
     const config = testConfig({
-        incomeCeiling: 6000,
+        incomeCeilingBracket: 0,
         withdrawalOrder: [
             { name: 'Inherited', class: 'NonSpousalInheritedIra', balance: 25000, inheritedYear: 2021 },
             { name: 'Account', balance: 5000 },
         ],
-        spendingOrder: [taxSpender()],
+        spendingOrder: [taxSpender({ federalBrackets: [{ rate: 0.10, upTo: 6000 }, { rate: 0.22, upTo: null }] })],
     });
     const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, Account, TaxCalculator, Cash } });
     // deadline 2031, 2026 has 6 years remaining -- forces a 25000/6 RMD,

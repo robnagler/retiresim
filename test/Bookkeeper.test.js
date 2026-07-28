@@ -87,25 +87,29 @@ test('constructor builds accounts from Cash\'s withdrawalOrder and spendingOrder
     assert.equal(bookkeeper.accounts[2].name, 'Cash');
 });
 
-test('report dumps each account name and balance as a table', () => {
+test('report dumps every account\'s name and balance, but Total is netWorth(), not a blind sum -- Mortgage/LivingExpense are listed but excluded', () => {
     const config = testConfig({
-        withdrawalOrder: [{ name: 'Account', balance: 1000 }],
-        spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
+        withdrawalOrder: [{ name: 'TaxableAccount', balance: 1000, basis: 1000 }],
+        spendingOrder: [
+            { name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 },
+            { name: 'LivingExpense', balance: 300 },
+        ],
     });
-    const bookkeeper = new Bookkeeper({ config, classes: { Account, Mortgage, Cash } });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, Mortgage, LivingExpense, Cash } });
 
     const rv = bookkeeper.report();
 
     const lines = rv.split('\n');
-    assert.equal(lines.length, 5);
+    assert.equal(lines.length, 6);
     assert.match(lines[0], /^Account\s+Balance$/);
-    assert.match(lines[1], /^Account\s+1000$/);
+    assert.match(lines[1], /^TaxableAccount\s+1000$/);
     assert.match(lines[2], /^Mortgage\s+-200000$/);
-    assert.match(lines[3], /^Cash\s+0$/);
-    assert.match(lines[4], /^Total\s+-199000$/);
+    assert.match(lines[3], /^LivingExpense\s+300$/);
+    assert.match(lines[4], /^Cash\s+0$/);
+    assert.match(lines[5], /^Total\s+1000$/);
 });
 
-test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA + Cash balances plus Mortgage (already negative), excluding LivingExpense/Tax', () => {
+test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA + Cash balances, excluding Mortgage/LivingExpense/Tax', () => {
     const config = testConfig({
         balance: 700,
         withdrawalOrder: [
@@ -126,7 +130,7 @@ test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA + Cash balanc
         classes: { TaxableAccount, TraditionalIra, RothIra, NonSpousalInheritedIra, HsaAccount, Mortgage, LivingExpense, TaxCalculator, Cash },
     });
 
-    assert.equal(bookkeeper.netWorth(), 1000 + 2000 + 3000 + 4000 + 5000 - 6000 + 700);
+    assert.equal(bookkeeper.netWorth(), 1000 + 2000 + 3000 + 4000 + 5000 + 700);
 });
 
 test('reportTransactions dumps each journal entry for the given year as a category/source/dest/amount table', () => {

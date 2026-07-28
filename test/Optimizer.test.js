@@ -129,10 +129,10 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the SS claim age tha
 });
 
 // Same shape again, applied to CLAUDE.md's withdrawal category order +
-// ceilings. Single-tier federalBrackets/ltcgBrackets means every
-// ltcgCeiling/incomeCeiling candidate collapses to Infinity (no cap), so
-// the only thing distinguishing the 6 candidates is which category is
-// FIRST in categoryOrder -- each account has plenty of balance to cover
+// ceilings. Both candidates leave ltcgCeilingBracket/incomeCeilingBracket
+// unset (no cap), so the only thing distinguishing the 6 candidates is
+// which category is FIRST in categoryOrder -- each account has plenty of
+// balance to cover
 // the whole shortfall alone, so later categories are never touched. Two
 // years, LivingExpense=10000/year, 0% tax-free (Roth) vs 10% ltcg
 // (Taxable, basis=0 so every dollar withdrawn is pure gain) vs 30%
@@ -157,8 +157,8 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the withdrawal categ
     const evaluate = (candidate) => {
         const data = structuredClone(baseData);
         data.Cash.categoryOrder = candidate.categoryOrder;
-        data.Cash.ltcgCeiling = candidate.ltcgCeiling;
-        data.Cash.incomeCeiling = candidate.incomeCeiling;
+        data.Cash.ltcgCeilingBracket = candidate.ltcgCeilingBracket;
+        data.Cash.incomeCeilingBracket = candidate.incomeCeilingBracket;
         const config = new Config(data);
         const bookkeeper = new Bookkeeper({ config, classes });
         new Simulator({ bookkeeper, config }).run();
@@ -177,7 +177,7 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the withdrawal categ
         ['taxFree', 'ltcg', 'income'],
         ['taxFree', 'income', 'ltcg'],
     ];
-    const candidates = orders.map((categoryOrder) => ({ categoryOrder, ltcgCeiling: Infinity, incomeCeiling: Infinity }));
+    const candidates = orders.map((categoryOrder) => ({ categoryOrder, ltcgCeilingBracket: undefined, incomeCeilingBracket: undefined }));
 
     const rv = new Optimizer().run(candidates, evaluate);
 
@@ -236,6 +236,42 @@ test('printNetWorthTable prints a full candidate table with the winner marked', 
 
     assert.match(out, /Candidate/);
     assert.match(out, /2.*900.*<- best/);
+});
+
+// A candidate with a `columns` object (e.g. categoryOrderCandidate) gets
+// a real multi-column table instead of one long single-column string --
+// this is what makes a 54-row grid like "Withdrawal category order +
+// ceilings" actually readable.
+test('printNetWorthTable prints one column per candidate.columns key, plus Net Worth, left-justifying only the first (label) column', () => {
+    const optimizer = new Optimizer();
+    const candidate = (order, cap) => ({ columns: { Order: order, 'Tax cap': cap } });
+    const netWorth = {
+        best: undefined,
+        score: 900,
+        all: [
+            { candidate: candidate('Trad > Tax', 'none'), score: 500 },
+            { candidate: candidate('Tax > Trad', '47,000'), score: 900 },
+        ],
+    };
+    netWorth.best = netWorth.all[1].candidate;
+
+    const out = captureLog(() => optimizer.printNetWorthTable('X', netWorth, new Map()));
+    const lines = out.split('\n').filter(Boolean);
+
+    assert.equal(lines[0], 'X');
+    // The label column (Order) is left-justified -- "Trad > Tax" and
+    // "Tax > Trad" are the same length, so this alone wouldn't prove it,
+    // but the header lining up under both rows confirms consistent
+    // column widths regardless of justification direction.
+    assert.match(lines[1], /^  Order\s+Tax cap\s+Net Worth$/);
+    // The Tax cap column is right-justified: "none" (4 chars) gets
+    // leading padding to match "47,000" (6 chars) -- a trailing-padded
+    // (left-justified) "none" would leave the header's "Tax cap" text
+    // starting to the right of where "none" starts, not directly above it.
+    const capColumnStart = lines[1].indexOf('Tax cap');
+    assert.equal(lines[2].indexOf('none'), capColumnStart + 'Tax cap'.length - 'none'.length);
+    assert.match(lines[2], /Trad > Tax\s+none\s+500/);
+    assert.match(lines[3], /Tax > Trad\s+47,000\s+900\s+<- best/);
 });
 
 // Integration test: runAll() wired to a real Config/Bookkeeper/Simulator,
