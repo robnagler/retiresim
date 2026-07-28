@@ -2,6 +2,7 @@
 
 ## 2026-07-27
 
+* 18:45:46 **Update**: Committed as `2921e3f` and pushed `8187834..2921e3f` to origin/main.
 * 18:45:27 **Prompt**: "gckp"
 * 18:30:59 **Update**: Added InsufficientFundsError (carries the year) thrown by Cash.produce(). main.js now catches it per-candidate during an optimizer sweep instead of the whole grid aborting -- that candidate is scored 0 and displayed as "0 (YYYY)", the rest of the grid (that variable's remaining candidates, and every other variable) still runs; --debug skips the detailed report if the winner itself failed, with a short note instead of crashing. 119/119 tests pass. Updated CLAUDE.md. Not committed yet.
 * 18:28:29 **Update**: Committed as `8187834` and pushed `8c6d24a..8187834` to origin/main.
