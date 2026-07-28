@@ -4,7 +4,6 @@ export class Account extends Base {
     constructor({ name, config }) {
         super({ name, config });
         this.balance = this.cfg.balance;
-        this.rate = this.cfg.rate;
     }
 
     earn(year) {
@@ -33,9 +32,19 @@ export class Account extends Base {
         return this.balance;
     }
 
+    // Defaults to the shared market-growth rate for investment accounts
+    // (TaxableAccount/TraditionalIra/RothIra/HsaAccount/
+    // NonSpousalInheritedIra all inherit this unmodified); LivingExpense
+    // overrides it to inflationRate instead (see LivingExpense.js).
+    // Mortgage/Cash/Medicare/SocialSecurity override runYear() entirely
+    // and never call this.
+    growthRate(bookkeeper) {
+        return bookkeeper.economy.sp500Rate;
+    }
+
     runYear({ year, bookkeeper }) {
         const a = this.balance;
-        this.grow(this.rate);
+        this.grow(this.growthRate(bookkeeper));
         bookkeeper.simplePost(year, 'growth', 'UnrealizedGrowth', this.name, this.balance - a);
     }
 }

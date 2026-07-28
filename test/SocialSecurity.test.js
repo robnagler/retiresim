@@ -7,10 +7,11 @@ import { TaxCalculator } from '../src/TaxCalculator.js';
 import { Config } from '../src/Config.js';
 
 const buildConfig = ({ birthYear, claimAge, fraMonthlyBenefit = 2500, cola = 0 }) => new Config({
+    Economy: { inflationRate: 0, colaRate: cola, interestRate: 0, sp500Rate: 0 },
     Cash: {
         balance: 0,
         withdrawalOrder: [],
-        incomeOrder: [{ name: 'SocialSecurity', balance: 0, rate: 0, birthYear, claimAge, fraMonthlyBenefit, cola }],
+        incomeOrder: [{ name: 'SocialSecurity', balance: 0, birthYear, claimAge, fraMonthlyBenefit }],
         spendingOrder: [{
             name: 'Tax',
             class: 'TaxCalculator',
@@ -66,19 +67,21 @@ test('earn posts the benefit starting the exact startYear', () => {
 test('claiming before full retirement age reduces the monthly benefit ~8%/year', () => {
     const ss = buildSS({ birthYear: 1959, claimAge: 62, fraMonthlyBenefit: 4152 });
 
-    assert.equal(ss.monthlyAmount, 4152 * (1 - 0.08 * 5));
+    // monthlyAmount isn't computed until the claim year (see earn()) --
+    // pia is still the raw fraMonthlyBenefit input right after construction.
+    assert.equal(ss.computeMonthlyAmount(ss.pia), 4152 * (1 - 0.08 * 5));
 });
 
 test('claiming after full retirement age increases the monthly benefit ~8%/year', () => {
     const ss = buildSS({ birthYear: 1959, claimAge: 70, fraMonthlyBenefit: 4152 });
 
-    assert.equal(ss.monthlyAmount, 4152 * (1 + 0.08 * 3));
+    assert.equal(ss.computeMonthlyAmount(ss.pia), 4152 * (1 + 0.08 * 3));
 });
 
 test('claiming exactly at full retirement age applies no adjustment', () => {
     const ss = buildSS({ birthYear: 1959, claimAge: 67, fraMonthlyBenefit: 4152 });
 
-    assert.equal(ss.monthlyAmount, 4152);
+    assert.equal(ss.computeMonthlyAmount(ss.pia), 4152);
 });
 
 test('claimAge outside 62-70 throws', () => {
@@ -114,7 +117,7 @@ test('runYear applies cola to monthlyAmount every year benefits are being paid, 
     assert.equal(bookkeeper.balanceChange('SocialSecurityBenefit', 2028), 4000 * 1.02 * 1.02 * 12);
 });
 
-test('runYear does not apply cola before startYear -- no accrual while not yet claimed', () => {
+test('runYear grows pia by cola every year before claiming -- monthlyAmount stays uncomputed until the claim year', () => {
     const bookkeeper = new Bookkeeper({
         config: buildConfig({ birthYear: 1963, claimAge: 67, fraMonthlyBenefit: 4000, cola: 0.02 }),
         classes: { SocialSecurity, TaxCalculator, Cash },
@@ -124,5 +127,25 @@ test('runYear does not apply cola before startYear -- no accrual while not yet c
     bookkeeper.runYear(2026);
     bookkeeper.runYear(2027);
 
-    assert.equal(ss.monthlyAmount, 4000);
+    assert.equal(ss.monthlyAmount, null);
+    assert.equal(ss.pia, 4000 * 1.02 * 1.02);
+});
+
+// The nationwide COLA raises everyone's PIA every year, whether or not
+// they've claimed yet -- so by the claim year, the claim-age adjustment
+// applies to a PIA that's already grown from the original
+// fraMonthlyBenefit input, not to that raw input itself.
+test('the claim-age adjustment applies to the cola-grown pia at the claim year, not the original fraMonthlyBenefit', () => {
+    const bookkeeper = new Bookkeeper({
+        config: buildConfig({ birthYear: 1959, claimAge: 69, fraMonthlyBenefit: 4000, cola: 0.02 }),
+        classes: { SocialSecurity, TaxCalculator, Cash },
+    });
+
+    bookkeeper.runYear(2026);
+    bookkeeper.runYear(2027);
+    bookkeeper.runYear(2028); // startYear = 1959 + 69 = 2028
+
+    const grownPia = 4000 * 1.02 * 1.02;
+    const expectedMonthly = grownPia * (1 + 0.08 * 2); // claimAge 69 is 2 years past FRA 67
+    assert.ok(Math.abs(bookkeeper.balanceChange('SocialSecurityBenefit', 2028) - expectedMonthly * 12) < 0.01);
 });

@@ -8,8 +8,11 @@ export class Mortgage extends Account {
         // growthFactor is a non-trivial derived value reused every year in
         // makePayment(), so it's worth caching -- cfg.rate itself isn't
         // mutated, so it's read straight from cfg wherever else it's
-        // needed instead of being duplicated onto the instance.
-        const r = this.rate / MONTHS_PER_YEAR;
+        // needed instead of being duplicated onto the instance. This is
+        // the loan's own fixed rate, not Economy.interestRate -- Account
+        // no longer carries a generic `rate` field (see Account.js), so
+        // Mortgage reads it directly.
+        const r = this.cfg.rate / MONTHS_PER_YEAR;
         this.growthFactor = (1 + r) ** MONTHS_PER_YEAR;
         this._monthlyRate = r;
     }

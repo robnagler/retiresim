@@ -8,6 +8,7 @@ import { JournalEntry } from '../src/JournalEntry.js';
 import { Posting } from '../src/Posting.js';
 
 const config = new Config({
+    Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
     Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
     Tax: {
         balance: -5000,
@@ -28,6 +29,7 @@ const config = new Config({
 });
 
 const configWithSS = () => new Config({
+    Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
     Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
     Tax: {
         balance: -5000,

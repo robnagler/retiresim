@@ -11,12 +11,11 @@ import { LivingExpense } from './LivingExpense.js';
 import { TaxCalculator } from './TaxCalculator.js';
 import { Medicare } from './Medicare.js';
 import { Salary } from './Salary.js';
-import { SocialSecurity, claimAgeCandidates } from './SocialSecurity.js';
+import { SocialSecurity } from './SocialSecurity.js';
 import { Pension } from './Pension.js';
 import { Cash } from './Cash.js';
 import { Config } from './Config.js';
-import { Optimizer } from './Optimizer.js';
-import { InsufficientFundsError } from './InsufficientFundsError.js';
+import { Optimizer, OPTIMIZE_VARIABLES } from './Optimizer.js';
 
 const classes = {
     TaxableAccount,
@@ -38,23 +37,26 @@ const classes = {
 // illustrative example scenario below.
 const DEFAULT_CONFIG_DATA = {
     Simulator: { startYear: 2026, endYear: 2030 },
+    // Shared market/inflation assumptions -- consumed via bookkeeper.economy
+    // instead of each account/income/expense source carrying its own rate.
+    Economy: { inflationRate: 0.025, colaRate: 0.025, interestRate: 0.03, sp500Rate: 0.06 },
     Cash: {
         balance: 0,
         withdrawalOrder: [
-            { name: 'TaxableAccount', balance: 500000, rate: 0.06, basis: 300000 },
-            { name: 'TraditionalIra', balance: 800000, rate: 0.06, birthYear: 1955 },
-            { name: 'RothIra', balance: 200000, rate: 0.06, withdraw: 0 },
-            { name: 'NonSpousalInheritedIra', balance: 100000, rate: 0.06, inheritedYear: 2009, birthYear: 1955 },
-            { name: 'HsaAccount', balance: 40000, rate: 0.06, withdraw: 0 },
+            { name: 'TaxableAccount', balance: 500000, basis: 300000 },
+            { name: 'TraditionalIra', balance: 800000, birthYear: 1955 },
+            { name: 'RothIra', balance: 200000, withdraw: 0 },
+            { name: 'NonSpousalInheritedIra', balance: 100000, inheritedYear: 2009, birthYear: 1955 },
+            { name: 'HsaAccount', balance: 40000, withdraw: 0 },
         ],
         incomeOrder: [
-            { name: 'Salary', balance: 0, rate: 0, monthlyAmount: 12500, endYear: 2035 },
-            { name: 'SocialSecurity', balance: 0, rate: 0, birthYear: 1955, claimAge: 67, fraMonthlyBenefit: 2500, cola: 0.025 },
-            { name: 'Pension', balance: 0, rate: 0, amount: 20000 },
+            { name: 'Salary', balance: 0, monthlyAmount: 12500, endYear: 2035 },
+            { name: 'SocialSecurity', balance: 0, birthYear: 1955, claimAge: 67, fraMonthlyBenefit: 2500 },
+            { name: 'Pension', balance: 0, amount: 20000 },
         ],
         spendingOrder: [
             { name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2045 },
-            { name: 'LivingExpense', balance: 60000, rate: 0.025 },
+            { name: 'LivingExpense', balance: 60000 },
             {
                 name: 'Tax',
                 class: 'TaxCalculator',
@@ -77,7 +79,6 @@ const DEFAULT_CONFIG_DATA = {
             {
                 name: 'Medicare',
                 balance: 0,
-                rate: 0.05,
                 // partBMonthly/partDMonthly/partGMonthly are all monthly,
                 // unlike everything else in cfg -- Part B is billed monthly by
                 // CMS, Part D/Medigap Plan G monthly by private insurers.
@@ -89,133 +90,16 @@ const DEFAULT_CONFIG_DATA = {
     },
 };
 
-// CLAUDE.md's "Optimize Variables": one entry per implemented variable.
-// candidates() lists the values to try; apply() overrides a cloned
-// config's field for one candidate. Optimizer.js itself needs no
-// knowledge of any of this -- it just sees candidates + a scoring closure.
-const OPTIMIZE_VARIABLES = [
-    {
-        label: 'SS claim age',
-        // Excludes claim ages already passed as of Simulator.startYear --
-        // not real, actionable choices for someone already older than them.
-        candidates: (configData) => {
-            const { birthYear } = configData.Cash.incomeOrder.find((e) => e.name === 'SocialSecurity');
-            return claimAgeCandidates({ birthYear, asOfYear: configData.Simulator.startYear });
-        },
-        apply: (data, candidate) => {
-            data.Cash.incomeOrder.find((e) => e.name === 'SocialSecurity').claimAge = candidate;
-        },
-    },
-    {
-        label: 'Withdrawal ordinary-income ceiling',
-        // Candidates are the federal bracket boundaries themselves (plus
-        // "no cap") -- the interesting choices are "fill up to the top of
-        // this bracket," not arbitrary dollar amounts in between.
-        candidates: (configData) => {
-            const tax = configData.Cash.spendingOrder.find((e) => e.class === 'TaxCalculator');
-            const bounds = tax.federalBrackets.map((b) => b.upTo).filter((upTo) => upTo !== null);
-            return [...bounds, Infinity];
-        },
-        apply: (data, candidate) => {
-            data.Cash.ordinaryIncomeCeiling = candidate;
-        },
-    },
-];
-
-// Builds one candidate's Config/Bookkeeper without running the Simulator,
-// so callers can choose whether to run it silently (for scoring) or with
-// the per-year report callback (for --debug).
-function buildPipeline(configData, variable, candidate) {
-    const data = structuredClone(configData);
-    variable.apply(data, candidate);
-    const config = new Config(data);
+// --debug bypasses the optimizer entirely and runs the input cfg values
+// exactly as given -- no candidate substitution -- printing the full
+// per-year report. Non-debug mode always runs Optimizer.runAll() instead.
+function runDebug(configData, classes) {
+    const config = new Config(structuredClone(configData));
     const bookkeeper = new Bookkeeper({ config, classes });
-    return { config, bookkeeper };
-}
-
-// A candidate that hit InsufficientFundsError is scored 0 for sorting
-// purposes (see evaluate() below), but displayed as "0 (YYYY)" -- YYYY
-// being the year it ran out -- so it reads as a failure, not a real
-// zero-net-worth result.
-function formatScore(candidate, score, failedYears) {
-    const year = failedYears.get(candidate);
-    return year !== undefined ? `0 (${year})` : score.toFixed(0);
-}
-
-// A full candidate/net-worth table implies a real tradeoff was searched.
-// Cases where that's misleading: only one legal candidate existed (e.g.
-// SS claim age when already past 70, see claimAgeCandidates()), every
-// candidate scored the same (e.g. Salary end year when monthlyAmount=0,
-// so there's no income to vary at all), or every candidate ran out of
-// money (a tie at 0 for a different reason than "this variable doesn't
-// matter"). All are collapsed to one flagged line instead of a table
-// that looks informative but isn't.
-function printNetWorthTable(label, rv, failedYears) {
-    if (failedYears.size === rv.all.length) {
-        console.log(`\n${label} -- every candidate ran out of money:`);
-        for (const { candidate } of rv.all) {
-            console.log(`  ${String(candidate).padStart(9)}   ${formatScore(candidate, 0, failedYears).padStart(12)}`);
-        }
-        return;
-    }
-    if (rv.all.length === 1) {
-        console.log(`\n${label} -- only one legal candidate (${rv.best}), net worth ${formatScore(rv.best, rv.score, failedYears)}`);
-        return;
-    }
-    const scores = rv.all.map((r) => r.score);
-    if (Math.max(...scores) - Math.min(...scores) < 0.01) {
-        console.log(`\n${label} -- no effect on net worth (all ${rv.all.length} candidates tie at ${rv.score.toFixed(0)})`);
-        return;
-    }
-    console.log(`\n${label}`);
-    console.log(`  ${'Candidate'.padStart(9)}   ${'Net Worth'.padStart(12)}`);
-    for (const { candidate, score } of rv.all) {
-        const marker = candidate === rv.best ? '  <- best' : '';
-        console.log(`  ${String(candidate).padStart(9)}   ${formatScore(candidate, score, failedYears).padStart(12)}${marker}`);
-    }
-}
-
-// Runs every OPTIMIZE_VARIABLES entry against configData, printing a
-// candidate/net-worth table for each. --debug additionally prints the
-// full per-year report (reportYear(), same as the old single-scenario
-// mode) for each variable's winning candidate -- omitted by default since
-// printing it for every variable would be too much output to scan.
-function runOptimize(configData, debug) {
-    for (const variable of OPTIMIZE_VARIABLES) {
-        const candidates = variable.candidates(configData);
-        // Keyed by candidate: which ones hit InsufficientFundsError and
-        // in what year, so the rest of the grid keeps running instead of
-        // the whole process aborting on the first candidate that runs out
-        // of money.
-        const failedYears = new Map();
-        const evaluate = (candidate) => {
-            const { config, bookkeeper } = buildPipeline(configData, variable, candidate);
-            try {
-                new Simulator({ bookkeeper, config }).run();
-                return bookkeeper.netWorth();
-            } catch (err) {
-                if (!(err instanceof InsufficientFundsError)) {
-                    throw err;
-                }
-                failedYears.set(candidate, err.year);
-                return 0;
-            }
-        };
-        const rv = new Optimizer().run(candidates, evaluate);
-        printNetWorthTable(variable.label, rv, failedYears);
-        if (!debug) {
-            continue;
-        }
-        if (failedYears.has(rv.best)) {
-            console.log(`\n(skipping full report for ${variable.label} -- winning candidate ${rv.best} ran out of money in ${failedYears.get(rv.best)})`);
-            continue;
-        }
-        const { config, bookkeeper } = buildPipeline(configData, variable, rv.best);
-        new Simulator({ bookkeeper, config }).run((year) => {
-            console.log(bookkeeper.reportYear(year));
-            console.log('');
-        });
-    }
+    new Simulator({ bookkeeper, config }).run((year) => {
+        console.log(bookkeeper.reportYear(year));
+        console.log('');
+    });
 }
 
 const args = process.argv.slice(2);
@@ -223,4 +107,8 @@ const debug = args.includes('--debug');
 const configPath = args.find((a) => a !== '--debug');
 const configData = configPath ? JSON.parse(readFileSync(configPath, 'utf8')) : DEFAULT_CONFIG_DATA;
 
-runOptimize(configData, debug);
+if (debug) {
+    runDebug(configData, classes);
+} else {
+    new Optimizer().runAll(configData, classes, OPTIMIZE_VARIABLES);
+}

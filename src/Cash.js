@@ -9,7 +9,14 @@ export class Cash extends Account {
         this.spenders = spenders;
     }
 
+    // Idle cash earns interest too, same shape as Account.runYear()'s
+    // growth posting -- but only half of Economy.interestRate, not the
+    // full rate, since it's sitting somewhere lower-yield than invested
+    // accounts (a checking/settlement account, not a market position).
     runYear({ year, bookkeeper }) {
+        const a = this.balance;
+        this.grow(bookkeeper.economy.interestRate * 0.5);
+        bookkeeper.simplePost(year, 'growth', 'UnrealizedGrowth', this.name, this.balance - a);
         const d = this.spenders.map((spender) => spender.due());
         for (const x of d) {
             this.spend({ amount: x.amount, account: x.account, year, bookkeeper });

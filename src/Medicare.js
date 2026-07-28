@@ -37,18 +37,21 @@ export class Medicare extends Account {
         return IRMAA_BRACKETS.find((b) => b.upTo === null || magi <= b.upTo);
     }
 
-    // Base premiums inflate every year like LivingExpense's balance; the
-    // IRMAA surcharge itself does not compound -- it's looked up fresh each
-    // year from that year's magi. bookkeeper.taxCalculator.magi is already
-    // last year's value by the time this runs (TaxCalculator.prepareNextYear
-    // updates it later in the same annual cycle, via Cash.runYear), so this
-    // naturally gets the same 1-year lag as the tax-payment lag.
-    // partGYearly (Medigap) is not run through irmaaSurcharge() -- Medigap
-    // premiums aren't income-adjusted, only Part B and Part D are.
+    // Base premiums inflate every year like LivingExpense's balance, at the
+    // same shared Economy.inflationRate (not an independently-configured
+    // rate); the IRMAA surcharge itself does not compound -- it's looked up
+    // fresh each year from that year's magi. bookkeeper.taxCalculator.magi
+    // is already last year's value by the time this runs
+    // (TaxCalculator.prepareNextYear updates it later in the same annual
+    // cycle, via Cash.runYear), so this naturally gets the same 1-year lag
+    // as the tax-payment lag. partGYearly (Medigap) is not run through
+    // irmaaSurcharge() -- Medigap premiums aren't income-adjusted, only
+    // Part B and Part D are.
     runYear({ year, bookkeeper }) {
-        this.partBYearly *= 1 + this.rate;
-        this.partDYearly *= 1 + this.rate;
-        this.partGYearly *= 1 + this.rate;
+        const rate = bookkeeper.economy.inflationRate;
+        this.partBYearly *= 1 + rate;
+        this.partDYearly *= 1 + rate;
+        this.partGYearly *= 1 + rate;
         const surcharge = this.irmaaSurcharge(bookkeeper.taxCalculator.magi);
         this.owed = this.partBYearly + this.partDYearly + this.partGYearly + surcharge.partB + surcharge.partD;
     }

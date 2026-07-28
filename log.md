@@ -1,7 +1,34 @@
 # Log
 
+## 2026-07-28
+
+* 12:59:22 **Update**: Removed Account.js's now-dead `this.rate = this.cfg.rate` -- Account itself stopped using it once growthRate()/Economy took over, it was only still there for Mortgage's benefit. Mortgage now reads its own loan rate straight from cfg instead of the inherited field. 133/133 tests pass.
+* 12:59:00 **Prompt**: "account still has rate and grow()"
+* 12:52:42 **Update**: Phase 2 done -- new Economy.js holds inflationRate/colaRate/interestRate/sp500Rate, read once from cfg.Economy and exposed as bookkeeper.economy. Account.js gained an overridable growthRate() defaulting to Economy.sp500Rate (covers every investment account type automatically); LivingExpense overrides it to inflationRate; Cash now earns interest at half of interestRate (previously earned none at all); Medicare inflates premiums via the shared inflationRate instead of its own independently-configured rate; SocialSecurity reworked so the PIA grows by colaRate every simulated year from day one regardless of claim status, with the claim-age adjustment applying to whatever the PIA has grown to at the actual claim year. Removed the now-redundant per-account rate/cola fields from every config fixture, main.js's DEFAULT_CONFIG_DATA, and config/cfg.json (added its Economy block, preserving prior rate values where one existed). 133/133 tests pass. Updated CLAUDE.md, removed the four completed TODO items. Not committed yet.
+* 12:35:00 **Prompt**: (added retroactively, missed logging it in real time) "status?"
+* 12:35:00 **Answer**: (added retroactively, missed logging it in real time) Summarized Phase 2 progress -- Economy.js and its wiring into Account/LivingExpense/Cash/Medicare/SocialSecurity done and tested; remaining work was updating main.js's DEFAULT_CONFIG_DATA and the real config/cfg.json, plus CLAUDE.md documentation.
+* 12:10:00 **Prompt**: (added retroactively, missed logging it in real time) pointed out that "rv" should only be used as a local return-value temp, never as a parameter name or an object literal built solely to pass as an argument -- flagged in Optimizer.js's printNetWorthTable(label, rv, failedYears)
+* 12:10:00 **Update**: (added retroactively, missed logging it in real time) Renamed that parameter (and matching test fixture variables) to netWorth; saved the naming rule as a standing memory.
+* 12:07:58 **Prompt**: "phse 2"
+* 11:49:41 **Update**: Phase 1 of the TODO plan done -- Optimizer.js now owns the whole optimization pipeline (OPTIMIZE_VARIABLES, buildPipeline(), runAll(), printNetWorthTable()/formatScore()), reversing its old "knows nothing about Config/Bookkeeper/Simulator" design per the TODO. main.js shrank to building classes/configData and dispatching. --debug's meaning changed: it now skips the optimizer entirely and runs one scenario straight from the input cfg values with a full per-year report, instead of running the optimizer and additionally printing the winning candidates' reports. Added unit/integration tests for the moved logic (previously untested free functions). 127/127 tests pass. Updated CLAUDE.md, removed the completed TODO item. Not committed yet.
+* 11:43:20 **Prompt**: "continue" (after exiting plan mode with the phased plan approved, starting with Phase 1)
+* 11:40:00 **Prompt**: (added retroactively, missed logging it in real time) "phase 1"
+* 10:32:00 **Prompt**: (added retroactively, missed logging it in real time) "i want to approve each item but not individual edits"
+* 10:31:00 **Prompt**: (added retroactively, missed logging it in real time) "i want to approve each step but not individual edits"
+* 10:30:00 **Update**: (added retroactively, missed logging it in real time) Wrote a 6-phase implementation plan (Optimizer/main.js split, Economy object for shared rates, SS COLA timing correction, Medicare inflation, lump-sum spending, Cash 50% interest, withdrawal category-order optimizer variable, HSA-pays-Medicare, seeded randomness/crash modeling/Monte Carlo) covering every item in CLAUDE.md's TODO list, sequenced foundational-first. Saved to the plan file.
+* 10:05:00 **Prompt**: (added retroactively, missed logging it in real time) "i want a single bracket range for all accounts. i want to group the income-producing accounts, roth accounts, and ltgcg accounts separately. this should be a variable: withdraw ltcg first up to bracket x, then income account up to bracket y, then tax free accounts. the order of these categories changes. the only complexity is inherited account which can have rmds coming out now so that's being earned."
+* 10:01:00 **Prompt**: (added retroactively, missed logging it in real time) answered clarifying questions -- Economy object rate mapping: all growth accounts use sp500Rate; asked to clarify the withdrawal-order/tax-bracket scope question further before answering it
+* 10:00:00 **Answer**: (added retroactively, missed logging it in real time) Explored Optimizer.js/main.js/Cash.js/Account.js/LivingExpense.js/Medicare.js/SocialSecurity.js/TaxCalculator.js/TraditionalIra.js/Mortgage.js to ground a phased plan; asked two clarifying questions about the new Economy object's rate mapping and how far to take the withdrawal-order/tax-bracket TODO item.
+* 09:46:00 **Prompt**: (added retroactively, missed logging it in real time) answered clarifying questions -- Cash earns 50% of Economy's interestRate; plan should cover all TODO items in one phased sequence, foundational first
+* 09:45:00 **Prompt**: (added retroactively, missed logging it in real time) "updated" (had edited CLAUDE.md's TODO item directly to clarify the Monte Carlo wording)
+* 09:40:00 **Prompt**: (added retroactively, missed logging it in real time) "it should start at the beginning of the simulation because it is going up for everybody by the cola so the initial pia will be different for me next year. it doesn't depend on my year, just at the start of the sim"
+* 09:36:00 **Prompt**: (added retroactively, missed logging it in real time) "what do you mean by pia"
+* 09:36:00 **Answer**: (added retroactively, missed logging it in real time) Explained PIA (Primary Insurance Amount) -- the SSA term for the FRA-age benefit before the early/late claiming adjustment, and how it maps to this project's cfg.fraMonthlyBenefit.
+* 09:30:00 **Prompt**: "look at claude todo and enhance into a plan with an appropriate. ask questions if things are not clear"
+
 ## 2026-07-27
 
+* 20:12:29 **Update**: Committed as `5f6b131` and pushed `346bc7d..5f6b131` to origin/main.
 * 20:12:12 **Prompt**: "gckp"
 * 20:10:52 **Update**: Added the SSA historical COLA table (1996-2025, ~2.53% 30-year average) to README.md's new "Reference data" section, as background for config/cfg.json's cola default. Not committed yet.
 * 20:10:17 **Prompt**: "add that to the readme"

@@ -11,7 +11,13 @@ export class SocialSecurity extends Account {
         super({ name, config });
         this.checkClaimAge();
         this.startYear = this.cfg.birthYear + this.cfg.claimAge;
-        this.monthlyAmount = this.computeMonthlyAmount();
+        // The nationwide COLA raises everyone's PIA every year, whether or
+        // not they've claimed yet -- pia tracks that growth from the very
+        // first simulated year (see runYear()). monthlyAmount stays null
+        // until the actual claim year, when the claim-age adjustment is
+        // applied to whatever pia has grown to by then (see earn()).
+        this.pia = this.cfg.fraMonthlyBenefit;
+        this.monthlyAmount = null;
     }
 
     checkClaimAge() {
@@ -27,37 +33,45 @@ export class SocialSecurity extends Account {
     // directions, per CLAUDE.md's Optimize Variables (a deliberate
     // simplification, same spirit as the flat IRMAA lag and single filing
     // status elsewhere in this project).
-    computeMonthlyAmount() {
-        return this.cfg.fraMonthlyBenefit * (1 + ADJUSTMENT_PER_YEAR * (this.cfg.claimAge - FULL_RETIREMENT_AGE));
+    computeMonthlyAmount(pia) {
+        return pia * (1 + ADJUSTMENT_PER_YEAR * (this.cfg.claimAge - FULL_RETIREMENT_AGE));
     }
 
     // Reports the raw benefit, not OrdinaryIncome -- how much of it is
     // taxable depends on total provisional income for the year, which
     // only TaxCalculator can compute (see TaxCalculator.taxableSocialSecurity()).
     // No benefit before startYear -- same null-before-eligible pattern as
-    // TraditionalIra.earn()'s age < startAge check.
+    // TraditionalIra.earn()'s age < startAge check. The claim-age
+    // adjustment is applied exactly once, the first year benefits are
+    // paid, to whatever pia has grown to by then -- not to the original
+    // cfg.fraMonthlyBenefit input.
     earn(year, bookkeeper) {
         if (year < this.startYear) {
             return null;
+        }
+        if (this.monthlyAmount === null) {
+            this.monthlyAmount = this.computeMonthlyAmount(this.pia);
         }
         const amount = this.monthlyAmount * MONTHS_PER_YEAR;
         bookkeeper.taxCalculator?.postAmount('SocialSecurityBenefit', amount, year, bookkeeper);
         return { amount };
     }
 
-    // Real SS benefits get an annual cost-of-living adjustment once
-    // payments start -- applied to monthlyAmount (already claim-age
-    // adjusted) every year it's paid, same shape as LivingExpense's
-    // rate-based growth, just targeting monthlyAmount instead of balance.
     // Runs after earn() each year (Bookkeeper.runYear() calls cash.earn()
     // before the accounts loop), so a given year's payment always uses
     // the prior year's amount and next year's is the one that's grown --
     // overrides Account.runYear() entirely since balance/rate are inert
     // boilerplate for SocialSecurity (see claimAgeCandidates() usage
-    // elsewhere), not something worth a no-op growth posting.
-    runYear({ year }) {
-        if (year >= this.startYear) {
-            this.monthlyAmount *= 1 + this.cfg.cola;
+    // elsewhere), not something worth a no-op growth posting. Before
+    // claiming, pia itself is what grows by COLA every year (see
+    // constructor); once claimed, monthlyAmount (already claim-age
+    // adjusted) takes over, same shape as LivingExpense's rate-based
+    // growth, just targeting monthlyAmount instead of balance.
+    runYear({ year, bookkeeper }) {
+        if (this.monthlyAmount === null) {
+            this.pia *= 1 + bookkeeper.economy.colaRate;
+        } else if (year >= this.startYear) {
+            this.monthlyAmount *= 1 + bookkeeper.economy.colaRate;
         }
     }
 }

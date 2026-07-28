@@ -8,9 +8,10 @@ import { Config } from '../src/Config.js';
 
 test('below the RMD start age, runYear only grows the balance -- no distribution', () => {
     const config = new Config({
+        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0.05 },
         Cash: {
             balance: 0,
-            withdrawalOrder: [{ name: 'TraditionalIra', balance: 1000, rate: 0.05, birthYear: 2000 }],
+            withdrawalOrder: [{ name: 'TraditionalIra', balance: 1000, birthYear: 2000 }],
             spendingOrder: [],
         },
     });
@@ -26,9 +27,10 @@ test('below the RMD start age, runYear only grows the balance -- no distribution
 
 test('once age qualifies, Cash takes the RMD from the prior year-end balance, before growth, and it lands in Cash as ordinary income', () => {
     const config = new Config({
+        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0.05 },
         Cash: {
             balance: 0,
-            withdrawalOrder: [{ name: 'TraditionalIra', balance: 23700, rate: 0.05, birthYear: 1950 }],
+            withdrawalOrder: [{ name: 'TraditionalIra', balance: 23700, birthYear: 1950 }],
             spendingOrder: [{
                 name: 'Tax',
                 class: 'TaxCalculator',
@@ -54,9 +56,10 @@ test('once age qualifies, Cash takes the RMD from the prior year-end balance, be
 
 test('earn throws when the computed age is not reasonable', () => {
     const config = new Config({
+        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 0,
-            withdrawalOrder: [{ name: 'TraditionalIra', balance: 1000, rate: 0, birthYear: 2030 }],
+            withdrawalOrder: [{ name: 'TraditionalIra', balance: 1000, birthYear: 2030 }],
             spendingOrder: [],
         },
     });

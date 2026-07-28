@@ -1,5 +1,21 @@
 # Financial Planner Project Brief
 
+## TODO
+- Add an optimizer variable to spend the HSA on Medicare or not
+- Add an optimizer variable to change the order of
+  Roth/inherited/trad with a cap at tax brackets so for example
+  withdraw inherited until first tax bracket, then withdraw rest from
+  roth. Maybe have another tax bracket or two after that.
+- Add a feature for removing lump sums on particular years {2030: 100000}
+- Introduce random numbers based on a fixed (committed) seed table so
+  runs are reproducable. Any random values generated are always in the
+  same order at module startup (see crashes below)
+- add running random simulations like monte carlo
+- Introduce a crash based on a probability but non recurring so would
+  start the clock over. The crashes computed at startup. Then all runs
+  use the same crashes. The crash affects the rate for that year,
+  which can be negative. Base it on historical crashes.
+
 ## Goal
 
 Develop a Javascript financial planning simulator and optimizer that produces
@@ -30,21 +46,23 @@ Build the project slowly one module at a time.
 Core state, one class per file:
 
 * `Base.js` -- root class every other class extends: resolves `name`/`cfg` from `Config`, and a `toString()` that dumps all fields for error messages
-* `Account.js` extends `Base` -- balance, `grow(rate)`, `deposit()`, `withdraw()`
+* `Economy.js` extends `Base` -- shared market/inflation assumptions read once from `cfg.Economy`: `inflationRate`, `colaRate`, `interestRate`, `sp500Rate`. `Bookkeeper` builds one and exposes it as `bookkeeper.economy`, so any class with a `bookkeeper` reference uses the shared rate instead of an independently-configured one of its own. `Mortgage.rate` is deliberately not here -- it's a fixed loan rate, not a market/inflation assumption.
+* `Account.js` extends `Base` -- balance, `grow(rate)`, `deposit()`, `withdraw()`, `growthRate(bookkeeper)` (defaults to `bookkeeper.economy.sp500Rate`, overridable -- see `LivingExpense.js`), and `runYear()` (grows the balance at `growthRate()` and posts the change)
 * `TaxableAccount.js` extends Account -- adds basis tracking
 * `TraditionalIra.js`, `RothIra.js`, `NonSpousalInheritedIra.js` extend Account -- each encodes its own RMD/withdrawal rules
 * `HsaAccount.js` extends `RothIra` -- no tax consequence on withdrawal, same as Roth
-* `Mortgage.js` -- balance, rate, `endYear` (payoff year); the monthly payment is derived from those three via the standard fixed-payment amortization formula (not a separate cfg input), fixed once on the first year it runs, splits each year's payment into principal/interest. No payment is due once `year > endYear`. Optional `sellYear`: once `year >= sellYear`, payments stop and the remaining balance is wiped to zero in one non-cash journal entry -- sale proceeds/profit aren't modeled, only the liability going away.
-* `Salary.js`, `Pension.js`, `SocialSecurity.js`, `LivingExpense.js` -- income/expense sources, each reports its own tax treatment (or none) to `TaxCalculator`. `SocialSecurity` derives `startYear`/`monthlyAmount` from `cfg.birthYear`/`cfg.claimAge`/`cfg.fraMonthlyBenefit` (~8%/year adjustment off age 67), gating on the derived `startYear` (no benefit posted before the claimed year); once payments start, `monthlyAmount` grows by `cfg.cola` every year (`runYear()`, overriding `Account`'s inert default -- no accrual before `startYear`); `Salary` gates on `cfg.endYear` (no income posted after the working years end).
-* `Medicare.js` -- Part B/D premiums and a Medigap Plan G premium (all monthly cfg inputs, annualized internally), plus the IRMAA surcharge on Part B/D looked up from `bookkeeper.taxCalculator.magi` against a fixed internal bracket table (not configurable, not inflation-indexed)
+* `Mortgage.js` -- balance, rate, `endYear` (payoff year); the monthly payment is derived from those three via the standard fixed-payment amortization formula (not a separate cfg input), fixed once on the first year it runs, splits each year's payment into principal/interest. No payment is due once `year > endYear`. Optional `sellYear`: once `year >= sellYear`, payments stop and the remaining balance is wiped to zero in one non-cash journal entry -- sale proceeds/profit aren't modeled, only the liability going away. `rate` here is the loan's own fixed rate, not `Economy.interestRate`.
+* `Salary.js`, `Pension.js`, `SocialSecurity.js`, `LivingExpense.js` -- income/expense sources, each reports its own tax treatment (or none) to `TaxCalculator`. `LivingExpense` overrides `growthRate()` to `bookkeeper.economy.inflationRate` instead of `Account`'s default `sp500Rate`. `SocialSecurity` derives `startYear` from `cfg.birthYear`/`cfg.claimAge`; a tracked `pia` (seeded from `cfg.fraMonthlyBenefit`) grows by `bookkeeper.economy.colaRate` every simulated year starting from `Simulator.startYear`, whether or not benefits have started -- the nationwide COLA raises everyone's PIA every year, not just claimants'. The claim-age adjustment (~8%/year off age 67) is applied exactly once, at the actual claim year, to whatever `pia` has grown to by then (not to the raw `cfg.fraMonthlyBenefit` input); the resulting `monthlyAmount` then continues compounding by `colaRate` every year it's paid (`runYear()`, overriding `Account`'s default growth entirely since balance/growthRate are inert boilerplate here). `Salary` gates on `cfg.endYear` (no income posted after the working years end).
+* `Medicare.js` -- Part B/D premiums and a Medigap Plan G premium (all monthly cfg inputs, annualized internally) inflate every year at the shared `bookkeeper.economy.inflationRate` (not an independently-configured rate of its own), plus the IRMAA surcharge on Part B/D looked up from `bookkeeper.taxCalculator.magi` against a fixed internal bracket table (not configurable, not inflation-indexed)
 
 Orchestration (this diverged from the original `Household.js`/`Ledger.js` split -- their responsibilities ended up folded into `Config`, `Cash`, and `Bookkeeper` instead):
 
 * `Config.js` -- reads static/json config, resolves per-account settings (age, salary trajectory, retirement date, SS claiming age/amount live here)
 * `Bookkeeper.js` -- builds accounts from config, owns the journal (`JournalEntry`/`Posting`), drives `runYear()` across all accounts, runs the reconciliation check (`_reconcile()`), and reports a year's transactions/balances (`reportTransactions()`, `reportYear()`)
-* `Cash.js` -- the year's cash orchestrator: collects income (`earn()`), pays spenders in order (`runYear()`), then covers shortfalls by withdrawing from accounts in `withdrawalOrder` (`produce()`) -- `produce()` runs before spenders' `prepareNextYear()` so a shortfall-covering withdrawal's realized gains/income are taxed the same year they're realized, not dropped. `produce()` caps withdrawals from ordinary-income accounts (`TraditionalIra`/`NonSpousalInheritedIra`) at `cfg.ordinaryIncomeCeiling` when set, falling through to the next account in `withdrawalOrder` for the remainder. Throws `InsufficientFundsError` (`src/InsufficientFundsError.js`, carries `year`) when no account can cover the rest of the shortfall
+* `Cash.js` -- the year's cash orchestrator: `runYear()` first grows the idle balance at half of `bookkeeper.economy.interestRate` (not the full rate -- idle spending cash sits somewhere lower-yield than invested accounts), then collects income (`earn()`), pays spenders in order, then covers shortfalls by withdrawing from accounts in `withdrawalOrder` (`produce()`) -- `produce()` runs before spenders' `prepareNextYear()` so a shortfall-covering withdrawal's realized gains/income are taxed the same year they're realized, not dropped. `produce()` caps withdrawals from ordinary-income accounts (`TraditionalIra`/`NonSpousalInheritedIra`) at `cfg.ordinaryIncomeCeiling` when set, falling through to the next account in `withdrawalOrder` for the remainder. Throws `InsufficientFundsError` (`src/InsufficientFundsError.js`, carries `year`) when no account can cover the rest of the shortfall
 * `Simulator.js` -- thin year-by-year loop calling `bookkeeper.runYear(year)`, with an optional per-year callback (`run(onYear)`)
-* `main.js` -- always runs the optimizer (`node src/main.js [--debug] [path/to/config.json]`, otherwise runs an illustrative built-in scenario): for every entry in `OPTIMIZE_VARIABLES` (currently SS claim age, withdrawal ordinary-income ceiling -- Salary end year and Mortgage sell year are implemented but set by hand instead, see Optimizer Build Plan), prints a candidate/net-worth table via `Optimizer.run()` + `Bookkeeper.netWorth()`; `--debug` additionally prints the full per-year `reportYear()` report for each variable's winning candidate (omitted by default -- one variable's full report is a lot of output, all of them by default would be too much). If every candidate ties, only one candidate is legal, or every candidate ran out of money, the table collapses to one flagged line instead of printing a table that looks like a real tradeoff was searched when none was found. A candidate that throws `InsufficientFundsError` is caught, scored 0, and displayed as `0 (YYYY)` (the year it ran out) instead of aborting the whole grid -- the rest of that variable's candidates, and every other variable, still run
+* `Optimizer.js` -- owns all of the optimization stuff, including running the simulator (`OPTIMIZE_VARIABLES`, the generic `run(candidates, evaluate)` brute-force search, `buildPipeline()` (`Config` -> `Bookkeeper`, `Simulator` run left to the caller), `runAll(configData, classes, variables)` (evaluates every `OPTIMIZE_VARIABLES` entry via `Config` -> `Bookkeeper` -> `Simulator` -> `Bookkeeper.netWorth()`, catching `InsufficientFundsError` per-candidate -- scored 0, displayed as `0 (YYYY)`, the rest of that variable's candidates and every other variable still run), and the console reporting (`printNetWorthTable()`/`formatScore()`: collapses to one flagged line when every candidate ties, only one candidate is legal, or every candidate ran out of money, instead of printing a table that looks like a real tradeoff was searched when none was found)
+* `main.js` -- thin dispatcher: builds `classes`/loads `configData` (`node src/main.js [--debug] [path/to/config.json]`, otherwise runs an illustrative built-in scenario), then either calls `new Optimizer().runAll(configData, classes, OPTIMIZE_VARIABLES)` (default -- prints a candidate/net-worth table per variable), or, under `--debug`, skips the optimizer entirely and runs one `Config` -> `Bookkeeper` -> `Simulator` pass using the input cfg values exactly as given (no candidate substitution), printing the full per-year `reportYear()` report -- `--debug` is for inspecting one scenario's accounting in detail, not the optimizer's winning candidates
 
 Taxes (single class, as planned -- has not needed splitting):
 
@@ -166,11 +184,27 @@ possible."
 `node src/main.js [config.json]` loops `OPTIMIZE_VARIABLES` and prints a
 candidate/net-worth table per variable (the earlier `--optimize`/
 `--optimize-ss` flags and the separate no-flag single-scenario report mode
-are gone -- optimizing is now the only thing `main.js` does).
-`node src/main.js --debug [config.json]` additionally prints the full
-per-year `reportYear()` report for each variable's winning candidate --
-gated behind the flag since printing it for every variable by default
-would be too much output to scan.
+are gone -- optimizing is now the only thing `main.js` does by default).
+
+**`Optimizer.js` owns the whole optimization pipeline; `--debug` means a
+single raw run, not the optimizer's winning candidates** -- **done**.
+Reversed `Optimizer.js`'s original "knows nothing about `Config`/
+`Bookkeeper`/`Simulator`/`netWorth`" design: `OPTIMIZE_VARIABLES`,
+`buildPipeline()`, `runAll()` (the former `main.js`-local `runOptimize()`),
+and the table-printing (`printNetWorthTable()`/`formatScore()`) all moved
+onto `Optimizer`, so it genuinely "contains all the optimization stuff
+including running the simulator" per the TODO that prompted this.
+`main.js` shrank to building `classes`/`configData` and dispatching.
+`--debug`'s meaning changed along with it: it used to run the optimizer
+and additionally print the winning candidate's full year-by-year report
+per variable; now it skips the optimizer entirely and runs one scenario
+straight from the input cfg values (no candidate substitution) with a full
+`reportYear()` per year -- for inspecting one scenario's accounting in
+detail, not for seeing what the optimizer picked. `test/Optimizer.test.js`
+gained unit tests for `formatScore()`/`printNetWorthTable()` and an
+integration test for `runAll()`'s `InsufficientFundsError` handling, all
+previously untested since they were free functions in `main.js`, which had
+no test file.
 
 **Withdrawal ordinary-income ceiling** -- **done** (first slice of
 "withdrawal source/order," the largest of the five variables). Rather than

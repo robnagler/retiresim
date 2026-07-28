@@ -9,9 +9,10 @@ import { Config } from '../src/Config.js';
 
 test('run grows an account and pays down a mortgage over multiple years, reconciling every year', () => {
     const config = new Config({
+        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0.05 },
         Cash: {
             balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000000, rate: 0.05 }],
+            withdrawalOrder: [{ name: 'Account', balance: 1000000 }],
             spendingOrder: [{ name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2055 }],
         },
         Simulator: { startYear: 2026, endYear: 2030 },
@@ -37,9 +38,10 @@ test('run grows an account and pays down a mortgage over multiple years, reconci
 
 test('run calls the optional onYear callback once per simulated year, after that year runs', () => {
     const config = new Config({
+        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0.05 },
         Cash: {
             balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000, rate: 0.05 }],
+            withdrawalOrder: [{ name: 'Account', balance: 1000 }],
             spendingOrder: [],
         },
         Simulator: { startYear: 2026, endYear: 2028 },
@@ -56,9 +58,10 @@ test('run calls the optional onYear callback once per simulated year, after that
 
 test('run throws immediately if a single year fails to reconcile', () => {
     const config = new Config({
+        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0.05 },
         Cash: {
             balance: 0,
-            withdrawalOrder: [{ name: 'Account', balance: 1000, rate: 0.05 }],
+            withdrawalOrder: [{ name: 'Account', balance: 1000 }],
             spendingOrder: [],
         },
         Simulator: { startYear: 2026, endYear: 2026 },

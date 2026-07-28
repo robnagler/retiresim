@@ -7,7 +7,6 @@ import { FakeBookkeeper } from './support/FakeBookkeeper.js';
 const buildConfig = () => new Config({
     Medicare: {
         balance: 0,
-        rate: 0.05,
         partBMonthly: 175,
         partDMonthly: 50,
         partGMonthly: 150,
@@ -42,7 +41,7 @@ test('irmaaSurcharge falls into the top open-ended bracket above the highest thr
 
 test('runYear inflates partB/partD/partGYearly by rate and adds the IRMAA surcharge for the given magi', () => {
     const m = new Medicare({ name: 'Medicare', config: buildConfig() });
-    const bookkeeper = new FakeBookkeeper({ magi: 50000 });
+    const bookkeeper = new FakeBookkeeper({ magi: 50000, economy: { inflationRate: 0.05 } });
 
     m.runYear({ year: 2026, bookkeeper });
 
@@ -54,7 +53,7 @@ test('runYear inflates partB/partD/partGYearly by rate and adds the IRMAA surcha
 
 test('runYear adds the IRMAA surcharge on top of the inflated base premiums when magi crosses a threshold -- partGYearly is unaffected, Medigap has no IRMAA', () => {
     const m = new Medicare({ name: 'Medicare', config: buildConfig() });
-    const bookkeeper = new FakeBookkeeper({ magi: 120000 });
+    const bookkeeper = new FakeBookkeeper({ magi: 120000, economy: { inflationRate: 0.05 } });
 
     m.runYear({ year: 2026, bookkeeper });
 
@@ -63,7 +62,7 @@ test('runYear adds the IRMAA surcharge on top of the inflated base premiums when
 
 test('runYear reads bookkeeper.taxCalculator.magi -- last year\'s value, since TaxCalculator.prepareNextYear updates it later in the same annual cycle', () => {
     const m = new Medicare({ name: 'Medicare', config: buildConfig() });
-    const bookkeeper = new FakeBookkeeper({ magi: 600000 });
+    const bookkeeper = new FakeBookkeeper({ magi: 600000, economy: { inflationRate: 0.05 } });
 
     m.runYear({ year: 2026, bookkeeper });
 
@@ -72,7 +71,7 @@ test('runYear reads bookkeeper.taxCalculator.magi -- last year\'s value, since T
 
 test('due reports the amount computed by runYear under the MedicarePremium cash-flow category', () => {
     const m = new Medicare({ name: 'Medicare', config: buildConfig() });
-    const bookkeeper = new FakeBookkeeper({ magi: 50000 });
+    const bookkeeper = new FakeBookkeeper({ magi: 50000, economy: { inflationRate: 0.05 } });
     m.runYear({ year: 2026, bookkeeper });
 
     assert.deepEqual(m.due(), { account: 'MedicarePremium', amount: m.owed });

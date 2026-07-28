@@ -13,6 +13,20 @@ import { Salary } from '../src/Salary.js';
 import { SocialSecurity, MIN_CLAIM_AGE, MAX_CLAIM_AGE } from '../src/SocialSecurity.js';
 import { Cash } from '../src/Cash.js';
 
+// Captures console.log output for the duration of fn, restoring it
+// afterward even if fn throws.
+function captureLog(fn) {
+    const lines = [];
+    const original = console.log;
+    console.log = (line) => lines.push(line);
+    try {
+        fn();
+    } finally {
+        console.log = original;
+    }
+    return lines.join('\n');
+}
+
 test('run picks the candidate with the highest score', () => {
     const optimizer = new Optimizer();
 
@@ -55,12 +69,13 @@ test('run returns one {candidate, score} entry per input candidate, in input ord
 // TaxableAccount balance, giving an unambiguous, hand-computable optimum.
 test('run wired to a real Config/Bookkeeper/Simulator picks the Salary end year that preserves the most net worth', () => {
     const baseData = {
+        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
         Simulator: { startYear: 2026, endYear: 2030 },
         Cash: {
             balance: 0,
-            withdrawalOrder: [{ name: 'TaxableAccount', balance: 200000, rate: 0, basis: 200000 }],
-            incomeOrder: [{ name: 'Salary', balance: 0, rate: 0, monthlyAmount: 2000, endYear: 0 }],
-            spendingOrder: [{ name: 'LivingExpense', balance: 24000, rate: 0 }],
+            withdrawalOrder: [{ name: 'TaxableAccount', balance: 200000, basis: 200000 }],
+            incomeOrder: [{ name: 'Salary', balance: 0, monthlyAmount: 2000, endYear: 0 }],
+            spendingOrder: [{ name: 'LivingExpense', balance: 24000 }],
         },
     };
     const classes = { TaxableAccount, LivingExpense, Salary, Cash };
@@ -93,12 +108,13 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the Salary end year 
 // still unambiguous and hand-computable.
 test('run wired to a real Config/Bookkeeper/Simulator picks the SS claim age that preserves the most net worth', () => {
     const baseData = {
+        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
         Simulator: { startYear: 2026, endYear: 2030 },
         Cash: {
             balance: 0,
-            withdrawalOrder: [{ name: 'TaxableAccount', balance: 100000, rate: 0, basis: 100000 }],
-            incomeOrder: [{ name: 'SocialSecurity', balance: 0, rate: 0, birthYear: 1958, claimAge: 0, fraMonthlyBenefit: 2000, cola: 0 }],
-            spendingOrder: [{ name: 'LivingExpense', balance: 10000, rate: 0 }],
+            withdrawalOrder: [{ name: 'TaxableAccount', balance: 100000, basis: 100000 }],
+            incomeOrder: [{ name: 'SocialSecurity', balance: 0, birthYear: 1958, claimAge: 0, fraMonthlyBenefit: 2000 }],
+            spendingOrder: [{ name: 'LivingExpense', balance: 10000 }],
         },
     };
     const classes = { TaxableAccount, LivingExpense, SocialSecurity, Cash };
@@ -130,15 +146,16 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the SS claim age tha
 // diverge by exactly the tax the Infinity run pays that the 0 run avoids.
 test('run wired to a real Config/Bookkeeper/Simulator picks the ordinary-income ceiling that avoids realizing avoidable tax', () => {
     const baseData = {
+        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
         Simulator: { startYear: 2026, endYear: 2027 },
         Cash: {
             balance: 0,
             withdrawalOrder: [
-                { name: 'TraditionalIra', balance: 50000, rate: 0, birthYear: 2000 },
-                { name: 'RothIra', balance: 50000, rate: 0, withdraw: 0 },
+                { name: 'TraditionalIra', balance: 50000, birthYear: 2000 },
+                { name: 'RothIra', balance: 50000, withdraw: 0 },
             ],
             spendingOrder: [
-                { name: 'LivingExpense', balance: 10000, rate: 0 },
+                { name: 'LivingExpense', balance: 10000 },
                 {
                     name: 'Tax',
                     class: 'TaxCalculator',
@@ -167,4 +184,87 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the ordinary-income 
     assert.deepEqual(rv.all.map((r) => r.score), [80000, 78000]);
     assert.equal(rv.best, 0);
     assert.equal(rv.score, 80000);
+});
+
+// Phase 1 (CLAUDE.md TODO): Optimizer now owns the whole candidate-
+// evaluation pipeline and its console reporting, not just main.js's free
+// functions. formatScore()/printNetWorthTable() moved onto the class --
+// these are pure unit tests of that reporting logic, no Simulator involved.
+test('formatScore reports the raw score normally, and "0 (YYYY)" for a candidate that ran out of money', () => {
+    const optimizer = new Optimizer();
+    const failedYears = new Map([[2, 2031]]);
+
+    assert.equal(optimizer.formatScore(1, 12345.6, failedYears), '12346');
+    assert.equal(optimizer.formatScore(2, 0, failedYears), '0 (2031)');
+});
+
+test('printNetWorthTable collapses to one line when every candidate ran out of money', () => {
+    const optimizer = new Optimizer();
+    const netWorth = { best: 1, score: 0, all: [{ candidate: 1, score: 0 }, { candidate: 2, score: 0 }] };
+    const failedYears = new Map([[1, 2040], [2, 2041]]);
+
+    const out = captureLog(() => optimizer.printNetWorthTable('X', netWorth, failedYears));
+
+    assert.match(out, /every candidate ran out of money/);
+    assert.match(out, /0 \(2040\)/);
+    assert.match(out, /0 \(2041\)/);
+});
+
+test('printNetWorthTable collapses to one line when only one legal candidate exists', () => {
+    const optimizer = new Optimizer();
+    const netWorth = { best: 5, score: 1000, all: [{ candidate: 5, score: 1000 }] };
+
+    const out = captureLog(() => optimizer.printNetWorthTable('X', netWorth, new Map()));
+
+    assert.match(out, /only one legal candidate \(5\), net worth 1000/);
+});
+
+test('printNetWorthTable collapses to one line when every candidate ties', () => {
+    const optimizer = new Optimizer();
+    const netWorth = { best: 1, score: 500, all: [{ candidate: 1, score: 500 }, { candidate: 2, score: 500 }] };
+
+    const out = captureLog(() => optimizer.printNetWorthTable('X', netWorth, new Map()));
+
+    assert.match(out, /no effect on net worth \(all 2 candidates tie at 500\)/);
+});
+
+test('printNetWorthTable prints a full candidate table with the winner marked', () => {
+    const optimizer = new Optimizer();
+    const netWorth = { best: 2, score: 900, all: [{ candidate: 1, score: 500 }, { candidate: 2, score: 900 }] };
+
+    const out = captureLog(() => optimizer.printNetWorthTable('X', netWorth, new Map()));
+
+    assert.match(out, /Candidate/);
+    assert.match(out, /2.*900.*<- best/);
+});
+
+// Integration test: runAll() wired to a real Config/Bookkeeper/Simulator,
+// proving InsufficientFundsError from one candidate is caught, scored 0,
+// displayed as "0 (YYYY)", and doesn't abort the rest of the grid -- the
+// same shape as the moved-from-main.js behavior, now exercised directly
+// against Optimizer.runAll() instead of a free function.
+test('runAll catches InsufficientFundsError per-candidate and keeps the grid running', () => {
+    const baseData = {
+        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Simulator: { startYear: 2026, endYear: 2026 },
+        Cash: {
+            balance: 0,
+            withdrawalOrder: [{ name: 'TaxableAccount', balance: 1000, basis: 1000 }],
+            spendingOrder: [{ name: 'LivingExpense', balance: 0 }],
+        },
+    };
+    const classes = { TaxableAccount, LivingExpense, Cash };
+    // 500 is fully covered by the 1000-balance TaxableAccount; 2000 isn't.
+    const variable = {
+        label: 'Test spend',
+        candidates: () => [500, 2000],
+        apply: (data, candidate) => {
+            data.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance = candidate;
+        },
+    };
+
+    const out = captureLog(() => new Optimizer().runAll(baseData, classes, [variable]));
+
+    assert.match(out, /500/);
+    assert.match(out, /0 \(2026\)/);
 });

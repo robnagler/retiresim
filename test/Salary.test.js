@@ -7,10 +7,11 @@ import { TaxCalculator } from '../src/TaxCalculator.js';
 import { Config } from '../src/Config.js';
 
 const buildConfig = (endYear) => new Config({
+    Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
     Cash: {
         balance: 0,
         withdrawalOrder: [],
-        incomeOrder: [{ name: 'Salary', balance: 0, rate: 0, monthlyAmount: 2500, endYear }],
+        incomeOrder: [{ name: 'Salary', balance: 0, monthlyAmount: 2500, endYear }],
         spendingOrder: [{
             name: 'Tax',
             class: 'TaxCalculator',

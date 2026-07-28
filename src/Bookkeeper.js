@@ -7,10 +7,12 @@ import { TraditionalIra } from './TraditionalIra.js';
 import { RothIra } from './RothIra.js';
 import { Mortgage } from './Mortgage.js';
 import { Cash } from './Cash.js';
+import { Economy } from './Economy.js';
 
 export class Bookkeeper extends Base {
     constructor({ config, classes }) {
         super({ config });
+        this.economy = new Economy({ config });
         const cash = config.get('Cash');
         // Multiple instances of the same class (e.g. two Mortgages) need
         // distinct names, but shouldn't need an explicit "class" on every
