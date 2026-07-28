@@ -2,6 +2,13 @@
 
 ## 2026-07-27
 
+* 20:12:12 **Prompt**: "gckp"
+* 20:10:52 **Update**: Added the SSA historical COLA table (1996-2025, ~2.53% 30-year average) to README.md's new "Reference data" section, as background for config/cfg.json's cola default. Not committed yet.
+* 20:10:17 **Prompt**: "add that to the readme"
+* 20:08:00 **Prompt**: (added retroactively, missed logging it in real time) "what is the historical cola per year for the last 30 years"
+* 20:08:00 **Answer**: Looked up SSA's published COLA history (1996-2025) via web search -- 30-year average is ~2.53%, close to the project's existing 0.025 assumption, though individual years swing widely (two 0% years, a 2021-2023 inflation spike up to 8.7%).
+* 19:50:00 **Prompt**: (added retroactively, missed logging it in real time) pointed out that comparing two real runs [figures omitted] with cola on vs off changed which claim age won, contradicting the prior answer
+* 19:50:00 **Answer**: Corrected course -- COLA does shift the optimal claim age, just not via the horizon-length axis discussed earlier. Explained the actual mechanism: COLA rewards claiming earlier because it lets a smaller check compound for more years, which can beat a bigger check that starts compounding later; higher COLA pulls the optimum earlier, not later.
 * 19:36:54 **Prompt**: "gckp"
 * 19:33:03 **Update**: Added SocialSecurity COLA -- monthlyAmount now grows by a new required cfg.cola every year once payments start (runYear() override, no accrual before startYear), same shape as LivingExpense's inflation growth. Made cola required (no silent default) so every fixture/config needed updating; added tests for the compounding and pre-claim-no-accrual behavior. 121/121 tests pass. Updated CLAUDE.md and config/cfg.json's notes. Not committed yet.
 * 19:30:28 **Prompt**: "yes add cola."
