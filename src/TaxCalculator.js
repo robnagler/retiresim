@@ -7,10 +7,22 @@ export class TaxCalculator extends Account {
         // been computed in-model -- mirrors how `balance` seeds the first
         // year's already-accrued tax liability.
         this.magi = this.cfg.initialMagi;
+        // Per-instance copies, grown every year in prepareNextYear() --
+        // real IRS brackets/standard deduction are inflation-indexed
+        // annually (same mechanism IRMAA has used since 2020, see
+        // README.md's Reference data), so a fixed-forever value would have
+        // the same "gets easier to cross over decades" issue IRMAA had.
+        // ssProvisionalIncomeThresholds is deliberately NOT grown here --
+        // those have never been inflation-adjusted in real law since
+        // enacted in the 1980s/90s, so leaving them flat is accurate, not
+        // a simplification to fix.
+        this.federalBrackets = this.cfg.federalBrackets.map((b) => ({ ...b }));
+        this.ltcgBrackets = this.cfg.ltcgBrackets.map((b) => ({ ...b }));
+        this.standardDeduction = this.cfg.standardDeduction;
     }
 
     federal(income) {
-        return this._bracketTax(this.cfg.federalBrackets, 0, income);
+        return this._bracketTax(this.federalBrackets, 0, income);
     }
 
     state(income) {
@@ -21,7 +33,15 @@ export class TaxCalculator extends Account {
     // gains are taxed at the rate for the bracket(s) they fall into above it,
     // not from zero.
     ltcg(ordinaryIncome, gains) {
-        return this._bracketTax(this.cfg.ltcgBrackets, ordinaryIncome, ordinaryIncome + gains);
+        return this._bracketTax(this.ltcgBrackets, ordinaryIncome, ordinaryIncome + gains);
+    }
+
+    // Grows only the upTo boundaries -- the tax rate at each tier doesn't
+    // change, just which income lands in which tier. Mirrors
+    // Medicare.js's irmaaBrackets growth exactly. rate here is a growth
+    // factor (1 + inflationRate), not the raw rate -- see prepareNextYear().
+    _growBrackets(brackets, rate) {
+        return brackets.map((b) => (b.upTo === null ? b : { ...b, upTo: b.upTo * rate }));
     }
 
     _bracketTax(brackets, floor, ceiling) {
@@ -78,7 +98,7 @@ export class TaxCalculator extends Account {
     // from federal taxable income.
     calculate({ ordinaryIncome, gains = 0, mortgageInterest = 0, ssBenefit = 0 }) {
         const taxableSS = this.taxableSocialSecurity(ordinaryIncome, ssBenefit);
-        const deduction = Math.min(mortgageInterest, -this.cfg.standardDeduction);
+        const deduction = Math.min(mortgageInterest, -this.standardDeduction);
         const taxableFederalOrdinary = Math.max(0, ordinaryIncome + taxableSS + deduction);
         const taxableStateOrdinary = Math.max(0, ordinaryIncome + deduction);
         const rv = {
@@ -124,6 +144,13 @@ export class TaxCalculator extends Account {
     // later year is already running, so it's always reading last year's
     // value, same as `owed` reads last year's tax liability.
     prepareNextYear({ year, bookkeeper }) {
+        // rate is a growth factor (1 + inflationRate), applied directly
+        // wherever something compounds, instead of writing "1 + rate" at
+        // every use.
+        const rate = 1 + bookkeeper.economy.inflationRate;
+        this.federalBrackets = this._growBrackets(this.federalBrackets, rate);
+        this.ltcgBrackets = this._growBrackets(this.ltcgBrackets, rate);
+        this.standardDeduction *= rate;
         const ordinaryIncome = bookkeeper.balanceChange('OrdinaryIncome', year);
         const gains = bookkeeper.balanceChange('LtcgIncome', year);
         const mortgageInterest = bookkeeper.balanceChange('MortgageInterestDeduction', year);

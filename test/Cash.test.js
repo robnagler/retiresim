@@ -11,7 +11,7 @@ import { Bookkeeper } from '../src/Bookkeeper.js';
 import { Config } from '../src/Config.js';
 import { InsufficientFundsError } from '../src/InsufficientFundsError.js';
 
-const ZERO_ECONOMY = { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 };
+const ZERO_ECONOMY = { inflationRate: 0, interestRate: 0, sp500Rate: 0 };
 
 const buildConfig = () => new Config({
     Economy: ZERO_ECONOMY,
@@ -27,7 +27,7 @@ const buildConfig = () => new Config({
 
 test('runYear grows the balance at half of Economy.interestRate, not the full rate', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0.04, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0.04, sp500Rate: 0 },
         Cash: { balance: 1000, withdrawalOrder: [], spendingOrder: [] },
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });

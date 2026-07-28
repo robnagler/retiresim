@@ -7,7 +7,7 @@ import { Config } from '../src/Config.js';
 
 test('earn withdrawal is not taxable -- does not post to OrdinaryIncome, and lands in Cash', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'RothIra', balance: 1000, withdraw: 300 }],

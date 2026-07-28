@@ -7,7 +7,7 @@ import { TaxCalculator } from '../src/TaxCalculator.js';
 import { Config } from '../src/Config.js';
 
 const buildConfig = (endYear) => new Config({
-    Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+    Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
     Cash: {
         balance: 0,
         withdrawalOrder: [],

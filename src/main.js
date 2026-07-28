@@ -39,7 +39,7 @@ const DEFAULT_CONFIG_DATA = {
     Simulator: { startYear: 2026, endYear: 2030 },
     // Shared market/inflation assumptions -- consumed via bookkeeper.economy
     // instead of each account/income/expense source carrying its own rate.
-    Economy: { inflationRate: 0.025, colaRate: 0.025, interestRate: 0.03, sp500Rate: 0.06 },
+    Economy: { inflationRate: 0.025, interestRate: 0.03, sp500Rate: 0.06 },
     Cash: {
         balance: 0,
         withdrawalOrder: [

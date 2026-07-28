@@ -7,7 +7,9 @@ import { TaxCalculator } from '../src/TaxCalculator.js';
 import { Config } from '../src/Config.js';
 
 const buildConfig = ({ birthYear, claimAge, fraMonthlyBenefit = 2500, cola = 0 }) => new Config({
-    Economy: { inflationRate: 0, colaRate: cola, interestRate: 0, sp500Rate: 0 },
+    // colaRate isn't configured separately -- it's derived from
+    // inflationRate (see Economy.js), so this is how these tests control it.
+    Economy: { inflationRate: cola, interestRate: 0, sp500Rate: 0 },
     Cash: {
         balance: 0,
         withdrawalOrder: [],

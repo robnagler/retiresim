@@ -69,7 +69,7 @@ test('run returns one {candidate, score} entry per input candidate, in input ord
 // TaxableAccount balance, giving an unambiguous, hand-computable optimum.
 test('run wired to a real Config/Bookkeeper/Simulator picks the Salary end year that preserves the most net worth', () => {
     const baseData = {
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Simulator: { startYear: 2026, endYear: 2030 },
         Cash: {
             balance: 0,
@@ -108,7 +108,7 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the Salary end year 
 // still unambiguous and hand-computable.
 test('run wired to a real Config/Bookkeeper/Simulator picks the SS claim age that preserves the most net worth', () => {
     const baseData = {
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Simulator: { startYear: 2026, endYear: 2030 },
         Cash: {
             balance: 0,
@@ -146,7 +146,7 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the SS claim age tha
 // diverge by exactly the tax the Infinity run pays that the 0 run avoids.
 test('run wired to a real Config/Bookkeeper/Simulator picks the ordinary-income ceiling that avoids realizing avoidable tax', () => {
     const baseData = {
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Simulator: { startYear: 2026, endYear: 2027 },
         Cash: {
             balance: 0,
@@ -245,7 +245,7 @@ test('printNetWorthTable prints a full candidate table with the winner marked', 
 // against Optimizer.runAll() instead of a free function.
 test('runAll catches InsufficientFundsError per-candidate and keeps the grid running', () => {
     const baseData = {
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Simulator: { startYear: 2026, endYear: 2026 },
         Cash: {
             balance: 0,

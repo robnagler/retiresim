@@ -48,6 +48,59 @@ years swing widely (two 0% years, a 2021-2023 inflation spike up to
 Sources: [Fool.com COLA history](https://www.fool.com/retirement/social-security/cola-history/),
 [AARP COLA history](https://www.aarp.org/social-security/cola-history/).
 
+Historical Medicare IRMAA first-tier MAGI threshold by year (single filer,
+CMS, 2007-2026) -- background for `Medicare.js`'s `IRMAA_BRACKETS` table,
+whose `upTo` boundaries now grow with `inflationRate` every year (surcharge
+dollar amounts stay fixed as configured):
+
+| Year | Threshold | Year | Threshold |
+|---|---|---|---|
+| 2007 | $80,000 | 2017 | $85,000 |
+| 2008 | $82,000 | 2018 | $85,000 |
+| 2009 | $85,000 | 2019 | $85,000 |
+| 2010 | $85,000 | 2020 | $87,000 |
+| 2011 | $85,000 | 2021 | $88,000 |
+| 2012 | $85,000 | 2022 | $91,000 |
+| 2013 | $85,000 | 2023 | $97,000 |
+| 2014 | $85,000 | 2024 | $103,000 |
+| 2015 | $85,000 | 2025 | $106,000 |
+| 2016 | $85,000 | 2026 | $109,000 |
+
+IRMAA has only existed since 2007 (Medicare Modernization Act of 2003,
+effective 2007), so there is no 30-year history to show. Two distinct eras:
+completely frozen at $85,000 for 2009-2019 (11 years, no adjustment at
+all), then indexed to chained CPI from 2020 onward and growing faster,
+especially 2022-2024 (~6-6.5%/year). Overall $80k-to-$109k over 19 years is
+about 1.6%/year average -- below this project's 2.5% `inflationRate`
+default, so growing the threshold at `inflationRate` is directionally
+correct (better than never moving at all) but likely runs a bit faster
+than the real, historically-frozen-then-indexed pattern would suggest.
+
+Sources: [History of IRMAA Brackets by Year (2007-2025) - IRMAA Solutions](https://www.irmaasolutions.com/history-of-irmaa-brackets),
+[Medicare IRMAA Surcharge History (2007-2026) - PennyCalc](https://pennycalc.com/medicare-irmaa-brackets/history/).
+
+**Which fixed thresholds should track inflation, and which shouldn't.**
+Besides IRMAA, three other constants in `TaxCalculator.js` are dollar
+thresholds that stay fixed for the whole simulation: `federalBrackets`
+(the 10%/12%/22% ordinary-income bracket boundaries), `ltcgBrackets` (the
+0%/15%/20% capital-gains bracket boundaries), and `standardDeduction`. All
+three *are* inflation-indexed annually in real life -- the IRS publishes
+new numbers every year via chained CPI, the same mechanism IRMAA has used
+since 2020 -- so they have the same "gets easier to cross over decades"
+issue IRMAA had, and now grow at `inflationRate` the same way (see
+`TaxCalculator.prepareNextYear()`).
+
+One threshold is correctly left fixed, not a simplification worth fixing:
+`ssProvisionalIncomeThresholds` ($32k/$44k, the Social Security taxability
+thresholds). Unlike IRMAA or the tax brackets, these have never been
+inflation-adjusted since being enacted in the 1980s/90s -- Congress simply
+never indexed them. Leaving them flat forever is the historically accurate
+choice.
+
+Not comparable at all: the RMD life-expectancy tables and the 72/73/75 RMD
+start-age rule (actuarial/legal, not dollar-denominated) and `Mortgage`'s
+own `rate` (a fixed loan term, unrelated to `Economy`).
+
 #### License
 
 License: https://www.apache.org/licenses/LICENSE-2.0.html

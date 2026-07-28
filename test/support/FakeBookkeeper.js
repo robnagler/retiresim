@@ -9,7 +9,11 @@ export class FakeBookkeeper {
             magi,
             postAmount: (cat, amount, year) => this.taxCalc.push({ cat, amount, year }),
         };
-        this.economy = { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0, ...economy };
+        // colaRate mirrors the real Economy's behavior (derived from
+        // inflationRate, not independently configured) unless a test
+        // explicitly overrides it to check divergence.
+        const inflationRate = economy.inflationRate ?? 0;
+        this.economy = { inflationRate, colaRate: inflationRate, interestRate: 0, sp500Rate: 0, ...economy };
     }
 
     simplePost(year, category, source, dest, amount) {

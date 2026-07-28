@@ -19,7 +19,7 @@ const taxSpender = () => ({
 
 test('inherited in 2020 or later, earn distributes the balance straight-line over the years remaining until the 10-year deadline, taxable like a TraditionalIra', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 25000, inheritedYear: 2021 }],
@@ -39,7 +39,7 @@ test('inherited in 2020 or later, earn distributes the balance straight-line ove
 
 test('inherited before 2020 (pre-SECURE-Act stretch), earn uses the beneficiary\'s own life expectancy, reduced by one each year since the first distribution year', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, inheritedYear: 2009, birthYear: 1970 }],
@@ -60,7 +60,7 @@ test('inherited before 2020 (pre-SECURE-Act stretch), earn uses the beneficiary\
 
 test('the year a pre-2020 IRA was inherited, before its first distribution year, earn returns no distribution', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0.05 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.05 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, inheritedYear: 2009, birthYear: 1970 }],
@@ -78,7 +78,7 @@ test('the year a pre-2020 IRA was inherited, before its first distribution year,
 
 test('earn throws when the year is before the account was inherited', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, inheritedYear: 2009, birthYear: 1970 }],

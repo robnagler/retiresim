@@ -13,11 +13,9 @@ const buildConfig = () => new Config({
     },
 });
 
-test('constructor derives partB/partD/partGYearly from the raw monthly cfg values -- the monthly values themselves aren\'t duplicated onto the instance', () => {
+test('constructor combines partB/partD/partGMonthly into one yearly premium -- the raw cfg values aren\'t duplicated onto the instance', () => {
     const m = new Medicare({ name: 'Medicare', config: buildConfig() });
-    assert.equal(m.partBYearly, 175 * 12);
-    assert.equal(m.partDYearly, 50 * 12);
-    assert.equal(m.partGYearly, 150 * 12);
+    assert.equal(m.yearly, (175 + 50 + 150) * 12);
     assert.equal(m.partBMonthly, undefined);
     assert.equal(m.partDMonthly, undefined);
     assert.equal(m.partGMonthly, undefined);
@@ -39,25 +37,23 @@ test('irmaaSurcharge falls into the top open-ended bracket above the highest thr
     assert.deepEqual(m.irmaaSurcharge(999999), { upTo: null, partB: 5400, partD: 1050 });
 });
 
-test('runYear inflates partB/partD/partGYearly by rate and adds the IRMAA surcharge for the given magi', () => {
+test('runYear inflates the combined yearly premium by rate and adds the IRMAA surcharge for the given magi', () => {
     const m = new Medicare({ name: 'Medicare', config: buildConfig() });
     const bookkeeper = new FakeBookkeeper({ magi: 50000, economy: { inflationRate: 0.05 } });
 
     m.runYear({ year: 2026, bookkeeper });
 
-    assert.equal(m.partBYearly, 175 * 12 * 1.05);
-    assert.equal(m.partDYearly, 50 * 12 * 1.05);
-    assert.equal(m.partGYearly, 150 * 12 * 1.05);
-    assert.equal(m.owed, 175 * 12 * 1.05 + 50 * 12 * 1.05 + 150 * 12 * 1.05);
+    assert.equal(m.yearly, (175 + 50 + 150) * 12 * 1.05);
+    assert.equal(m.owed, (175 + 50 + 150) * 12 * 1.05);
 });
 
-test('runYear adds the IRMAA surcharge on top of the inflated base premiums when magi crosses a threshold -- partGYearly is unaffected, Medigap has no IRMAA', () => {
+test('runYear adds the IRMAA surcharge on top of the inflated base premium when magi crosses a threshold -- Medigap has no IRMAA', () => {
     const m = new Medicare({ name: 'Medicare', config: buildConfig() });
     const bookkeeper = new FakeBookkeeper({ magi: 120000, economy: { inflationRate: 0.05 } });
 
     m.runYear({ year: 2026, bookkeeper });
 
-    assert.equal(m.owed, 175 * 12 * 1.05 + 50 * 12 * 1.05 + 150 * 12 * 1.05 + 900 + 170);
+    assert.equal(m.owed, (175 + 50 + 150) * 12 * 1.05 + 900 + 170);
 });
 
 test('runYear reads bookkeeper.taxCalculator.magi -- last year\'s value, since TaxCalculator.prepareNextYear updates it later in the same annual cycle', () => {
@@ -66,7 +62,20 @@ test('runYear reads bookkeeper.taxCalculator.magi -- last year\'s value, since T
 
     m.runYear({ year: 2026, bookkeeper });
 
-    assert.equal(m.owed, 175 * 12 * 1.05 + 50 * 12 * 1.05 + 150 * 12 * 1.05 + 5400 + 1050);
+    assert.equal(m.owed, (175 + 50 + 150) * 12 * 1.05 + 5400 + 1050);
+});
+
+test('runYear grows the IRMAA upTo thresholds by inflationRate, which can move magi into a lower tier than the un-grown brackets would', () => {
+    const m = new Medicare({ name: 'Medicare', config: buildConfig() });
+    // 110000 is just above the base $106,000 threshold (900/170 tier), but
+    // one year of 10% growth moves that threshold to $116,600 -- enough to
+    // pull 110000 back under it, into the no-surcharge tier.
+    const bookkeeper = new FakeBookkeeper({ magi: 110000, economy: { inflationRate: 0.10 } });
+
+    m.runYear({ year: 2026, bookkeeper });
+
+    assert.deepEqual(m.irmaaBrackets[0], { upTo: 106000 * 1.10, partB: 0, partD: 0 });
+    assert.equal(m.owed, (175 + 50 + 150) * 12 * 1.10);
 });
 
 test('due reports the amount computed by runYear under the MedicarePremium cash-flow category', () => {

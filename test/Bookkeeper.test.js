@@ -17,7 +17,7 @@ import { Config } from '../src/Config.js';
 
 test('runYear grows an account and reconciles', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0.05 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.05 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 1000 }],
@@ -32,7 +32,7 @@ test('runYear grows an account and reconciles', () => {
 
 test('runYear pays down a mortgage and reconciles', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 1000000 }],
@@ -49,7 +49,7 @@ test('runYear pays down a mortgage and reconciles', () => {
 
 test('runYear wipes the mortgage balance at sellYear and reconciles, and netWorth stops being reduced by it', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 1000000, basis: 1000000 }],
@@ -68,7 +68,7 @@ test('runYear wipes the mortgage balance at sellYear and reconciles, and netWort
 
 test('constructor resolves multiple instances of the same class via a dash-suffixed name, no explicit class needed', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 2000000 }],
@@ -91,7 +91,7 @@ test('constructor resolves multiple instances of the same class via a dash-suffi
 
 test('constructor builds accounts from Cash\'s withdrawalOrder and spendingOrder, resolving each one\'s class', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 1000 }],
@@ -112,7 +112,7 @@ test('constructor builds accounts from Cash\'s withdrawalOrder and spendingOrder
 
 test('report dumps each account name and balance as a table', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 1000 }],
@@ -134,7 +134,7 @@ test('report dumps each account name and balance as a table', () => {
 
 test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA + Cash balances plus Mortgage (already negative), excluding LivingExpense/Tax', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 700,
             withdrawalOrder: [
@@ -170,7 +170,7 @@ test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA + Cash balanc
 
 test('reportTransactions dumps each journal entry for the given year as a category/source/dest/amount table', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0.1 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.1 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 1000 }],
@@ -189,7 +189,7 @@ test('reportTransactions dumps each journal entry for the given year as a catego
 
 test('reportTransactions is empty (just the header) for a year with no journal entries', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
@@ -202,7 +202,7 @@ test('reportTransactions is empty (just the header) for a year with no journal e
 
 test('reportYear combines that year\'s transactions and the current balances table under a year header', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0.1 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.1 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 1000 }],
@@ -221,7 +221,7 @@ test('reportYear combines that year\'s transactions and the current balances tab
 
 test('taxCalculator is found among accounts by type, and its postAmount posts through this bookkeeper', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 0,
             withdrawalOrder: [],
@@ -246,7 +246,7 @@ test('taxCalculator is found among accounts by type, and its postAmount posts th
 
 test('taxCalculator is undefined when no TaxCalculator is configured -- lets accounts be tested without a Tax spender', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
     });
     const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
@@ -256,7 +256,7 @@ test('taxCalculator is undefined when no TaxCalculator is configured -- lets acc
 
 test('a gain realized to cover a shortfall is taxed the same year it is realized', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'TaxableAccount', balance: 1000, basis: 200 }],
@@ -295,7 +295,7 @@ test('a gain realized to cover a shortfall is taxed the same year it is realized
 
 test('runYear throws when the journal does not match an account change', () => {
     const config = new Config({
-        Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0.05 },
+        Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0.05 },
         Cash: {
             balance: 0,
             withdrawalOrder: [{ name: 'Account', balance: 1000 }],

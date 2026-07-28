@@ -8,7 +8,7 @@ import { JournalEntry } from '../src/JournalEntry.js';
 import { Posting } from '../src/Posting.js';
 
 const config = new Config({
-    Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+    Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
     Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
     Tax: {
         balance: -5000,
@@ -29,7 +29,7 @@ const config = new Config({
 });
 
 const configWithSS = () => new Config({
-    Economy: { inflationRate: 0, colaRate: 0, interestRate: 0, sp500Rate: 0 },
+    Economy: { inflationRate: 0, interestRate: 0, sp500Rate: 0 },
     Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
     Tax: {
         balance: -5000,
@@ -283,6 +283,36 @@ test('prepareNextYear also pulls this year\'s posted SocialSecurityBenefit into 
     c.prepareNextYear({ year: 2026, bookkeeper });
 
     assert.equal(c.balance, -c.calculate({ ordinaryIncome: 60000, gains: 0, ssBenefit: 30000 }).total);
+});
+
+test('prepareNextYear grows federalBrackets/ltcgBrackets/standardDeduction by inflationRate, but not ssProvisionalIncomeThresholds', () => {
+    const inflated = new Config({
+        Economy: { inflationRate: 0.04, interestRate: 0, sp500Rate: 0 },
+        Cash: { balance: 0, withdrawalOrder: [], spendingOrder: [] },
+        Tax: {
+            balance: 0,
+            federalBrackets: [{ rate: 0.10, upTo: 10000 }, { rate: 0.22, upTo: null }],
+            ltcgBrackets: [{ rate: 0.15, upTo: 40000 }, { rate: 0.20, upTo: null }],
+            stateRate: 0.044,
+            standardDeduction: 29200,
+            ssProvisionalIncomeThresholds: { low: 32000, high: 44000 },
+            initialMagi: 0,
+        },
+    });
+    const c = new TaxCalculator({ name: 'Tax', config: inflated });
+    const bookkeeper = new Bookkeeper({ config: inflated, classes: { Cash } });
+
+    c.prepareNextYear({ year: 2026, bookkeeper });
+
+    assert.equal(c.federalBrackets[0].upTo, 10000 * 1.04);
+    assert.equal(c.ltcgBrackets[0].upTo, 40000 * 1.04);
+    assert.equal(c.standardDeduction, 29200 * 1.04);
+    // The rate at each tier is untouched -- only which income lands in
+    // which tier moves.
+    assert.equal(c.federalBrackets[0].rate, 0.10);
+    // Deliberately NOT grown -- these have never been inflation-adjusted
+    // in real law (see README.md's Reference data).
+    assert.deepEqual(inflated.get('Tax').ssProvisionalIncomeThresholds, { low: 32000, high: 44000 });
 });
 
 test('postAmount posts amount from TaxCalcInput to the given cat', () => {
