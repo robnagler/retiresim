@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Medicare } from '../src/Medicare.js';
-import { Config } from '../src/Config.js';
-import { FakeBookkeeper } from './support/FakeBookkeeper.js';
+import { Medicare } from '../../src/biz/Medicare.js';
+import { Config } from '../../src/biz/Config.js';
+import { FakeBookkeeper } from '../support/FakeBookkeeper.js';
 
 const build = () => new Medicare({
     name: 'Medicare',

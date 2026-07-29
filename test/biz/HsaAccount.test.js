@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HsaAccount } from '../src/HsaAccount.js';
-import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Cash } from '../src/Cash.js';
-import { testConfig } from './support/testConfig.js';
+import { HsaAccount } from '../../src/biz/HsaAccount.js';
+import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
+import { Cash } from '../../src/biz/Cash.js';
+import { testConfig } from '../support/testConfig.js';
 
 test('earn draws down a level, straight-line amount (zero growth) so the balance reaches exactly zero by zeroBalanceYear, tax-free', () => {
     // zeroBalanceYear=2029, year=2026 -> 4 years remaining (inclusive).

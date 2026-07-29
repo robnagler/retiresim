@@ -1,19 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Account } from '../src/Account.js';
-import { Mortgage } from '../src/Mortgage.js';
-import { TaxCalculator } from '../src/TaxCalculator.js';
-import { TaxableAccount } from '../src/TaxableAccount.js';
-import { TraditionalIra } from '../src/TraditionalIra.js';
-import { RothIra } from '../src/RothIra.js';
-import { NonSpousalInheritedIra } from '../src/NonSpousalInheritedIra.js';
-import { HsaAccount } from '../src/HsaAccount.js';
-import { LivingExpense } from '../src/LivingExpense.js';
-import { Cash } from '../src/Cash.js';
-import { JournalEntry } from '../src/JournalEntry.js';
-import { Posting } from '../src/Posting.js';
-import { testConfig, taxSpender } from './support/testConfig.js';
+import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
+import { Account } from '../../src/biz/Account.js';
+import { Mortgage } from '../../src/biz/Mortgage.js';
+import { TaxCalculator } from '../../src/biz/TaxCalculator.js';
+import { TaxableAccount } from '../../src/biz/TaxableAccount.js';
+import { TraditionalIra } from '../../src/biz/TraditionalIra.js';
+import { RothIra } from '../../src/biz/RothIra.js';
+import { NonSpousalInheritedIra } from '../../src/biz/NonSpousalInheritedIra.js';
+import { HsaAccount } from '../../src/biz/HsaAccount.js';
+import { LivingExpense } from '../../src/biz/LivingExpense.js';
+import { Cash } from '../../src/biz/Cash.js';
+import { JournalEntry } from '../../src/biz/JournalEntry.js';
+import { Posting } from '../../src/biz/Posting.js';
+import { testConfig, taxSpender } from '../support/testConfig.js';
 
 test('runYear grows an account and reconciles', () => {
     const config = testConfig({ sp500Rate: 0.05, withdrawalOrder: [{ name: 'Account', balance: 1000 }] });

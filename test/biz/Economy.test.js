@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Economy } from '../src/Economy.js';
-import { Config } from '../src/Config.js';
+import { Economy } from '../../src/biz/Economy.js';
+import { Config } from '../../src/biz/Config.js';
 
 test('reads inflationRate/interestRate/sp500Rate from cfg.Economy', () => {
     const config = new Config({

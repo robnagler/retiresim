@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "start": "node src/main.js"
+    "start": "node src/cli/main.js"
   }
 }

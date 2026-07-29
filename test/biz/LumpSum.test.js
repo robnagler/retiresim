@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LumpSum } from '../src/LumpSum.js';
-import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Cash } from '../src/Cash.js';
-import { testConfig } from './support/testConfig.js';
+import { LumpSum } from '../../src/biz/LumpSum.js';
+import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
+import { Cash } from '../../src/biz/Cash.js';
+import { testConfig } from '../support/testConfig.js';
 
 const buildConfig = (amounts) => testConfig({
     balance: 500000,

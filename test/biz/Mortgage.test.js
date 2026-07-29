@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Mortgage } from '../src/Mortgage.js';
-import { Config } from '../src/Config.js';
-import { FakeBookkeeper } from './support/FakeBookkeeper.js';
+import { Mortgage } from '../../src/biz/Mortgage.js';
+import { Config } from '../../src/biz/Config.js';
+import { FakeBookkeeper } from '../support/FakeBookkeeper.js';
 
 const build = (overrides = {}) => new Mortgage({
     config: new Config({ Mortgage: { balance: -200000, rate: 0.06, endYear: 2055, ...overrides } }),

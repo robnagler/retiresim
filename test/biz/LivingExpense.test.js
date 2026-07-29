@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LivingExpense } from '../src/LivingExpense.js';
-import { Config } from '../src/Config.js';
-import { FakeBookkeeper } from './support/FakeBookkeeper.js';
+import { LivingExpense } from '../../src/biz/LivingExpense.js';
+import { Config } from '../../src/biz/Config.js';
+import { FakeBookkeeper } from '../support/FakeBookkeeper.js';
 
 const build = () => new LivingExpense({ config: new Config({ LivingExpense: { balance: 60000 } }) });
 

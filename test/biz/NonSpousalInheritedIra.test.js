@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NonSpousalInheritedIra } from '../src/NonSpousalInheritedIra.js';
-import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Cash } from '../src/Cash.js';
-import { TaxCalculator } from '../src/TaxCalculator.js';
-import { testConfig, taxSpender } from './support/testConfig.js';
+import { NonSpousalInheritedIra } from '../../src/biz/NonSpousalInheritedIra.js';
+import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
+import { Cash } from '../../src/biz/Cash.js';
+import { TaxCalculator } from '../../src/biz/TaxCalculator.js';
+import { testConfig, taxSpender } from '../support/testConfig.js';
 
 test('inherited in 2020 or later, earn distributes the balance straight-line over the years remaining until the 10-year deadline, taxable like a TraditionalIra', () => {
     const config = testConfig({

@@ -1,23 +1,23 @@
 import { readFileSync } from 'node:fs';
-import { Bookkeeper } from './Bookkeeper.js';
-import { Simulator } from './Simulator.js';
-import { TaxableAccount } from './TaxableAccount.js';
-import { TraditionalIra } from './TraditionalIra.js';
-import { NonSpousalInheritedIra } from './NonSpousalInheritedIra.js';
-import { RothIra } from './RothIra.js';
-import { HsaAccount } from './HsaAccount.js';
-import { Mortgage } from './Mortgage.js';
-import { LivingExpense } from './LivingExpense.js';
-import { LumpSum } from './LumpSum.js';
-import { TaxCalculator } from './TaxCalculator.js';
-import { Medicare } from './Medicare.js';
-import { Salary } from './Salary.js';
-import { SocialSecurity } from './SocialSecurity.js';
-import { Pension } from './Pension.js';
-import { Cash } from './Cash.js';
-import { Config } from './Config.js';
-import { Optimizer, OPTIMIZE_VARIABLES } from './Optimizer.js';
-import { RobustnessValidator } from './RobustnessValidator.js';
+import { Bookkeeper } from '../biz/Bookkeeper.js';
+import { Simulator } from '../biz/Simulator.js';
+import { TaxableAccount } from '../biz/TaxableAccount.js';
+import { TraditionalIra } from '../biz/TraditionalIra.js';
+import { NonSpousalInheritedIra } from '../biz/NonSpousalInheritedIra.js';
+import { RothIra } from '../biz/RothIra.js';
+import { HsaAccount } from '../biz/HsaAccount.js';
+import { Mortgage } from '../biz/Mortgage.js';
+import { LivingExpense } from '../biz/LivingExpense.js';
+import { LumpSum } from '../biz/LumpSum.js';
+import { TaxCalculator } from '../biz/TaxCalculator.js';
+import { Medicare } from '../biz/Medicare.js';
+import { Salary } from '../biz/Salary.js';
+import { SocialSecurity } from '../biz/SocialSecurity.js';
+import { Pension } from '../biz/Pension.js';
+import { Cash } from '../biz/Cash.js';
+import { Config } from '../biz/Config.js';
+import { Optimizer, OPTIMIZE_VARIABLES } from '../biz/Optimizer.js';
+import { RobustnessValidator } from '../biz/RobustnessValidator.js';
 
 const classes = {
     TaxableAccount,
@@ -36,7 +36,7 @@ const classes = {
     Cash,
 };
 
-// node src/main.js [path/to/config.json] -- with no argument, runs the
+// node src/cli/main.js [path/to/config.json] -- with no argument, runs the
 // illustrative example scenario below.
 const DEFAULT_CONFIG_DATA = {
     Simulator: { startYear: 2026, endYear: 2030 },

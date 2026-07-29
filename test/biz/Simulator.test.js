@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Simulator } from '../src/Simulator.js';
-import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Account } from '../src/Account.js';
-import { Mortgage } from '../src/Mortgage.js';
-import { Cash } from '../src/Cash.js';
-import { testConfig } from './support/testConfig.js';
+import { Simulator } from '../../src/biz/Simulator.js';
+import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
+import { Account } from '../../src/biz/Account.js';
+import { Mortgage } from '../../src/biz/Mortgage.js';
+import { Cash } from '../../src/biz/Cash.js';
+import { testConfig } from '../support/testConfig.js';
 
 test('run grows an account and pays down a mortgage over multiple years, reconciling every year', () => {
     const config = testConfig({

@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TraditionalIra } from '../src/TraditionalIra.js';
-import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Cash } from '../src/Cash.js';
-import { TaxCalculator } from '../src/TaxCalculator.js';
-import { testConfig, taxSpender } from './support/testConfig.js';
+import { TraditionalIra } from '../../src/biz/TraditionalIra.js';
+import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
+import { Cash } from '../../src/biz/Cash.js';
+import { TaxCalculator } from '../../src/biz/TaxCalculator.js';
+import { testConfig, taxSpender } from '../support/testConfig.js';
 
 test('below the RMD start age, runYear only grows the balance -- no distribution', () => {
     const config = testConfig({

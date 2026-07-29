@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomValue, RANDOM_TABLE_LENGTH } from '../src/RandomTable.js';
+import { randomValue, RANDOM_TABLE_LENGTH } from '../../src/biz/RandomTable.js';
 
 test('randomValue is deterministic and stable across repeated calls for the same (year, trial)', () => {
     const a = randomValue(2026, 2030, 0);

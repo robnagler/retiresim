@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TaxableAccount } from '../src/TaxableAccount.js';
-import { Config } from '../src/Config.js';
-import { FakeBookkeeper } from './support/FakeBookkeeper.js';
+import { TaxableAccount } from '../../src/biz/TaxableAccount.js';
+import { Config } from '../../src/biz/Config.js';
+import { FakeBookkeeper } from '../support/FakeBookkeeper.js';
 
 const build = () => new TaxableAccount({ config: new Config({ TaxableAccount: { balance: 1000, basis: 600 } }) });
 

@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SocialSecurity, claimAgeCandidates } from '../src/SocialSecurity.js';
-import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Cash } from '../src/Cash.js';
-import { TaxCalculator } from '../src/TaxCalculator.js';
-import { testConfig, taxSpender } from './support/testConfig.js';
+import { SocialSecurity, claimAgeCandidates } from '../../src/biz/SocialSecurity.js';
+import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
+import { Cash } from '../../src/biz/Cash.js';
+import { TaxCalculator } from '../../src/biz/TaxCalculator.js';
+import { testConfig, taxSpender } from '../support/testConfig.js';
 
 // colaRate isn't configured separately -- it's derived from inflationRate
 // (see Economy.js), so this is how these tests control it.

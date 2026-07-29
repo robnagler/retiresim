@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Config } from '../src/Config.js';
+import { Config } from '../../src/biz/Config.js';
 
 test('get returns the data stored under a name', () => {
     const c = new Config({ TraditionalIra: { withdraw: 300 } });

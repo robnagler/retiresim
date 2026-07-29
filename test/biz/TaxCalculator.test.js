@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TaxCalculator } from '../src/TaxCalculator.js';
-import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Cash } from '../src/Cash.js';
-import { JournalEntry } from '../src/JournalEntry.js';
-import { Posting } from '../src/Posting.js';
-import { testConfig, taxSpender } from './support/testConfig.js';
+import { TaxCalculator } from '../../src/biz/TaxCalculator.js';
+import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
+import { Cash } from '../../src/biz/Cash.js';
+import { JournalEntry } from '../../src/biz/JournalEntry.js';
+import { Posting } from '../../src/biz/Posting.js';
+import { testConfig, taxSpender } from '../support/testConfig.js';
 
 // Deliberately NOT taxSpender()'s single-tier default -- these tests
 // exercise progressive-bracket behavior, so federal/ltcg each need more

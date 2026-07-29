@@ -1,4 +1,4 @@
-import { Config } from '../../src/Config.js';
+import { Config } from '../../src/biz/Config.js';
 
 // Flat, single-call fixture builder for the Economy + Cash blocks
 // copy-pasted in nearly every test that constructs a real Config. Pass

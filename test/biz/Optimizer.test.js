@@ -1,17 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Optimizer } from '../src/Optimizer.js';
-import { Config } from '../src/Config.js';
-import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Simulator } from '../src/Simulator.js';
-import { TaxableAccount } from '../src/TaxableAccount.js';
-import { TraditionalIra } from '../src/TraditionalIra.js';
-import { RothIra } from '../src/RothIra.js';
-import { LivingExpense } from '../src/LivingExpense.js';
-import { TaxCalculator } from '../src/TaxCalculator.js';
-import { Salary } from '../src/Salary.js';
-import { Cash } from '../src/Cash.js';
-import { testConfigData, taxSpender } from './support/testConfig.js';
+import { Optimizer } from '../../src/biz/Optimizer.js';
+import { Config } from '../../src/biz/Config.js';
+import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
+import { Simulator } from '../../src/biz/Simulator.js';
+import { TaxableAccount } from '../../src/biz/TaxableAccount.js';
+import { TraditionalIra } from '../../src/biz/TraditionalIra.js';
+import { RothIra } from '../../src/biz/RothIra.js';
+import { LivingExpense } from '../../src/biz/LivingExpense.js';
+import { TaxCalculator } from '../../src/biz/TaxCalculator.js';
+import { Salary } from '../../src/biz/Salary.js';
+import { Cash } from '../../src/biz/Cash.js';
+import { testConfigData, taxSpender } from '../support/testConfig.js';
 
 // Captures console.log output for the duration of fn, restoring it
 // afterward even if fn throws.

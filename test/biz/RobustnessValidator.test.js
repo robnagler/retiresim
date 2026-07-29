@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RobustnessValidator } from '../src/RobustnessValidator.js';
-import { buildReturnSequence } from '../src/HistoricalReturns.js';
-import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Config } from '../src/Config.js';
-import { TaxableAccount } from '../src/TaxableAccount.js';
-import { LivingExpense } from '../src/LivingExpense.js';
-import { Cash } from '../src/Cash.js';
-import { testConfigData } from './support/testConfig.js';
+import { RobustnessValidator } from '../../src/biz/RobustnessValidator.js';
+import { buildReturnSequence } from '../../src/biz/HistoricalReturns.js';
+import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
+import { Config } from '../../src/biz/Config.js';
+import { TaxableAccount } from '../../src/biz/TaxableAccount.js';
+import { LivingExpense } from '../../src/biz/LivingExpense.js';
+import { Cash } from '../../src/biz/Cash.js';
+import { testConfigData } from '../support/testConfig.js';
 
 const classes = { TaxableAccount, LivingExpense, Cash };
 

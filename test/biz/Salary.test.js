@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Salary } from '../src/Salary.js';
-import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Cash } from '../src/Cash.js';
-import { TaxCalculator } from '../src/TaxCalculator.js';
-import { testConfig, taxSpender } from './support/testConfig.js';
+import { Salary } from '../../src/biz/Salary.js';
+import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
+import { Cash } from '../../src/biz/Cash.js';
+import { TaxCalculator } from '../../src/biz/TaxCalculator.js';
+import { testConfig, taxSpender } from '../support/testConfig.js';
 
 const buildConfig = (endYear) => testConfig({
     incomeOrder: [{ name: 'Salary', balance: 0, monthlyAmount: 2500, endYear }],

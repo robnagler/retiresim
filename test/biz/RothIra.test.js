@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RothIra } from '../src/RothIra.js';
-import { Bookkeeper } from '../src/Bookkeeper.js';
-import { Cash } from '../src/Cash.js';
-import { testConfig } from './support/testConfig.js';
+import { RothIra } from '../../src/biz/RothIra.js';
+import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
+import { Cash } from '../../src/biz/Cash.js';
+import { testConfig } from '../support/testConfig.js';
 
 test('earn withdrawal is not taxable -- does not post to OrdinaryIncome, and lands in Cash', () => {
     const config = testConfig({ withdrawalOrder: [{ name: 'RothIra', balance: 1000, withdraw: 300 }] });

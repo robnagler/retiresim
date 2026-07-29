@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReturnSequence } from '../src/HistoricalReturns.js';
+import { buildReturnSequence } from '../../src/biz/HistoricalReturns.js';
 
 test('buildReturnSequence returns exactly one entry per simulated year, every year, unconditionally -- no crash gate, every year is a real sampled return', () => {
     const sequence = buildReturnSequence({ startYear: 2026, endYear: 2035, trial: 0 });
