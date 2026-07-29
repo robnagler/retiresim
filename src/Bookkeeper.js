@@ -58,6 +58,10 @@ export class Bookkeeper extends Base {
 
     runYear(year) {
         const b = this._snapshot();
+        // Lets Economy.sp500Rate (a plain-looking property every caller
+        // already reads unchanged) resolve this year's crash, if any --
+        // see Economy.js.
+        this.economy.currentYear = year;
         this.cash.earn(this.earners, year, this);
         for (const a of this.accounts) {
             a.runYear({ year, bookkeeper: this });

@@ -17,6 +17,7 @@ import { Pension } from './Pension.js';
 import { Cash } from './Cash.js';
 import { Config } from './Config.js';
 import { Optimizer, OPTIMIZE_VARIABLES } from './Optimizer.js';
+import { RobustnessValidator } from './RobustnessValidator.js';
 
 const classes = {
     TaxableAccount,
@@ -42,6 +43,23 @@ const DEFAULT_CONFIG_DATA = {
     // Shared market/inflation assumptions -- consumed via bookkeeper.economy
     // instead of each account/income/expense source carrying its own rate.
     Economy: { inflationRate: 0.025, interestRate: 0.03, sp500Rate: 0.06 },
+    // Only consumed by --robustness (RobustnessValidator/MarketCrash.js),
+    // never by the optimizer or --debug. crashes is applied in this order,
+    // cycling, when a crash triggers -- not drawn randomly among them.
+    // Illustrative historical single-year S&P 500 total-return magnitudes,
+    // not researched/precise figures. annualProbability is calibrated to
+    // the real historical rate of 20%+ S&P 500 bear markets: roughly 4 in
+    // the last ~35 years (2000-02, 2008, 2020, 2022), about 1 every 8-9
+    // years -- noticeably more frequent than a naive guess.
+    MarketCrash: {
+        annualProbability: 0.11,
+        crashes: [
+            { name: '1987', rate: -0.20 },
+            { name: '2000-02', rate: -0.45 },
+            { name: '2008', rate: -0.37 },
+            { name: '2020', rate: -0.34 },
+        ],
+    },
     Cash: {
         balance: 0,
         withdrawalOrder: [
@@ -108,12 +126,38 @@ function runDebug(configData, classes) {
     });
 }
 
+// --robustness [N]: also runs configData exactly as given, like --debug --
+// but as many trials (default 200), each with its own random market-crash
+// sequence, reporting the resulting insolvency rate and net-worth
+// distribution instead of one year-by-year report. A separate step after
+// the optimizer, not a replacement for it -- see RobustnessValidator.js.
+function runRobustness(configData, classes, trials) {
+    const validator = new RobustnessValidator();
+    console.log(validator.report(validator.run(configData, classes, trials)));
+}
+
 const args = process.argv.slice(2);
 const debug = args.includes('--debug');
-const configPath = args.find((a) => a !== '--debug');
+const robustnessIndex = args.indexOf('--robustness');
+const skipIndices = new Set();
+if (debug) {
+    skipIndices.add(args.indexOf('--debug'));
+}
+let robustnessTrials;
+if (robustnessIndex !== -1) {
+    skipIndices.add(robustnessIndex);
+    const next = args[robustnessIndex + 1];
+    if (next !== undefined && /^\d+$/.test(next)) {
+        robustnessTrials = Number(next);
+        skipIndices.add(robustnessIndex + 1);
+    }
+}
+const configPath = args.find((a, i) => !skipIndices.has(i));
 const configData = configPath ? JSON.parse(readFileSync(configPath, 'utf8')) : DEFAULT_CONFIG_DATA;
 
-if (debug) {
+if (robustnessIndex !== -1) {
+    runRobustness(configData, classes, robustnessTrials);
+} else if (debug) {
     runDebug(configData, classes);
 } else {
     new Optimizer().runAll(configData, classes, OPTIMIZE_VARIABLES);

@@ -244,7 +244,7 @@ test('printNetWorthTable prints a full candidate table with the winner marked', 
 // ceilings" actually readable.
 test('printNetWorthTable prints one column per candidate.columns key, plus Net Worth, left-justifying only the first (label) column', () => {
     const optimizer = new Optimizer();
-    const candidate = (order, cap) => ({ columns: { Order: order, 'Tax cap': cap } });
+    const candidate = (order, cap) => ({ columns: { Order: order, 'ltcg cap': cap } });
     const netWorth = {
         best: undefined,
         score: 900,
@@ -263,13 +263,13 @@ test('printNetWorthTable prints one column per candidate.columns key, plus Net W
     // "Tax > Trad" are the same length, so this alone wouldn't prove it,
     // but the header lining up under both rows confirms consistent
     // column widths regardless of justification direction.
-    assert.match(lines[1], /^  Order\s+Tax cap\s+Net Worth$/);
-    // The Tax cap column is right-justified: "none" (4 chars) gets
+    assert.match(lines[1], /^  Order\s+ltcg cap\s+Net Worth$/);
+    // The ltcg cap column is right-justified: "none" (4 chars) gets
     // leading padding to match "47,000" (6 chars) -- a trailing-padded
-    // (left-justified) "none" would leave the header's "Tax cap" text
+    // (left-justified) "none" would leave the header's "ltcg cap" text
     // starting to the right of where "none" starts, not directly above it.
-    const capColumnStart = lines[1].indexOf('Tax cap');
-    assert.equal(lines[2].indexOf('none'), capColumnStart + 'Tax cap'.length - 'none'.length);
+    const capColumnStart = lines[1].indexOf('ltcg cap');
+    assert.equal(lines[2].indexOf('none'), capColumnStart + 'ltcg cap'.length - 'none'.length);
     assert.match(lines[2], /Trad > Tax\s+none\s+500/);
     assert.match(lines[3], /Tax > Trad\s+47,000\s+900\s+<- best/);
 });

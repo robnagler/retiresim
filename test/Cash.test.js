@@ -428,3 +428,65 @@ test('spend can carry cash negative -- produce brings it back to reconcile', () 
     assert.equal(cash.balance, -500);
     assert.equal(bookkeeper.balanceChange('Cash', 2026), -600);
 });
+
+test('sweepSurplus moves a positive year-end Cash balance into TaxableAccount, increasing basis by the same amount -- not a taxable event', () => {
+    const config = testConfig({
+        balance: 800,
+        withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 }],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, Cash } });
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
+    const taxable = bookkeeper.accounts.find((a) => a.name === 'Taxable');
+
+    cash.sweepSurplus(2026, bookkeeper);
+
+    assert.equal(cash.balance, 0);
+    assert.equal(taxable.balance, 10800);
+    assert.equal(taxable.basis, 6800);
+    assert.equal(bookkeeper.balanceChange('Cash', 2026), -800);
+    assert.equal(bookkeeper.balanceChange('Taxable', 2026), 800);
+});
+
+test('sweepSurplus does nothing when Cash has no positive balance to sweep', () => {
+    const config = testConfig({
+        balance: 0,
+        withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 }],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, Cash } });
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
+    const taxable = bookkeeper.accounts.find((a) => a.name === 'Taxable');
+
+    cash.sweepSurplus(2026, bookkeeper);
+
+    assert.equal(taxable.balance, 10000);
+    assert.equal(bookkeeper.balanceChange('Cash', 2026), 0);
+});
+
+test('sweepSurplus does nothing (does not throw) when no TaxableAccount is configured', () => {
+    const config = testConfig({ balance: 800 });
+    const bookkeeper = new Bookkeeper({ config, classes: { Cash } });
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
+
+    cash.sweepSurplus(2026, bookkeeper);
+
+    assert.equal(cash.balance, 800);
+});
+
+test('runYear sweeps whatever\'s left of the starting Cash balance into TaxableAccount after paying spenders', () => {
+    const config = testConfig({
+        balance: 1000,
+        withdrawalOrder: [{ name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 }],
+        spendingOrder: [{ name: 'Expense', class: 'LivingExpense', balance: 300 }],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, LivingExpense, Cash } });
+
+    bookkeeper.runYear(2026);
+
+    const cash = bookkeeper.accounts.find((a) => a.name === 'Cash');
+    const taxable = bookkeeper.accounts.find((a) => a.name === 'Taxable');
+    assert.equal(cash.balance, 0);
+    // Starting Cash balance 1000, LivingExpense costs 300, leaving a 700
+    // surplus that should land entirely in TaxableAccount.
+    assert.equal(taxable.balance, 10000 + 700);
+    assert.equal(taxable.basis, 6000 + 700);
+});

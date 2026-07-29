@@ -27,7 +27,13 @@ export class HsaAccount extends RothIra {
         if (years <= 0) {
             throw new Error(`zeroBalanceYear=${this.cfg.zeroBalanceYear} not after year=${year} ${this}`);
         }
-        const r = this.growthRate(bookkeeper);
+        // bookkeeper.economy.baseSp500Rate, not growthRate()/sp500Rate --
+        // this is a one-time planning calculation held fixed for the
+        // account's whole remaining life, so it must use the assumed
+        // long-run rate, not whatever this specific year's rate happens to
+        // be if a RobustnessValidator crash sequence is active and this
+        // year is a crash year (see Economy.js).
+        const r = bookkeeper.economy.baseSp500Rate;
         // earn() withdraws before this year's growth is applied (Cash.earn()
         // runs before Account.runYear() in Bookkeeper.runYear()'s order), so
         // this is the "annuity due" variant, not Mortgage.js's ordinary-

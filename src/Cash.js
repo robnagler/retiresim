@@ -57,11 +57,38 @@ export class Cash extends Account {
         // gains, ad-hoc IRA withdrawals) that prepareNextYear() needs to see
         // for this same year.
         this.produce({ amount: -this.balance, year, bookkeeper });
+        this.sweepSurplus(year, bookkeeper);
         for (const spender of this.spenders) {
             if (spender.prepareNextYear) {
                 spender.prepareNextYear({ year, bookkeeper });
             }
         }
+    }
+
+    // Any surplus still sitting in Cash after produce() has resolved a
+    // shortfall (produce() is a no-op when the balance is already
+    // positive) doesn't just idle there earning half of
+    // Economy.interestRate forever -- it's swept into TaxableAccount, the
+    // default landing spot for investable cash, so it earns the full
+    // sp500Rate like any other uninvested dollar would. A plain deposit(),
+    // not a withdrawal from anywhere -- no tax consequence, and basis
+    // increases by the same amount as balance so this new principal is
+    // never mistaken for a prior gain on a later withdrawal. No-ops (does
+    // NOT throw) when no TaxableAccount is configured -- unlike
+    // bookkeeper/taxCalculator, a household legitimately might not have
+    // one.
+    sweepSurplus(year, bookkeeper) {
+        if (this.balance <= 0) {
+            return;
+        }
+        const taxable = this.accounts.find((account) => account instanceof TaxableAccount);
+        if (!taxable) {
+            return;
+        }
+        const surplus = this.balance;
+        this.withdraw(surplus);
+        taxable.deposit(surplus);
+        bookkeeper.simplePost(year, 'sweep', this.name, taxable.name, surplus);
     }
 
     earn(earners, year, bookkeeper) {

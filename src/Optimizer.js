@@ -17,11 +17,14 @@ const CATEGORY_ORDERS = [
     ['taxFree', 'income', 'ltcg'],
 ];
 
-// Display-only labels -- Cash.js's categoryOf() return values
-// ('ltcg'/'income'/'taxFree') are the real cfg identifiers and stay as
-// they are; these are just friendlier column text (the account types each
-// category is mostly drawn from: Taxable -> Tax, TraditionalIra -> Trad,
-// RothIra/HsaAccount -> Roth).
+// Display-only labels for the Order column only -- Cash.js's categoryOf()
+// return values ('ltcg'/'income'/'taxFree') are the real cfg identifiers
+// and stay as they are; these are just friendlier text for that one
+// column (the account types each category is mostly drawn from: Taxable
+// -> Tax, TraditionalIra -> Trad, RothIra/HsaAccount -> Roth). The 'ltcg
+// cap'/'income cap' columns intentionally use the real category names
+// directly instead of these aliases -- routing "Trad cap" back to
+// "income" cost the user a real double-take once already.
 const CATEGORY_LABEL = { ltcg: 'Tax', income: 'Trad', taxFree: 'Roth' };
 const fmtCeiling = (v) => (v === Infinity ? 'none' : v.toLocaleString());
 
@@ -47,8 +50,8 @@ function categoryOrderCandidate(categoryOrder, ltcgCeilingBracket, incomeCeiling
         incomeCeilingBracket,
         columns: {
             Order: categoryOrder.map((c) => CATEGORY_LABEL[c]).join(' > '),
-            'Tax cap': fmtCeiling(ltcgDisplay),
-            'Trad cap': fmtCeiling(incomeDisplay),
+            'ltcg cap': fmtCeiling(ltcgDisplay),
+            'income cap': fmtCeiling(incomeDisplay),
         },
         toString() {
             return `${categoryOrder.join('>')} ltcg<=${fmtCeiling(ltcgDisplay)} income<=${fmtCeiling(incomeDisplay)}`;
