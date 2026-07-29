@@ -43,23 +43,11 @@ const DEFAULT_CONFIG_DATA = {
     // Shared market/inflation assumptions -- consumed via bookkeeper.economy
     // instead of each account/income/expense source carrying its own rate.
     Economy: { inflationRate: 0.025, interestRate: 0.03, sp500Rate: 0.06 },
-    // Only consumed by --robustness (RobustnessValidator/MarketCrash.js),
-    // never by the optimizer or --debug. crashes is applied in this order,
-    // cycling, when a crash triggers -- not drawn randomly among them.
-    // Illustrative historical single-year S&P 500 total-return magnitudes,
-    // not researched/precise figures. annualProbability is calibrated to
-    // the real historical rate of 20%+ S&P 500 bear markets: roughly 4 in
-    // the last ~35 years (2000-02, 2008, 2020, 2022), about 1 every 8-9
-    // years -- noticeably more frequent than a naive guess.
-    MarketCrash: {
-        annualProbability: 0.11,
-        crashes: [
-            { name: '1987', rate: -0.20 },
-            { name: '2000-02', rate: -0.45 },
-            { name: '2008', rate: -0.37 },
-            { name: '2020', rate: -0.34 },
-        ],
-    },
+    // --robustness (RobustnessValidator.js) does NOT read a MarketCrash
+    // cfg block -- historical S&P 500 return data lives in
+    // HistoricalReturns.js as a committed JavaScript constant, not
+    // cfg.json, since it's a fact about market history, not a per-user
+    // assumption.
     Cash: {
         balance: 0,
         withdrawalOrder: [

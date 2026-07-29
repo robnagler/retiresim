@@ -3,7 +3,7 @@ import { Config } from './Config.js';
 import { Bookkeeper } from './Bookkeeper.js';
 import { Simulator } from './Simulator.js';
 import { InsufficientFundsError } from './InsufficientFundsError.js';
-import { buildCrashSequence } from './MarketCrash.js';
+import { buildReturnSequence } from './HistoricalReturns.js';
 
 const DEFAULT_TRIALS = 200;
 
@@ -12,30 +12,26 @@ const DEFAULT_TRIALS = 200;
 // "no candidate substitution" contract as --debug: whatever categoryOrder/
 // ceilings/claimAge are already sitting in cfg.json, presumably the
 // optimizer's own winning values copied in by hand) and stress-tests THAT
-// one plan against many different random market-crash sequences, instead
-// of searching for a better plan. It answers "how fragile is the plan we
-// already picked," not "what's the best plan."
+// one plan against many different random historical-return sequences,
+// instead of searching for a better plan. It answers "how fragile is the
+// plan we already picked," not "what's the best plan." Unlike every other
+// input in this project, the historical-return data itself is NOT
+// configurable via cfg.json (see HistoricalReturns.js) -- it's a fact
+// about market history, not a per-user assumption.
 export class RobustnessValidator extends Base {
-    // One Bookkeeper/Simulator per trial, each with its own crash
-    // sequence (buildCrashSequence()'s trial parameter selects a
+    // One Bookkeeper/Simulator per trial, each with its own sampled
+    // return sequence (buildReturnSequence()'s trial parameter selects a
     // well-separated slice of RandomTable -- see RandomTable.js) so no two
-    // trials see the same crash years. InsufficientFundsError is caught
+    // trials draw the identical sequence. InsufficientFundsError is caught
     // per trial, same pattern Optimizer.runAll() already uses, so one bad
     // trial doesn't abort the whole batch.
     run(configData, classes, trials = DEFAULT_TRIALS) {
         const { startYear, endYear } = configData.Simulator;
-        const marketCrash = configData.MarketCrash;
         const results = [];
         for (let trial = 0; trial < trials; trial++) {
             const config = new Config(structuredClone(configData));
             const bookkeeper = new Bookkeeper({ config, classes });
-            bookkeeper.economy.setCrashSequence(buildCrashSequence({
-                startYear,
-                endYear,
-                annualProbability: marketCrash.annualProbability,
-                crashes: marketCrash.crashes,
-                trial,
-            }));
+            bookkeeper.economy.setHistoricalReturns(buildReturnSequence({ startYear, endYear, trial }));
             try {
                 new Simulator({ bookkeeper, config }).run();
                 results.push({ trial, netWorth: bookkeeper.netWorth(), failedYear: null });

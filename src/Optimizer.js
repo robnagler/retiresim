@@ -2,7 +2,6 @@ import { Base } from './Base.js';
 import { Config } from './Config.js';
 import { Bookkeeper } from './Bookkeeper.js';
 import { Simulator } from './Simulator.js';
-import { claimAgeCandidates } from './SocialSecurity.js';
 import { InsufficientFundsError } from './InsufficientFundsError.js';
 
 // All 6 orderings of the 3 withdrawal tax categories (see Cash.js's
@@ -63,18 +62,6 @@ function categoryOrderCandidate(categoryOrder, ltcgCeilingBracket, incomeCeiling
 // candidates() lists the values to try; apply() overrides a cloned
 // config's field for one candidate.
 export const OPTIMIZE_VARIABLES = [
-    {
-        label: 'SS claim age',
-        // Excludes claim ages already passed as of Simulator.startYear --
-        // not real, actionable choices for someone already older than them.
-        candidates: (configData) => {
-            const { birthYear } = configData.Cash.incomeOrder.find((e) => e.name === 'SocialSecurity');
-            return claimAgeCandidates({ birthYear, asOfYear: configData.Simulator.startYear });
-        },
-        apply: (data, candidate) => {
-            data.Cash.incomeOrder.find((e) => e.name === 'SocialSecurity').claimAge = candidate;
-        },
-    },
     {
         label: 'Withdrawal category order + ceilings',
         // Searches which tax category (realized gains / ordinary income /
@@ -146,11 +133,10 @@ export class Optimizer extends Base {
 
     // A full candidate/net-worth table implies a real tradeoff was
     // searched. Cases where that's misleading: only one legal candidate
-    // existed (e.g. SS claim age when already past 70, see
-    // claimAgeCandidates()), every candidate scored the same, or every
-    // candidate ran out of money (a tie at 0 for a different reason than
-    // "this variable doesn't matter"). All are collapsed to one flagged
-    // line instead of a table that looks informative but isn't.
+    // existed, every candidate scored the same, or every candidate ran out
+    // of money (a tie at 0 for a different reason than "this variable
+    // doesn't matter"). All are collapsed to one flagged line instead of a
+    // table that looks informative but isn't.
     printNetWorthTable(label, netWorth, failedYears) {
         if (failedYears.size === netWorth.all.length) {
             console.log(`\n${label} -- every candidate ran out of money:`);
@@ -214,14 +200,17 @@ export class Optimizer extends Base {
     // combinatorially as more variables are added). Each variable's grid is
     // evaluated against a `base` config carrying forward the winning
     // candidate of every variable already run, and its own winner is then
-    // folded into `base` before the next variable runs -- so, e.g., the
-    // withdrawal category-order table already reflects the best SS claim
-    // age, and HSA-pays-Medicare already reflects both. This can miss the
+    // folded into `base` before the next variable runs. This can miss the
     // true joint optimum (coordinate ascent doesn't guarantee it, and a
     // different variable order can land on a different combination), but is
     // far cheaper than evaluating every combination and a real improvement
     // over evaluating each variable in isolation against configData's own
     // literal values, which ignored every other variable's optimum entirely.
+    // `OPTIMIZE_VARIABLES` currently holds just one entry (withdrawal
+    // category order + ceilings -- SS claim age was removed, see CLAUDE.md's
+    // Optimize Variables), so this machinery's multi-variable ordering
+    // concerns don't currently bite in practice, but stay in place for
+    // whenever a second variable is added back.
     runAll(configData, classes, variables = OPTIMIZE_VARIABLES) {
         const base = structuredClone(configData);
         for (const variable of variables) {

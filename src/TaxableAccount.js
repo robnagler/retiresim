@@ -9,9 +9,9 @@ export class TaxableAccount extends Account {
         // configured account isn't supposed to start out already
         // underwater. NOT checked after deposit()/withdraw() (or grow(),
         // which never checked it): market growth can be negative (see
-        // MarketCrash.js), which legitimately drops balance below basis
-        // (an unrealized loss) without touching basis at all, same as a
-        // real brokerage statement would show.
+        // HistoricalReturns.js), which legitimately drops balance below
+        // basis (an unrealized loss) without touching basis at all, same
+        // as a real brokerage statement would show.
         this._checkBasis();
     }
 
