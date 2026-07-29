@@ -2,6 +2,8 @@
 
 ## 2026-07-29
 
+* 16:51:38 **Update**: Committed as `f0218d2` and pushed `e3052a3..f0218d2` to origin/main.
+* 16:51:00 **Prompt**: "gckp"
 * 15:30:00 **Answer**: Investigated another "unreasonably large" robustness-run outlier by tracing the actual trial and reconstructing its sampled sequence -- same root cause as the earlier one: even without repeats, a horizon shorter than the full historical pool can still land on an unusually favorable subset of real years by chance, and multi-decade compounding is very sensitive to the average annual rate. Mathematically legitimate, not a bug.
 * 15:25:00 **Prompt**: "the $[net worth figure, redacted] is pretty bizarre why?"
 * 14:50:00 **Update**: Reworked the withdrawal category-order optimizer table's formatting per request -- the Order column now shows the real category identifiers directly (e.g. "income > ltcg > taxFree") instead of a friendlier Trad/Tax/Roth alias, and the ltcg/income cap columns now show the bracket index alongside its resolved dollar amount. Removed the now-unused alias map. Updated cfg.json's "optimal" note to match the new format. 183/183 tests pass; verified against the real config that the live table renders in the requested format.
