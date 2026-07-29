@@ -94,9 +94,9 @@ const DEFAULT_CONFIG_DATA = {
                 // partBMonthly/partDMonthly/partGMonthly are all monthly,
                 // unlike everything else in cfg -- Part B is billed monthly by
                 // CMS, Part D/Medigap Plan G monthly by private insurers.
-                partBMonthly: 175,
-                partDMonthly: 50,
-                partGMonthly: 150,
+                partBMonthly: 203,
+                partDMonthly: 83,
+                partGMonthly: 203,
             },
         ],
     },

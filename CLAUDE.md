@@ -25,6 +25,36 @@ Build the project slowly one module at a time.
 
 ---
 
+## UI
+
+- Plain JS, CSS, and HTML. Maybe a graphing package that's very simple
+- No bundles, no images
+- A single form with
+   - Facts
+      - Birth year [select: <this year - 75>-<this year>]
+      - Salary: [number: blank]
+      - Social Security at 67: [number: blank]
+      - Medicare Part G: [number: default to same value as PartB]
+      - Mortgage Balance: [number: blank] Rate: [number: blank] End ---Year: [select: <this year>-<this year + 30>]
+      - Taxable Balance: [number: blank]
+      - Traditional IRA: [number: blank]
+      - Roth IRA: [number: blank]
+      - Non-Spousal Inherited IRA: [number: blank] Inherited Year: [select: <this year - 30> -<this year>]
+      - HSA Balance: [number: blank]
+
+   - Predictions
+      - Life Expectancy [select: 80-110]
+      - Retirement Year: [select: <this year>-<this year + 30>]
+      - Yearly Spending: [number: blank] (excluding mortgage and medicare)
+      - Inflation: [select: 0-10% increments .5%]
+      - Interest Rate: [select: 1%-5%, increments 1%]
+      - Investment Return:  [select: 5%-15%]
+
+- Button: Optimize
+- Optimal amounts with the spending strategies explained
+- Graph: networth over time for optimal
+
+
 ## Modularization
 
 Core state, one class per file:
