@@ -25,30 +25,79 @@ const ANNUAL_RETURNS = [
     0.1788, // 2025
 ];
 
-// Every simulated year, for every trial, independently picks one of the
-// 61 real historical years' returns uniformly at random (with
-// replacement -- picking the same historical year twice, even in
-// consecutive simulated years, is a real possible outcome, not
-// prevented). This is deliberately NOT a chronological replay of real
-// history (there's no reason simulated year 2026 should behave like real
-// 1965 just because they're both "first"), and deliberately has no
-// separate "does this year crash" gate or cooldown -- the real annual
-// figures already include both ordinary and crash years in their true
-// historical proportions, so sampling uniformly from them reproduces that
-// same mix without needing a hand-tuned probability or magnitude list.
-// Back-to-back bad years (e.g. 1973 then 1974) can and do get drawn
-// together sometimes, same as real history; running many trials is what
-// surfaces how often that particular bad luck actually matters.
+// Real US annual average CPI-U inflation rates, same 1965-2025 years, same
+// index positions as ANNUAL_RETURNS above -- deliberately NOT an
+// independent draw (see buildReturnSequence() below): inflation and market
+// returns aren't actually independent in real history, and the worst
+// combinations for a retiree are exactly when both went bad in the same
+// year (1973-74's stagflation, 2022's inflation-driven bear market both
+// pair a weak/negative market return with well-above-average inflation).
+// Sampling them separately would understate that correlated risk --
+// pairing each draw to one real historical year preserves it.
+const ANNUAL_INFLATION = [
+    0.016, 0.029, 0.031, 0.042, 0.055, 0.057, 0.044, 0.032, 0.062, 0.110, // 1965-1974
+    0.091, 0.058, 0.065, 0.076, 0.113, 0.135, 0.103, 0.062, 0.032, 0.043, // 1975-1984
+    0.036, 0.019, 0.036, 0.041, 0.048, 0.054, 0.042, 0.030, 0.030, 0.026, // 1985-1994
+    0.028, 0.030, 0.023, 0.016, 0.022, 0.034, 0.028, 0.016, 0.023, 0.027, // 1995-2004
+    0.034, 0.032, 0.028, 0.038, -0.004, 0.016, 0.032, 0.021, 0.015, 0.016, // 2005-2014
+    0.001, 0.013, 0.021, 0.024, 0.018, 0.012, 0.047, 0.080, 0.041, 0.029, // 2015-2024
+    0.026, // 2025
+];
+
+// Fisher-Yates shuffle of [0..length-1], driven by RandomTable draws --
+// deterministic and reproducible for a given (trial, cycle) pair, like
+// everything else derived from RandomTable. Each cycle's draws sweep the
+// `year` argument forward by a full `length` (rather than reusing i from
+// 0 each time), so cycle 1's draws read a completely different slice of
+// RandomTable than cycle 0's for the same trial -- a real reshuffle, not
+// an accidental repeat of the same permutation (unlike offsetting the
+// trial/seed itself, which can collide modulo RandomTable's length).
+function shuffledIndices(trial, cycle, length) {
+    const indices = Array.from({ length }, (_, i) => i);
+    for (let i = length - 1; i > 0; i--) {
+        const j = Math.floor(randomValue(0, cycle * length + i, trial) * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    return indices;
+}
+
+// Every trial walks a shuffled, non-repeating order of all 61 real
+// historical years: once a year's been used, it isn't used again until
+// every other year has also been used once -- a "shuffled bag," same idea
+// as a card game reshuffling a fresh deck only once it runs out, rather
+// than drawing with replacement from the full deck every time. If a
+// simulation horizon is longer than 61 years, the pool reshuffles (a
+// fresh permutation, not the same one repeated -- see shuffledIndices())
+// once exhausted and continues; for this project's real horizons (well
+// under 61 years), that reshuffle never triggers, so
+// a trial simply never repeats a historical year at all. This is
+// deliberately NOT a chronological replay of real history (the shuffle
+// order is random and reproducible per trial, not fixed to real
+// chronological order), and deliberately has no separate "does this year
+// crash" gate or cooldown -- the real annual figures already include both
+// ordinary and crash years in their true historical proportions, so a
+// shuffled walk through all of them reproduces that same mix without a
+// hand-tuned probability or magnitude list, while no longer letting a
+// single lucky (or unlucky) year recur more than its real, one-time share.
 //
 // The full sequence is computed once, up front, for startYear..endYear,
-// not re-rolled lazily year by year, so every account touching sp500Rate
-// in a given trial sees identical draws -- same reproducibility
-// guarantee RandomTable.js documents.
+// not re-rolled lazily year by year, so every account touching sp500Rate/
+// inflationRate in a given trial sees identical draws -- same
+// reproducibility guarantee RandomTable.js documents.
 export function buildReturnSequence({ startYear, endYear, trial }) {
     const sequence = new Map();
+    let cycle = 0;
+    let shuffled = shuffledIndices(trial, cycle, ANNUAL_RETURNS.length);
+    let position = 0;
     for (let year = startYear; year <= endYear; year++) {
-        const index = Math.floor(randomValue(startYear, year, trial) * ANNUAL_RETURNS.length);
-        sequence.set(year, ANNUAL_RETURNS[index]);
+        if (position >= shuffled.length) {
+            cycle++;
+            shuffled = shuffledIndices(trial, cycle, ANNUAL_RETURNS.length);
+            position = 0;
+        }
+        const index = shuffled[position];
+        position++;
+        sequence.set(year, { sp500Rate: ANNUAL_RETURNS[index], inflationRate: ANNUAL_INFLATION[index] });
     }
     return sequence;
 }

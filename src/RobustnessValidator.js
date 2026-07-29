@@ -57,7 +57,15 @@ export class RobustnessValidator extends Base {
         lines.push(`  Insolvent: ${failed.length} (${insolventRate.toFixed(1)}%)`);
         if (failed.length) {
             const years = failed.map((r) => r.failedYear);
-            lines.push(`    Failure year range: ${Math.min(...years)}-${Math.max(...years)}`);
+            // Range alone doesn't say whether failures cluster tightly
+            // around one point in the horizon or spread evenly across it --
+            // sigma (population standard deviation, describing this
+            // specific run's failures, not estimating some larger
+            // population) does.
+            const mean = years.reduce((a, y) => a + y, 0) / years.length;
+            const variance = years.reduce((a, y) => a + (y - mean) ** 2, 0) / years.length;
+            const sigma = Math.sqrt(variance);
+            lines.push(`    Failure year range: ${Math.min(...years)}-${Math.max(...years)} (mean ${mean.toFixed(1)}, sigma ${sigma.toFixed(1)})`);
         }
         lines.push(`  Net worth -- min: ${netWorths[0].toFixed(0)}  p10: ${percentile(0.1).toFixed(0)}  median: ${percentile(0.5).toFixed(0)}  p90: ${percentile(0.9).toFixed(0)}  max: ${netWorths[netWorths.length - 1].toFixed(0)}`);
         return lines.join('\n');

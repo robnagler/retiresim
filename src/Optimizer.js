@@ -16,16 +16,15 @@ const CATEGORY_ORDERS = [
     ['taxFree', 'income', 'ltcg'],
 ];
 
-// Display-only labels for the Order column only -- Cash.js's categoryOf()
-// return values ('ltcg'/'income'/'taxFree') are the real cfg identifiers
-// and stay as they are; these are just friendlier text for that one
-// column (the account types each category is mostly drawn from: Taxable
-// -> Tax, TraditionalIra -> Trad, RothIra/HsaAccount -> Roth). The 'ltcg
-// cap'/'income cap' columns intentionally use the real category names
-// directly instead of these aliases -- routing "Trad cap" back to
-// "income" cost the user a real double-take once already.
-const CATEGORY_LABEL = { ltcg: 'Tax', income: 'Trad', taxFree: 'Roth' };
-const fmtCeiling = (v) => (v === Infinity ? 'none' : v.toLocaleString());
+// Both the Order column and the cap columns use Cash.js's real
+// categoryOf() identifiers ('ltcg'/'income'/'taxFree') directly, not a
+// friendlier alias -- an earlier alias scheme ("Trad cap" meaning
+// "income") cost the user a real double-take once already. Cap columns
+// show the bracket index alongside its resolved dollar amount (e.g.
+// "197,300[3]") so the candidate in cfg.json's ltcgCeilingBracket/
+// incomeCeilingBracket fields (indices, not dollar amounts -- see
+// Cash.categoryRoom()) can be read directly off the table.
+const fmtCeiling = (v, bracket) => (v === Infinity ? 'none' : `${v.toLocaleString()}[${bracket}]`);
 
 // candidate is a plain object (categoryOrder/ltcgCeilingBracket/
 // incomeCeilingBracket), not a primitive. `columns` gives
@@ -48,12 +47,12 @@ function categoryOrderCandidate(categoryOrder, ltcgCeilingBracket, incomeCeiling
         ltcgCeilingBracket,
         incomeCeilingBracket,
         columns: {
-            Order: categoryOrder.map((c) => CATEGORY_LABEL[c]).join(' > '),
-            'ltcg cap': fmtCeiling(ltcgDisplay),
-            'income cap': fmtCeiling(incomeDisplay),
+            Order: categoryOrder.join(' > '),
+            'ltcg cap': fmtCeiling(ltcgDisplay, ltcgCeilingBracket),
+            'income cap': fmtCeiling(incomeDisplay, incomeCeilingBracket),
         },
         toString() {
-            return `${categoryOrder.join('>')} ltcg<=${fmtCeiling(ltcgDisplay)} income<=${fmtCeiling(incomeDisplay)}`;
+            return `${categoryOrder.join('>')} ltcg<=${fmtCeiling(ltcgDisplay, ltcgCeilingBracket)} income<=${fmtCeiling(incomeDisplay, incomeCeilingBracket)}`;
         },
     };
 }

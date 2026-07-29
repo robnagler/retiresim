@@ -210,11 +210,16 @@ const TABLE = [
 ];
 
 // Distinct trials need to read well-separated slices of TABLE, not the
-// same window shifted by 1 -- a small stride would make trial 1's crash
-// years nearly identical to trial 0's. 47 is prime relative to TABLE's
-// length (2000), so consecutive trials don't realign onto the same
-// sub-sequence for a very long time.
-const TRIAL_STRIDE = 47;
+// same window shifted by 1 -- a small stride would make trial 1's draws
+// nearly identical to trial 0's. Must also be strictly greater than the
+// most consecutive draws any single trial ever makes from one seed --
+// HistoricalReturns.js's Fisher-Yates shuffle draws up to 60 in a row (one
+// less than its 61-entry pool) -- otherwise trial N's shuffle draws would
+// overlap trial N+1's. 67 is prime relative to TABLE's length (2000) and
+// comfortably above that 60-draw ceiling, so consecutive trials don't
+// realign onto the same sub-sequence for a very long time and never
+// overlap within a single shuffle.
+const TRIAL_STRIDE = 67;
 
 // The value for a given (year, trial) pair, stable across every call in
 // every process -- see the module comment above for why that matters.
