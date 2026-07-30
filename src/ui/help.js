@@ -10,7 +10,7 @@ export const FIELD_HELP = {
     birthYear: 'Drives everything age-based: when Social Security can start, when Medicare premiums begin at 65, when required minimum distributions kick in, and how long the simulation runs.',
     salary: 'Gross annual employment income, before taxes. Leave blank if already retired. It stops in the retirement year below.',
     socialSecurityAt67: 'Your monthly benefit at full retirement age (67), not the amount at the age you plan to claim -- the simulator applies the roughly 8% per year adjustment itself, and searches for the best claiming age.',
-    medicarePartG: 'Monthly Medigap Plan G premium. Part B and Part D are included automatically at their standard amounts. Leave blank to use the same value as Part B.',
+    medicarePartG: 'Monthly premium for a Medigap Plan G supplement, which private insurers sell to cover what Medicare itself does not. Medicare Part B and Part D are included automatically at their standard amounts. Leave blank to use the same value as Part B.',
     mortgageBalance: 'Amount still owed, not the home value. The house itself is not modeled as an asset, so home equity does not count toward net worth.',
     mortgageRate: 'The loan\'s own fixed annual rate. The monthly payment is derived from the balance, this rate, and the end year -- you do not enter the payment.',
     mortgageEndYear: 'The year the loan is scheduled to be paid off. The payment is sized so the balance reaches zero exactly then.',

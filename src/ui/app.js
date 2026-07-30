@@ -17,7 +17,8 @@ import { Medicare } from '../biz/Medicare.js';
 import { Salary } from '../biz/Salary.js';
 import { SocialSecurity } from '../biz/SocialSecurity.js';
 import { Cash } from '../biz/Cash.js';
-import { renderNetWorthChart } from './chart.js';
+import { RobustnessValidator } from '../biz/RobustnessValidator.js';
+import { renderNetWorthChart, renderRobustnessChart } from './chart.js';
 import { FIELD_HELP } from './help.js';
 
 const classes = {
@@ -266,29 +267,85 @@ async function importFields(file) {
     populateForm(JSON.parse(await file.text()));
 }
 
-// Holds the currently-drawn chart, if any, so a second Optimize click
-// destroys it before drawing a new one -- Chart.js throws if a chart is
-// created on a canvas that already has one attached.
-let currentChart = null;
+// Every chart currently drawn, so a second Optimize click destroys them
+// before drawing again -- Chart.js throws if a chart is created on a canvas
+// that already has one attached.
+let currentCharts = [];
 
-function renderResults(results) {
+// Draws into the named canvas and shows its container, or hides the
+// container when there is nothing to draw -- an empty chart frame reads as
+// a broken page rather than as an absence of data.
+function drawChart(containerId, canvasId, series, render) {
+    const container = document.getElementById(containerId);
+    if (!series) {
+        container.style.display = 'none';
+        return;
+    }
+    container.style.display = '';
+    currentCharts.push(render(document.getElementById(canvasId), series));
+}
+
+// How many sampled market histories the robustness check runs. Two hundred
+// is the same default the command line uses, and takes well under a second,
+// so there is no case for making the user ask for it separately.
+const ROBUSTNESS_TRIALS = 200;
+
+// The optimizer answers "what is the best plan under one assumed return
+// every year," which is never what happens. Running the winner straight
+// through the robustness validator answers the question that assumption
+// leaves open -- how often this plan survives real market history -- and
+// doing it automatically means the plan being stress-tested is always the
+// plan just chosen, rather than whatever was last copied somewhere by hand.
+function renderRobustness(configData, results) {
+    const container = document.getElementById('robustness');
+    container.innerHTML = '';
+    const winning = new Optimizer().winningConfigData(configData, results, OPTIMIZE_VARIABLES);
+    const trials = new RobustnessValidator().run(winning, classes, ROBUSTNESS_TRIALS);
+    const insolvent = trials.filter((t) => t.failedYear !== null);
+    const survived = trials.length - insolvent.length;
+    const sorted = trials.map((t) => t.netWorth).sort((a, b) => a - b);
+    const percentile = (p) => sorted[Math.floor(p * (sorted.length - 1))];
+
+    const p = (text) => {
+        const el = document.createElement('p');
+        el.textContent = text;
+        container.appendChild(el);
+    };
+    p(`Tested against ${trials.length} sampled market histories: the money lasted in ${survived} of them (${((100 * survived) / trials.length).toFixed(0)}%).`);
+    // Median rather than mean: the spread is heavily right-skewed, since a
+    // few lucky histories compound to outsized totals while every insolvent
+    // one sits at exactly zero.
+    p(`Typical ending net worth ${CURRENCY.format(percentile(0.5))}, ranging from ${CURRENCY.format(percentile(0.1))} in the worst tenth to ${CURRENCY.format(percentile(0.9))} in the best tenth.`);
+    if (insolvent.length) {
+        const years = insolvent.map((t) => t.failedYear);
+        p(`When it ran out, that happened between ${Math.min(...years)} and ${Math.max(...years)}.`);
+    }
+    return trials;
+}
+
+function renderResults(configData, results) {
     renderStrategy(document.getElementById('results'), results);
 
-    currentChart?.destroy();
-    currentChart = null;
+    for (const chart of currentCharts) {
+        chart.destroy();
+    }
+    currentCharts = [];
 
     // The last variable's winning candidate is the final plan -- its
-    // year-by-year net worth is what the graph shows. Optimizer.js
-    // returns null/null for a winner that ran out of money, in which
-    // case there's nothing meaningful to graph.
+    // year-by-year series are what the graphs show. Optimizer.js returns
+    // nulls for a winner that ran out of money, in which case there's
+    // nothing meaningful to graph. The net-worth chart is drawn from the
+    // per-account balances rather than netWorthByYear: stacked, they are
+    // the same curve, with the accounts making it up shown underneath.
     const finalPlan = results[results.length - 1];
-    const chartContainer = document.getElementById('chartContainer');
-    if (finalPlan.netWorthByYear) {
-        chartContainer.style.display = '';
-        currentChart = renderNetWorthChart(document.getElementById('netWorthChart'), finalPlan.netWorthByYear);
-    } else {
-        chartContainer.style.display = 'none';
+    drawChart('chartContainer', 'netWorthChart', finalPlan.balancesByYear, renderNetWorthChart);
+    // A plan that already fails under one steady return has nothing to
+    // learn from a hundred worse ones.
+    const trials = finalPlan.netWorthByYear ? renderRobustness(configData, results) : null;
+    if (trials === null) {
+        document.getElementById('robustness').innerHTML = '';
     }
+    drawChart('robustnessChartContainer', 'robustnessChart', trials, renderRobustnessChart);
 }
 
 // How far down and right of the [?] the popover's top-left corner sits,
@@ -511,7 +568,7 @@ document.getElementById('planForm').addEventListener('submit', (event) => {
     }
     const configData = buildConfigData(input);
     const results = new Optimizer().runAll(configData, classes, OPTIMIZE_VARIABLES);
-    renderResults(results);
+    renderResults(configData, results);
 });
 
 document.getElementById('exportButton').addEventListener('click', () => {

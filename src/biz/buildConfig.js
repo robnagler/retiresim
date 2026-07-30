@@ -55,9 +55,13 @@ const SS_PROVISIONAL_INCOME_THRESHOLDS = { low: 32000, high: 44000 };
 const COLORADO_STATE_RATE = 0.044;
 
 // Medicare Part B and Part D are treated as fixed, not user-chosen,
-// premiums -- CLAUDE.md's UI spec itself only exposes a "Medicare Part G"
-// field ("default to same value as PartB"), no Part B field at all. Real
-// values the user already confirmed and entered into config/cfg.json.
+// premiums -- CLAUDE.md's UI spec exposes only a Medigap Plan G field
+// ("default to same value as Part B"), no Part B field at all. Real values
+// the user already confirmed and entered into config/cfg.json. The
+// medicarePartG/partGMonthly key names predate noticing that "Medicare
+// Part G" is not a real thing (Plan G is a Medigap supplement); the form
+// label says Medigap now, while the keys wait for the export-format
+// versioning work before being renamed.
 const MEDICARE_PART_B_MONTHLY = 203;
 const MEDICARE_PART_D_MONTHLY = 83;
 

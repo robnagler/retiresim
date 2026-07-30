@@ -2,6 +2,33 @@
 
 ## 2026-07-31
 
+* 14:13:25 **Prompt**: "gckp"
+* 13:40:02 **Update**: Narrowed issue #2 to the 401k financials and split the monthly-amounts work into its own issue #11. Merged the two charts into one: the accounts are exactly what net worth sums, so stacking them makes the top of the stack the net-worth curve, with the total in the tooltip rather than as a dataset that a stacked axis would double. 231/231 tests pass.
+* 13:38:11 **Prompt**: "split the monthly amounts out into a separate issue. #2 shouldjust be working financials. also for the charts. i think net worth over time can have accounts underneath the curve since they add up to total worth"
+* 13:35:42 **Answer**: No -- the field is still yearly. Making every flow amount monthly is scoped into issue #2 together with the 401k work, which has not been started; only the Medigap label was corrected today.
+* 13:35:00 **Prompt**: "did we fix the yearly spending ?"
+* 13:22:04 **Update**: Committed as `199a35b` and pushed to the branch; CI passed, so PR #10 now carries both the charts and today's UI corrections.
+* 13:16:15 **Prompt**: "gckp"
+* 13:14:44 **Update**: Corrected the UI spec in CLAUDE.md, which is where the wrong name originated, and the buildConfig comment that quoted it. Both now record that the key names are knowingly stale pending the export-format versioning rather than simply unnoticed.
+* 13:05:50 **Prompt**: "fix the calude.md"
+* 12:30:54 **Update**: Corrected the form label from "Medicare Part G" to "Medigap Plan G" -- Medicare has Parts A through D, and Plan G is a private supplement -- which the field's own help text had already been describing correctly. Left the element id and config key alone, since renaming them changes the export format and belongs with the versioning work in #7.
+* 12:30:00 **Prompt**: "btw paul cool - I played the game but I died of dysentery. Gemini claims \"There is no official \"Medicare Part G.\" You are likely thinking of Medigap Plan G\""
+* 12:25:12 **Update**: Changed the dirty Export button from a filled teal blue to an outlined amber with a 2px border, so it reads as a state needing attention rather than as a second primary action competing with Optimize.
+* 12:24:00 **Prompt**: "change the export button to an amber with a thicker border when dirty"
+* 12:22:04 **Answer**: The error persisted because the copy cached before the no-store change is still treated as fresh -- that header only governs new responses -- so one hard reload is needed, which corrects my earlier advice that a normal reload would do. Also found the user's own server on port 8000 was rooted at their home directory rather than the project and is no longer responding at all.
+* 12:21:00 **Prompt**: "still getting app.js:21 Uncaught SyntaxError: The requested module './chart.js' does not provide an export named 'renderAccountsChart' (at app.js:21:10)"
+* 12:14:45 **Update**: Traced the missing-export error to browser caching, not the code -- the server was already sending all four exports. Replaced the plain `python3 -m http.server` with one that sends `Cache-Control: no-store`, since the stock one sends no cache headers at all and browsers then serve stale ES modules; recorded that in the standing server preference.
+* 12:12:00 **Prompt**: "import doesn't work any more; Uncaught SyntaxError: The requested module './chart.js' does not provide an export named 'renderAccountsChart' (at app.js:21:10)"
+* 12:08:11 **Update**: Built issue #6 on its own branch: a stacked per-account chart driven by a new `Bookkeeper.assetBalances()` that `netWorth()` now sums, so the bands always add up to the net-worth line, and an automatic robustness run on the optimizer's own winning plan via a new `winningConfigData()`, charted as a histogram with a plain-language summary. 230/230 tests pass, and an end-to-end check on invented data confirmed the stacks reconcile, the validated plan carries the optimizer's choices rather than the input's, and 200 trials take about 60ms.
+* 12:03:04 **Prompt**: "do 6"
+* 11:57:24 **Update**: Opened an issue per remaining phase -- #6 charts, #7 form restructure, #8 the deferred modeling work, #9 the wiki -- and recorded the phase-to-issue mapping in memory. Both open PRs were merged in the meantime, so main is now synced locally.
+* 11:56:00 **Prompt**: "create issues for the other phases"
+* 11:50:24 **Update**: Bumped both actions to v7 after checking the real release feeds -- checkout and setup-node are both on v7, so the v4 I had picked out of caution was three majors behind. CI re-ran green on the new commit.
+* 11:49:00 **Answer**: Explained that v4 was over-caution on my part rather than a considered choice, and that neither v4 nor v6 is current -- checkout is on v7.0.1 and setup-node on v7.0.0, with every supported major re-tagged on the same July 2026 date, which is what a coordinated security patch looks like.
+* 11:48:00 **Prompt**: "why not v6 on checkout?" followed by "v7"
+* 11:46:48 **Update**: Opened PR #5 from issue #4 with a GitHub Actions workflow running the suite on every pull request and push to main; its own first run passed in six seconds. Kept it on a separate branch off main so PR #3 does not need re-reviewing.
+* 11:43:00 **Prompt**: "add a github workflow to run node"
+* 11:41:30 **Update**: Committed the pending phase 1 work as `5e0a792` and opened PR #3 against main.
 * 11:40:58 **Prompt**: "yes pr #1 and i'll merge first"
 * 11:38:19 **Update**: Opened issue #2 covering both halves together -- every flow amount becoming monthly, and 401k contributions from salary into the traditional IRA with an employer match, no enforced limits, and the payroll-tax simplification recorded.
 * 11:34:30 **Answer**: Agreed on monthly amounts, noting it resolves an existing split convention and that the keys should be renamed rather than reinterpreted so old exports fail visibly instead of silently meaning twelve times as much. Flagged that contributions are currently mismodeled rather than missing, since salary posts its full gross as taxable and the unspent part is swept to the brokerage, which understates the traditional IRA balance and therefore the later required distributions.

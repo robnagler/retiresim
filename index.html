@@ -117,17 +117,17 @@
     button.secondary:hover { background: #eff6ff; }
     /* Set on Export by app.js whenever the form has changes that are not
        in a file yet, since that is the only moment the button matters.
-       A deliberately different blue from Optimize's #2563eb -- this one
-       leans teal -- so the two filled buttons never read as the same
-       control. Dark enough that white label text still clears the 4.5:1
-       contrast minimum, which a brighter sky blue does not. */
+       Amber rather than another blue, so it reads as a state to attend to
+       rather than as a second primary action competing with Optimize, and
+       outlined rather than filled for the same reason. The border doubles
+       to 2px, which is the part that carries at a glance; #b45309 on the
+       pale amber fill clears the 4.5:1 contrast minimum comfortably. */
     button.needs-export {
-      background: #0369a1;
-      color: #fff;
-      border-color: #0369a1;
-      box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.2);
+      background: #fffbeb;
+      color: #b45309;
+      border: 2px solid #b45309;
     }
-    button.needs-export:hover { background: #075985; }
+    button.needs-export:hover { background: #fef3c7; }
     .button-row { display: flex; gap: 0.75rem; align-items: center; }
     #results {
       background: #f4f4f4;
@@ -137,6 +137,9 @@
       line-height: 1.5;
     }
     #results:empty { display: none; padding: 0; }
+    #robustness { margin-top: 1.5rem; color: #333; }
+    #robustness:empty { display: none; }
+    #robustness p { margin: 0.35rem 0; }
     #results p:first-child { margin-top: 0; font-weight: 600; }
     #results ol { margin: 0.5rem 0 0.5rem 1.25rem; padding: 0; }
     #results li { margin-bottom: 0.35rem; }
@@ -182,7 +185,12 @@
             <div class="hint">value at full retirement</div>
           </div>
           <div class="field">
-            <label for="medicarePartG">Medicare Part G</label>
+            <!-- "Medigap Plan G", not "Medicare Part G": Medicare has Parts
+                 A through D, while Plan G is a Medigap supplement sold by
+                 private insurers. The element id and the config key still
+                 say medicarePartG, since renaming them changes the export
+                 format and belongs with the versioning work in #7. -->
+            <label for="medicarePartG">Medigap Plan G</label>
             <input type="number" id="medicarePartG" min="0">
             <div class="hint">defaults to the same as Part B if left blank</div>
           </div>
@@ -283,6 +291,10 @@
   <div id="results"></div>
   <div class="chart-container" id="chartContainer">
     <canvas id="netWorthChart"></canvas>
+  </div>
+  <div id="robustness"></div>
+  <div class="chart-container" id="robustnessChartContainer">
+    <canvas id="robustnessChart"></canvas>
   </div>
 
   <script type="module" src="src/ui/app.js"></script>
