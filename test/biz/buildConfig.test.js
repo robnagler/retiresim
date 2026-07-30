@@ -213,6 +213,12 @@ test('initialMagi is estimated from entered Salary, else 0', () => {
     assert.equal(withoutSalary.Cash.spendingOrder.find((e) => e.name === 'Tax').initialMagi, 0);
 });
 
+test('the Medicare entry carries birthYear, which Medicare needs to derive its own age-65 start year', () => {
+    const data = buildConfigData({ ...MINIMAL_INPUT, birthYear: 1962 });
+
+    assert.equal(data.Cash.spendingOrder.find((e) => e.name === 'Medicare').birthYear, 1962);
+});
+
 test('Medicare Part B/D are always the fixed hardcoded values regardless of input -- only Part G is user-editable', () => {
     const noInput = buildConfigData(MINIMAL_INPUT);
     const withPartG = buildConfigData({ ...MINIMAL_INPUT, medicarePartG: 250 });

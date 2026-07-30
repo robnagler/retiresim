@@ -4,11 +4,15 @@ import { Medicare } from '../../src/biz/Medicare.js';
 import { Config } from '../../src/biz/Config.js';
 import { FakeBookkeeper } from '../support/FakeBookkeeper.js';
 
-const build = () => new Medicare({
+// birthYear defaults to one already past 65 as of the 2026 every test
+// below runs, so the eligibility gate is satisfied and each test can focus
+// on premium growth/IRMAA; the gate's own tests pass a later birthYear.
+const build = ({ birthYear = 1955 } = {}) => new Medicare({
     name: 'Medicare',
     config: new Config({
         Medicare: {
             balance: 0,
+            birthYear,
             partBMonthly: 175,
             partDMonthly: 50,
             partGMonthly: 150,
@@ -79,6 +83,50 @@ test('runYear grows the IRMAA upTo thresholds by inflationRate, which can move m
 
     assert.deepEqual(m.irmaaBrackets[0], { upTo: 106000 * 1.10, partB: 0, partD: 0 });
     assert.equal(m.owed, (175 + 50 + 150) * 12 * 1.10);
+});
+
+test('constructor derives the eligibility year from birthYear -- age 65, not a cfg input', () => {
+    assert.equal(build({ birthYear: 1965 }).startYear, 2030);
+});
+
+// Built without build(), whose default birthYear would fill in the very
+// thing this checks is required.
+test('constructor throws on a cfg block with no birthYear rather than letting a NaN startYear silently disable the gate', () => {
+    assert.throws(() => new Medicare({
+        name: 'Medicare',
+        config: new Config({ Medicare: { balance: 0, partBMonthly: 175, partDMonthly: 50, partGMonthly: 150 } }),
+    }), /birthYear=undefined/);
+});
+
+test('runYear owes nothing before the year the person turns 65 -- pre-65 health premiums are part of yearly spending, not Medicare', () => {
+    const m = build({ birthYear: 1975 });
+    const bookkeeper = new FakeBookkeeper({ magi: 120000, economy: { inflationRate: 0.05 } });
+
+    m.runYear({ year: 2026, bookkeeper });
+
+    assert.equal(m.owed, 0);
+    assert.deepEqual(m.due(), { account: 'MedicarePremium', amount: 0 });
+});
+
+test('runYear starts charging in the eligibility year itself, not the year after', () => {
+    const m = build({ birthYear: 1961 });
+    const bookkeeper = new FakeBookkeeper({ magi: 50000, economy: { inflationRate: 0.05 } });
+
+    m.runYear({ year: 2026, bookkeeper });
+
+    assert.equal(m.owed, (175 + 50 + 150) * 12 * 1.05);
+});
+
+test('the premium and IRMAA thresholds keep inflating through the pre-65 years, so the first eligible year costs what it would really cost by then', () => {
+    const m = build({ birthYear: 1965 });
+    const bookkeeper = new FakeBookkeeper({ magi: 50000, economy: { inflationRate: 0.05 } });
+
+    for (const year of [2028, 2029, 2030]) {
+        m.runYear({ year, bookkeeper });
+    }
+
+    assert.ok(Math.abs(m.owed - (175 + 50 + 150) * 12 * 1.05 ** 3) < 1e-9);
+    assert.ok(Math.abs(m.irmaaBrackets[0].upTo - 106000 * 1.05 ** 3) < 1e-9);
 });
 
 test('due reports the amount computed by runYear under the MedicarePremium cash-flow category', () => {

@@ -2,6 +2,11 @@
 
 ## 2026-07-30
 
+* 21:49:13 **Prompt**: "gckp"
+* 21:48:51 **Update**: Gated Medicare on age 65 -- `startYear` derived from a now-required `cfg.birthYear`, `owed` set to 0 before it, with the premium/IRMAA-threshold growth deliberately left running through the ineligible years so the first eligible year's cost is the inflated one. Wrote the failing test first per the bug-fix rule; a missing `birthYear` now throws rather than silently disabling the gate. 213/213 tests pass, all CLI modes clean, and an end-to-end check on invented data confirms zero premiums before 65 and the first charge in the eligibility year itself.
+* 21:43:30 **Prompt**: "let's make it so it kicks in at 65. otherwise, the person just rolls it into spending."
+* 21:41:33 **Answer**: Explained that real Medicare eligibility is age 65 for most people but also reachable earlier via disability/ALS/ESRD, and that our model has no age gate at all -- premiums are charged from the simulation's first year regardless of age. Flagged that gating alone would leave pre-65 health costs unmodeled.
+* 21:41:33 **Prompt**: "does medicare kick in at 65 only?"
 * 21:38:30 **Update**: Committed as `2d0971f` and pushed `83f5d81..2d0971f` to origin/main. Confirmed the Pages build deployed it: the rendered markdown pages now 404, the noindex tag is live, and the app's own assets still serve.
 * 21:35:32 **Prompt**: "gckp"
 * 21:35:14 **Update**: Added an empty root `.nojekyll` so Pages stops converting the project's markdown into browsable HTML pages (and stops running Liquid over tracked files); confirmed it isn't caught by any gitignore rule. Takes effect on the next push.

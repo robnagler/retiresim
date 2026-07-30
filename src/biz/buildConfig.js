@@ -169,6 +169,9 @@ export function buildConfigData(input) {
     spendingOrder.push({
         name: 'Medicare',
         balance: 0,
+        // Medicare derives its own age-65 start year from this, so a
+        // simulation beginning before 65 pays nothing until then.
+        birthYear,
         partBMonthly: MEDICARE_PART_B_MONTHLY,
         partDMonthly: MEDICARE_PART_D_MONTHLY,
         partGMonthly: medicarePartG ?? MEDICARE_PART_B_MONTHLY,

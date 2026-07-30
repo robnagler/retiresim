@@ -74,6 +74,8 @@ const DEFAULT_CONFIG_DATA = {
             {
                 name: 'Medicare',
                 balance: 0,
+                // Premiums don't start until this birthYear's 65th year.
+                birthYear: 1955,
                 // partBMonthly/partDMonthly/partGMonthly are all monthly,
                 // unlike everything else in cfg -- Part B is billed monthly by
                 // CMS, Part D/Medigap Plan G monthly by private insurers.
