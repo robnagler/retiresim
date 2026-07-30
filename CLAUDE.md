@@ -51,8 +51,8 @@ Build the project slowly one module at a time.
 - A single form with
    - Facts
       - Birth year [select: <this year - 75>-<this year>]
-      - Salary: [number: blank]
-      - Social Security at 67: [number: blank]
+      - Monthly Salary: [number: blank]
+      - Monthly Social Security at 67: [number: blank]
       - Medigap Plan G: [number: default to same value as Part B] (this brief originally said "Medicare Part G", which does not exist -- Medicare has Parts A through D, and Plan G is a Medigap supplement sold by private insurers. The wrong name reached the form label before being caught; the element id and cfg key still read `medicarePartG`/`partGMonthly`, deliberately, since renaming them changes the export format and belongs with the versioning work in the form-restructure issue)
       - Mortgage Balance: [number: blank] Rate: [number: blank] End ---Year: [select: <this year>-<this year + 30>]
       - Taxable Balance: [number: blank]
@@ -64,7 +64,17 @@ Build the project slowly one module at a time.
    - Predictions
       - Life Expectancy [select: 80-110]
       - Retirement Year: [select: <this year>-<this year + 30>]
-      - Yearly Spending: [number: blank] (excluding mortgage and medicare)
+      - Monthly Spending: [number: blank] (excluding mortgage and medicare)
+      (every flow amount on this form is monthly, since that is how a
+      salary, a benefit and a premium are all quoted in real life; only
+      balances are lump sums. The form keys say so too --
+      `monthlySalary`/`monthlySpending` -- because the failure this
+      prevents is a figure entered under the wrong convention, which is
+      wrong by twelve with nothing to flag it. `socialSecurityAt67` and
+      `medicarePartG` were already monthly and keep their key names until
+      the export-format versioning work renames them together. Internally
+      `LivingExpense.balance` is still a year's spending, so `buildConfig`
+      annualizes there -- the single place that conversion now happens)
       - Inflation: [select: 0-10% increments .5%]
       - Interest Rate: [select: 1%-5%, increments 1%]
       - Investment Return:  [select: 5%-15%]

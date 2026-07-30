@@ -111,7 +111,7 @@ const MINIMAL_INPUT = {
     birthYear: 1960,
     lifeExpectancy: 90,
     retirementYear: 2027,
-    yearlySpending: 60000,
+    monthlySpending: 5000,
     inflation: 0.025,
     interestRate: 0.03,
     investmentReturn: 0.06,
@@ -133,7 +133,7 @@ test('required structure is always present, even with every optional field blank
     // to every plan.
     const spenderNames = data.Cash.spendingOrder.map((e) => e.name).sort();
     assert.deepEqual(spenderNames, ['LivingExpense', 'Medicare', 'Tax']);
-    assert.equal(data.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance, 60000);
+    assert.equal(data.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance, 5000 * 12);
 });
 
 test('optional accounts and income sources are included only when a value is supplied', () => {
@@ -144,7 +144,7 @@ test('optional accounts and income sources are included only when a value is sup
 
     const filled = buildConfigData({
         ...MINIMAL_INPUT,
-        salary: 120000,
+        monthlySalary: 10000,
         socialSecurityAt67: 3000,
         mortgageBalance: 300000,
         mortgageRate: 0.05,
@@ -180,12 +180,24 @@ test('TaxableAccount defaults basis to the full entered balance -- no unrealized
     assert.equal(taxable.basis, 500000);
 });
 
-test('Salary is entered annually but converted to Salary.js\'s monthlyAmount', () => {
-    const data = buildConfigData({ ...MINIMAL_INPUT, salary: 120000, retirementYear: 2030 });
+test('Salary passes through as monthlyAmount, entered and stored in the same units', () => {
+    const data = buildConfigData({ ...MINIMAL_INPUT, monthlySalary: 10000, retirementYear: 2030 });
 
     const salaryEntry = data.Cash.incomeOrder.find((e) => e.name === 'Salary');
     assert.equal(salaryEntry.monthlyAmount, 10000);
     assert.equal(salaryEntry.endYear, 2030);
+});
+
+test('LivingExpense is the monthly spending annualized, since its balance is a year\'s worth', () => {
+    const data = buildConfigData({ ...MINIMAL_INPUT, monthlySpending: 4000 });
+
+    assert.equal(data.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance, 48000);
+});
+
+test('a blank monthlySpending is zero rather than NaN, the way every other optional amount behaves', () => {
+    const { monthlySpending, ...noSpending } = MINIMAL_INPUT;
+
+    assert.equal(buildConfigData(noSpending).Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance, 0);
 });
 
 test('Social Security claimAge is fixed at 67, and fraMonthlyBenefit passes through unchanged', () => {
@@ -205,8 +217,8 @@ test('HsaAccount.zeroBalanceYear defaults to birthYear + lifeExpectancy', () => 
     assert.equal(hsa.zeroBalanceYear, data.Simulator.endYear);
 });
 
-test('initialMagi is estimated from entered Salary, else 0', () => {
-    const withSalary = buildConfigData({ ...MINIMAL_INPUT, salary: 90000 });
+test('initialMagi is estimated from entered Salary annualized, else 0', () => {
+    const withSalary = buildConfigData({ ...MINIMAL_INPUT, monthlySalary: 7500 });
     const withoutSalary = buildConfigData(MINIMAL_INPUT);
 
     assert.equal(withSalary.Cash.spendingOrder.find((e) => e.name === 'Tax').initialMagi, 90000);

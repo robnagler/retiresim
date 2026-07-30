@@ -175,12 +175,12 @@
             <div class="hint">&nbsp;</div>
           </div>
           <div class="field">
-            <label for="salary">Salary</label>
-            <input type="number" id="salary" min="0">
+            <label for="monthlySalary">Monthly salary</label>
+            <input type="number" id="monthlySalary" min="0">
             <div class="hint">&nbsp;</div>
           </div>
           <div class="field">
-            <label for="socialSecurityAt67">Social Security at 67</label>
+            <label for="socialSecurityAt67">Monthly Social Security at 67</label>
             <input type="number" id="socialSecurityAt67" min="0" required>
             <div class="hint">value at full retirement</div>
           </div>
@@ -190,7 +190,7 @@
                  private insurers. The element id and the config key still
                  say medicarePartG, since renaming them changes the export
                  format and belongs with the versioning work in #7. -->
-            <label for="medicarePartG">Medigap Plan G</label>
+            <label for="medicarePartG">Monthly Medigap Plan G</label>
             <input type="number" id="medicarePartG" min="0">
             <div class="hint">defaults to the same as Part B if left blank</div>
           </div>
@@ -257,8 +257,8 @@
           <select id="retirementYear" required></select>
         </div>
         <div class="field">
-          <label for="yearlySpending">Yearly spending</label>
-          <input type="number" id="yearlySpending" min="0" required>
+          <label for="monthlySpending">Monthly spending</label>
+          <input type="number" id="monthlySpending" min="0" required>
           <div class="hint">excluding mortgage and Medicare</div>
         </div>
         <div class="field">

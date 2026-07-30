@@ -8,7 +8,7 @@
 // angle bracket can't turn into HTML.
 export const FIELD_HELP = {
     birthYear: 'Drives everything age-based: when Social Security can start, when Medicare premiums begin at 65, when required minimum distributions kick in, and how long the simulation runs.',
-    salary: 'Gross annual employment income, before taxes. Leave blank if already retired. It stops in the retirement year below.',
+    monthlySalary: 'Gross employment income per month, before taxes. Leave blank if already retired. It stops in the retirement year below.',
     socialSecurityAt67: 'Your monthly benefit at full retirement age (67), not the amount at the age you plan to claim -- the simulator applies the roughly 8% per year adjustment itself, and searches for the best claiming age.',
     medicarePartG: 'Monthly premium for a Medigap Plan G supplement, which private insurers sell to cover what Medicare itself does not. Medicare Part B and Part D are included automatically at their standard amounts. Leave blank to use the same value as Part B.',
     mortgageBalance: 'Amount still owed, not the home value. The house itself is not modeled as an asset, so home equity does not count toward net worth.',
@@ -22,7 +22,7 @@ export const FIELD_HELP = {
     hsaBalance: 'Health savings account money. It is spent down on a schedule for medical costs over your lifetime, and is never used to cover ordinary shortfalls.',
     lifeExpectancy: 'The age the simulation runs to. This is a planning horizon, not a prediction -- planning to a longer age is the conservative choice, since outliving the money is the risk that matters.',
     retirementYear: 'The year employment income stops. Spending, Medicare, and taxes continue regardless.',
-    yearlySpending: 'What you spend in a year in today\'s dollars, excluding the mortgage payment and Medicare premiums, which are counted separately. It grows with inflation. Health insurance before age 65 belongs here.',
+    monthlySpending: 'What you spend in a month in today\'s dollars, excluding the mortgage payment and Medicare premiums, which are counted separately. It grows with inflation. Health insurance before age 65 belongs here.',
     inflation: 'Annual rate for growing spending, tax brackets, Medicare premiums, and Social Security cost-of-living increases.',
     interestRate: 'What idle cash earns. Cash awaiting spending earns half this rate, since it sits somewhere lower-yield than an invested account.',
     investmentReturn: 'Expected annual return on invested balances. A single steady rate here is optimistic by nature -- real markets do not deliver the average every year, which is what the robustness check is for.',
