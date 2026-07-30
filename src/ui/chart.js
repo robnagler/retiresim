@@ -27,38 +27,6 @@ const CURRENCY = new Intl.NumberFormat('en-US', {
 // throwing rather than making the colours meaningful beyond that.
 const ACCOUNT_COLORS = ['#2563eb', '#0369a1', '#0d9488', '#7c3aed', '#c2410c', '#4d7c0f'];
 
-// series is Optimizer.runAll()'s netWorthByYear: an array of
-// {year, netWorth} objects, already ordered by year.
-export function renderNetWorthChart(canvas, series, ChartCtor = globalThis.Chart) {
-    return new ChartCtor(canvas, {
-        type: 'line',
-        data: {
-            labels: series.map((point) => point.year),
-            datasets: [{
-                label: 'Net Worth',
-                data: series.map((point) => point.netWorth),
-                borderColor: '#2563eb',
-                backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                fill: true,
-                tension: 0.2,
-                pointRadius: 0,
-            }],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: { display: true, text: 'Net Worth Over Time' },
-                legend: { display: false },
-            },
-            scales: {
-                x: { title: { display: true, text: 'Year' } },
-                y: { title: { display: true, text: 'Net Worth' }, ticks: { callback: (value) => CURRENCY.format(value) } },
-            },
-        },
-    });
-}
-
 // The account names appearing anywhere in the series, in the order they
 // first appear. Read from the data rather than from a fixed list because
 // which accounts exist depends entirely on what was configured.
@@ -77,13 +45,18 @@ function accountNames(series) {
 // series is Optimizer.runAll()'s balancesByYear: an array of
 // {year, balances} where balances maps account name to balance.
 //
-// Stacked rather than one line per account, so the height at any year is
-// the same total the net-worth chart shows, and the bands underneath say
-// which accounts make it up -- the question this chart exists to answer is
-// where the money is, not what each account is worth in isolation. An
-// account missing from a year reads as zero, which is what a not-yet-open
-// or fully-drained account is worth.
-export function renderAccountsChart(canvas, series, ChartCtor = globalThis.Chart) {
+// One chart, not two. The accounts are exactly the accounts netWorth()
+// counts (Bookkeeper.assetBalances()), so stacking them makes the top edge
+// of the stack the net-worth curve itself -- drawing that curve again on
+// its own chart would show the same number twice while hiding the more
+// useful half, which is which accounts make it up and how that mix shifts
+// as one drains and another keeps growing. The total is not a dataset of
+// its own for the same reason: with a stacked axis it would be stacked on
+// top of the sum and double the height. It appears in the tooltip instead.
+//
+// An account missing from a year reads as zero, which is what a not-yet-
+// open or fully-drained account is worth.
+export function renderNetWorthChart(canvas, series, ChartCtor = globalThis.Chart) {
     return new ChartCtor(canvas, {
         type: 'line',
         data: {
@@ -101,13 +74,22 @@ export function renderAccountsChart(canvas, series, ChartCtor = globalThis.Chart
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
             plugins: {
-                title: { display: true, text: 'Accounts Over Time' },
+                title: { display: true, text: 'Net Worth Over Time' },
                 legend: { display: true, position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        // The number the stack adds up to, which is the one
+                        // figure the chart shows everywhere and labels
+                        // nowhere.
+                        footer: (items) => `Net worth ${CURRENCY.format(items.reduce((sum, item) => sum + item.parsed.y, 0))}`,
+                    },
+                },
             },
             scales: {
                 x: { title: { display: true, text: 'Year' } },
-                y: { stacked: true, title: { display: true, text: 'Balance' }, ticks: { callback: (value) => CURRENCY.format(value) } },
+                y: { stacked: true, title: { display: true, text: 'Net Worth' }, ticks: { callback: (value) => CURRENCY.format(value) } },
             },
         },
     });

@@ -18,7 +18,7 @@ import { Salary } from '../biz/Salary.js';
 import { SocialSecurity } from '../biz/SocialSecurity.js';
 import { Cash } from '../biz/Cash.js';
 import { RobustnessValidator } from '../biz/RobustnessValidator.js';
-import { renderAccountsChart, renderNetWorthChart, renderRobustnessChart } from './chart.js';
+import { renderNetWorthChart, renderRobustnessChart } from './chart.js';
 import { FIELD_HELP } from './help.js';
 
 const classes = {
@@ -334,10 +334,11 @@ function renderResults(configData, results) {
     // The last variable's winning candidate is the final plan -- its
     // year-by-year series are what the graphs show. Optimizer.js returns
     // nulls for a winner that ran out of money, in which case there's
-    // nothing meaningful to graph.
+    // nothing meaningful to graph. The net-worth chart is drawn from the
+    // per-account balances rather than netWorthByYear: stacked, they are
+    // the same curve, with the accounts making it up shown underneath.
     const finalPlan = results[results.length - 1];
-    drawChart('chartContainer', 'netWorthChart', finalPlan.netWorthByYear, renderNetWorthChart);
-    drawChart('accountsChartContainer', 'accountsChart', finalPlan.balancesByYear, renderAccountsChart);
+    drawChart('chartContainer', 'netWorthChart', finalPlan.balancesByYear, renderNetWorthChart);
     // A plan that already fails under one steady return has nothing to
     // learn from a hundred worse ones.
     const trials = finalPlan.netWorthByYear ? renderRobustness(configData, results) : null;

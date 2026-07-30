@@ -2,6 +2,12 @@
 
 ## 2026-07-31
 
+* 14:13:25 **Prompt**: "gckp"
+* 13:40:02 **Update**: Narrowed issue #2 to the 401k financials and split the monthly-amounts work into its own issue #11. Merged the two charts into one: the accounts are exactly what net worth sums, so stacking them makes the top of the stack the net-worth curve, with the total in the tooltip rather than as a dataset that a stacked axis would double. 231/231 tests pass.
+* 13:38:11 **Prompt**: "split the monthly amounts out into a separate issue. #2 shouldjust be working financials. also for the charts. i think net worth over time can have accounts underneath the curve since they add up to total worth"
+* 13:35:42 **Answer**: No -- the field is still yearly. Making every flow amount monthly is scoped into issue #2 together with the 401k work, which has not been started; only the Medigap label was corrected today.
+* 13:35:00 **Prompt**: "did we fix the yearly spending ?"
+* 13:22:04 **Update**: Committed as `199a35b` and pushed to the branch; CI passed, so PR #10 now carries both the charts and today's UI corrections.
 * 13:16:15 **Prompt**: "gckp"
 * 13:14:44 **Update**: Corrected the UI spec in CLAUDE.md, which is where the wrong name originated, and the buildConfig comment that quoted it. Both now record that the key names are knowingly stale pending the export-format versioning rather than simply unnoticed.
 * 13:05:50 **Prompt**: "fix the calude.md"
