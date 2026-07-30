@@ -2,6 +2,8 @@
 
 ## 2026-07-31
 
+* 16:49:55 **Update**: Put ending net worth on a logarithmic axis and spaced the bins by orders of magnitude to match, since equal dollar widths pile nearly everything into the first bucket. Trials that ran out are now left off the curve rather than binned: zero has no place on a log axis, and putting them in the lowest positive bin would read as surviving barely, which is the opposite of what happened. Their count is already stated in words beside the chart.
+* 16:47:00 **Prompt**: "make the graph logarithmic on the on the bottom scale"
 * 16:46:37 **Update**: Turned the robustness distribution from bars into a filled line, so it reads as the shape of the spread rather than as counts per bucket.
 * 16:45:00 **Prompt**: "make the second one a line graph" followed by "robustness"
 * 16:30:00 **Answer**: On the colleague's suggestion: the chart says how much and a transaction list says why, which matters more here because the optimizer chooses the strategy and the list is how you check it did what the summary claims. The data already exists in the journal. Flagged that fixing the CLI import alone would not answer him, since that mode runs the config as given and an exported file carries facts rather than the winning strategy -- but `winningConfigData()` closes that gap. Proposed three issues in order of size.

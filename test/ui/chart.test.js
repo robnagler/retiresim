@@ -89,39 +89,61 @@ test('renderNetWorthChart formats the y-axis as compact currency', () => {
     assert.equal(format(0), '$0');
 });
 
-test('netWorthBins counts every trial, spread across equal-width bins lowest first', () => {
-    const results = [0, 100, 200, 300].map((netWorth) => ({ netWorth }));
+test('netWorthBins counts every surviving trial, spread across bins lowest first', () => {
+    const results = [100, 1000, 10000, 100000].map((netWorth) => ({ netWorth }));
 
     const bins = netWorthBins(results, 4);
 
     assert.equal(bins.length, 4);
-    assert.deepEqual(bins.map((b) => b.count), [1, 1, 1, 1]);
+    assert.equal(bins.reduce((sum, bin) => sum + bin.count, 0), 4);
+});
+
+test('netWorthBins spaces bins by orders of magnitude, since outcomes span them and equal dollar widths would pile up in the first', () => {
+    const bins = netWorthBins([{ netWorth: 100 }, { netWorth: 100000 }], 3);
+
+    // 100 to 100,000 is three decades, so one bin per decade.
+    assert.deepEqual(bins.map((bin) => Math.round(bin.x)), [100, 1000, 10000]);
 });
 
 test('netWorthBins puts the highest value in the top bin rather than one past the end', () => {
-    const bins = netWorthBins([{ netWorth: 0 }, { netWorth: 1000 }], 4);
+    const bins = netWorthBins([{ netWorth: 100 }, { netWorth: 100000 }], 4);
 
-    assert.deepEqual(bins.map((b) => b.count), [1, 0, 0, 1]);
+    assert.equal(bins[0].count, 1);
+    assert.equal(bins[bins.length - 1].count, 1);
 });
 
-test('netWorthBins counts insolvent trials, which the validator records as zero, in the lowest bin', () => {
-    const results = [{ netWorth: 0 }, { netWorth: 0 }, { netWorth: 400 }];
+test('netWorthBins leaves out trials that ran out, which have no place on a logarithmic axis and would misread as surviving barely', () => {
+    const bins = netWorthBins([{ netWorth: 0 }, { netWorth: 0 }, { netWorth: 400 }], 4);
 
-    assert.equal(netWorthBins(results, 4)[0].count, 2);
+    assert.equal(bins.reduce((sum, bin) => sum + bin.count, 0), 1);
+});
+
+test('netWorthBins returns nothing to plot when every trial ran out', () => {
+    assert.deepEqual(netWorthBins([{ netWorth: 0 }, { netWorth: 0 }], 4), []);
 });
 
 test('netWorthBins collapses to a single bin when every trial lands on the same value, instead of dividing by zero', () => {
     const bins = netWorthBins([{ netWorth: 500 }, { netWorth: 500 }], 4);
 
-    assert.deepEqual(bins, [{ label: '$500', count: 2 }]);
+    assert.deepEqual(bins, [{ x: 500, label: '$500', count: 2 }]);
 });
 
 test('renderRobustnessChart draws the distribution as a line, so its shape reads rather than its bucket counts', () => {
-    const results = [0, 100, 200, 300].map((netWorth, trial) => ({ trial, netWorth, failedYear: null }));
+    const results = [0, 100, 200, 300].map((netWorth, trial) => ({ trial, netWorth, failedYear: netWorth === 0 ? 2040 : null }));
 
     const chart = renderRobustnessChart({}, results, FakeChart);
 
     assert.equal(chart.config.type, 'line');
     assert.equal(chart.config.data.datasets.length, 1);
-    assert.equal(chart.config.data.datasets[0].data.reduce((a, b) => a + b, 0), results.length);
+    // Three of the four survived; the one that ran out is not plotted.
+    assert.equal(chart.config.data.datasets[0].data.reduce((sum, point) => sum + point.y, 0), 3);
+});
+
+test('renderRobustnessChart puts ending net worth on a logarithmic axis, since outcomes span orders of magnitude', () => {
+    const results = [100, 1000, 10000].map((netWorth, trial) => ({ trial, netWorth, failedYear: null }));
+
+    const chart = renderRobustnessChart({}, results, FakeChart);
+
+    assert.equal(chart.config.options.scales.x.type, 'logarithmic');
+    assert.equal(chart.config.options.scales.x.ticks.callback(1234567), '$1.2M');
 });

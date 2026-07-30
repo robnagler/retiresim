@@ -97,31 +97,42 @@ export function renderNetWorthChart(canvas, series, ChartCtor = globalThis.Chart
 
 const DEFAULT_BINS = 12;
 
-// Buckets the trials' ending net worth into equal-width bins for a
-// histogram. Returns {label, count} per bin, lowest first.
+// Buckets the trials' ending net worth for the distribution curve.
+// Returns {x, label, count} per bin, lowest first, where x is the bin's
+// lower bound in dollars -- a number rather than a category, since the
+// chart plots it against a logarithmic axis.
 //
-// Every trial counts, including the insolvent ones, which the validator
-// records as a net worth of zero -- they pile up in the lowest bin, which
-// is a fair picture of the outcome, and the insolvency rate is reported as
-// its own number beside the chart rather than being left to be read off a
-// bar. A run where every trial lands on the same value has no width to
-// divide, so it collapses to a single bin rather than dividing by zero.
+// Bins are equal width in log space, not in dollars: outcomes span orders
+// of magnitude, so equal dollar widths put nearly every trial in the first
+// bucket and leave the rest of the axis empty.
+//
+// Trials that ran out of money are excluded rather than binned. They end
+// at exactly zero, which a logarithmic axis cannot place at all, and
+// lumping them into the lowest positive bin would misread as "survived,
+// barely" -- the opposite of what happened. How many there were is
+// reported in words beside the chart, where it is a headline number rather
+// than a bar to be squinted at. A run where every trial failed has nothing
+// to plot and returns no bins.
 export function netWorthBins(results, binCount = DEFAULT_BINS) {
-    const values = results.map((r) => r.netWorth);
+    const values = results.map((r) => r.netWorth).filter((value) => value > 0);
+    if (!values.length) {
+        return [];
+    }
     const low = Math.min(...values);
     const high = Math.max(...values);
     if (low === high) {
-        return [{ label: CURRENCY.format(low), count: values.length }];
+        return [{ x: low, label: CURRENCY.format(low), count: values.length }];
     }
-    const width = (high - low) / binCount;
-    const bins = Array.from({ length: binCount }, (unused, i) => ({
-        label: `${CURRENCY.format(low + i * width)}`,
-        count: 0,
-    }));
+    const logLow = Math.log10(low);
+    const width = (Math.log10(high) - logLow) / binCount;
+    const bins = Array.from({ length: binCount }, (unused, i) => {
+        const x = 10 ** (logLow + i * width);
+        return { x, label: CURRENCY.format(x), count: 0 };
+    });
     for (const value of values) {
         // The maximum would land one past the end by the same arithmetic
         // every other value uses, so it goes in the top bin instead.
-        bins[Math.min(binCount - 1, Math.floor((value - low) / width))].count += 1;
+        bins[Math.min(binCount - 1, Math.floor((Math.log10(value) - logLow) / width))].count += 1;
     }
     return bins;
 }
@@ -137,10 +148,9 @@ export function renderRobustnessChart(canvas, results, ChartCtor = globalThis.Ch
         // count of trials in each bucket, which no one needs exactly.
         type: 'line',
         data: {
-            labels: bins.map((bin) => bin.label),
             datasets: [{
                 label: 'Trials',
-                data: bins.map((bin) => bin.count),
+                data: bins.map((bin) => ({ x: bin.x, y: bin.count })),
                 borderColor: '#0369a1',
                 backgroundColor: 'rgba(3, 105, 161, 0.1)',
                 fill: true,
@@ -156,7 +166,11 @@ export function renderRobustnessChart(canvas, results, ChartCtor = globalThis.Ch
                 legend: { display: false },
             },
             scales: {
-                x: { title: { display: true, text: 'Ending net worth' } },
+                x: {
+                    type: 'logarithmic',
+                    title: { display: true, text: 'Ending net worth' },
+                    ticks: { callback: (value) => CURRENCY.format(value) },
+                },
                 y: { title: { display: true, text: 'Trials' }, beginAtZero: true },
             },
         },
