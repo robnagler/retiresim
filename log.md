@@ -2,6 +2,8 @@
 
 ## 2026-07-31
 
+* 16:25:04 **Update**: Moved monthly salary and spending up into basic facts, and made one-time expenses boxes opening the same dialog the accounts use. There was no reason for them to differ beyond a year and an amount being few enough fields to tempt an inline row; the dialog is now generalized over both lists, which removed the separate row-building code rather than adding to it.
+* 16:22:00 **Prompt**: "basic facts should include monthly salary and monthly spending. why is one-time expense not a popup like add account"
 * 16:20:04 **Answer**: (added retroactively, missed logging it in real time) Acknowledged that the instruction to stop logging covered only the other repository's thread, and that every simulator change since should have been recorded; backfilled the run of entries below and resumed.
 * 16:20:00 **Prompt**: "you should be logging all this stuff, because it is about the simulator"
 * 16:19:39 **Update**: (added retroactively) Put the section boxes back, held the intro line to the form column's width so it wraps on the left, and widened the gap between the columns.

@@ -80,6 +80,25 @@ export const ACCOUNT_COMMON_FIELDS = [
     },
 ];
 
+// A one-time expense is a year and an amount, edited in the same dialog
+// as an account rather than as an inline row. Two fields is little enough
+// that a row was tempting, but it made one thing on the page behave unlike
+// its neighbour for no reason a user would be able to guess.
+export const EXPENSE_FIELDS = [
+    {
+        key: 'year',
+        label: 'Year',
+        kind: 'year',
+        help: 'The year the money goes out. Spending it changes which accounts the plan draws from that year, which is the point of entering it separately from monthly spending.',
+    },
+    {
+        key: 'amount',
+        label: 'Amount',
+        kind: 'money',
+        help: 'What it costs, in today\'s dollars. A new roof, a car, a wedding -- anything large enough that the year it lands in matters.',
+    },
+];
+
 // A name that is not already taken, for a newly added box: the plain type
 // label first, then the label numbered, since two accounts sharing a name
 // would have one silently shadow the other (buildConfigData throws on it).

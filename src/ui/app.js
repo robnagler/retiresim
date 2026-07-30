@@ -21,7 +21,7 @@ import { LumpSum } from '../biz/LumpSum.js';
 import { RobustnessValidator } from '../biz/RobustnessValidator.js';
 import { renderNetWorthChart, renderRobustnessChart } from './chart.js';
 import { exportFileName } from './fileName.js';
-import { ACCOUNT_COMMON_FIELDS, ACCOUNT_TYPES, defaultAccountName } from './accountTypes.js';
+import { ACCOUNT_COMMON_FIELDS, ACCOUNT_TYPES, EXPENSE_FIELDS, defaultAccountName } from './accountTypes.js';
 import { FIELD_HELP } from './help.js';
 
 const classes = {
@@ -174,13 +174,16 @@ function setValue(id, value) {
     document.getElementById(id).value = value === undefined ? '' : value;
 }
 
-// The accounts being edited, as {type, name, balance, ...perTypeFields}.
-// Held here rather than read back out of the DOM because a box shows only
-// a summary -- the fields behind it exist in this array, not on the page,
-// except while the dialog for one of them is open.
+// The accounts being edited, as {type, name, balance, ...perTypeFields},
+// and the one-time expenses as {year, amount}. Held here rather than read
+// back out of the DOM because a box shows only a summary -- the fields
+// behind it exist in these arrays, not on the page, except while the
+// dialog for one of them is open.
 let accounts = [];
-// Which account the open dialog is editing, by index. -1 while closed.
-let editingAccount = -1;
+let expenses = [];
+// What the open dialog is editing: which list, and which entry in it.
+// index is -1 while the dialog is closed.
+let editing = { list: null, index: -1 };
 
 const CURRENCY_BOX = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
@@ -188,81 +191,102 @@ function accountNames(exceptIndex) {
     return accounts.filter((unused, i) => i !== exceptIndex).map((account) => account.name);
 }
 
-// A box per account, rebuilt from scratch on every change: the list is
-// short, and rebuilding avoids keeping DOM nodes and array indexes in
-// agreement, which is where this kind of code usually goes wrong.
-function renderAccountBoxes() {
-    const container = document.getElementById('accountBoxes');
+// Boxes are rebuilt from scratch on every change: the lists are short, and
+// rebuilding avoids keeping DOM nodes and array indexes in agreement,
+// which is where this kind of code usually goes wrong.
+function renderBoxes(containerId, items, describe, onClick) {
+    const container = document.getElementById(containerId);
     container.innerHTML = '';
-    accounts.forEach((account, index) => {
+    items.forEach((item, index) => {
         const box = document.createElement('button');
         box.type = 'button';
         box.className = 'box';
-        const line = (text, className) => {
+        for (const [text, className] of describe(item)) {
             const el = document.createElement('span');
             el.className = className;
             el.textContent = text;
             box.appendChild(el);
-        };
-        line(account.name, 'box-name');
-        line(account.balance === undefined ? 'no balance' : CURRENCY_BOX.format(account.balance), 'box-balance');
-        // Only worth a line when it says something the name does not: a
-        // box named for its own type would otherwise repeat itself.
-        if (account.name !== ACCOUNT_TYPES[account.type].label) {
-            line(ACCOUNT_TYPES[account.type].label, 'box-type');
         }
-        box.addEventListener('click', () => openAccountDialog(index));
+        box.addEventListener('click', () => onClick(index));
         container.appendChild(box);
     });
 }
 
-function accountFieldId(key) {
-    return `accountField-${key}`;
+function money(value) {
+    return value === undefined ? 'no amount' : CURRENCY_BOX.format(value);
 }
 
-// The dialog's contents are built per account rather than written into the
-// page once, since which fields exist depends on the type being edited.
-function renderAccountFields(account) {
-    const container = document.getElementById('accountFields');
+function renderAccountBoxes() {
+    renderBoxes('accountBoxes', accounts, (account) => {
+        const lines = [[account.name, 'box-name'], [money(account.balance), 'box-balance']];
+        // The type is only worth a line when it says something the name
+        // does not: a box named for its own type would repeat itself.
+        if (account.name !== ACCOUNT_TYPES[account.type].label) {
+            lines.push([ACCOUNT_TYPES[account.type].label, 'box-type']);
+        }
+        return lines;
+    }, (index) => openDialog('accounts', index));
+}
+
+function renderExpenseBoxes() {
+    renderBoxes('expenseBoxes', expenses, (expense) => [
+        [expense.year === undefined ? 'no year' : String(expense.year), 'box-name'],
+        [money(expense.amount), 'box-balance'],
+    ], (index) => openDialog('expenses', index));
+}
+
+function fieldId(key) {
+    return `dialogField-${key}`;
+}
+
+// Which fields the dialog shows depends on what is being edited, so its
+// contents are built per opening rather than written into the page once.
+function dialogFields() {
+    return editing.list === 'accounts'
+        ? [...ACCOUNT_COMMON_FIELDS, ...ACCOUNT_TYPES[accounts[editing.index].type].fields]
+        : EXPENSE_FIELDS;
+}
+
+function renderDialogFields(item) {
+    const container = document.getElementById('dialogFields');
     container.innerHTML = '';
-    for (const field of [...ACCOUNT_COMMON_FIELDS, ...ACCOUNT_TYPES[account.type].fields]) {
+    for (const field of dialogFields()) {
         const wrapper = document.createElement('div');
         wrapper.className = 'field';
         const label = document.createElement('label');
-        label.htmlFor = accountFieldId(field.key);
+        label.htmlFor = fieldId(field.key);
         label.textContent = field.label;
         const input = document.createElement('input');
-        input.id = accountFieldId(field.key);
+        input.id = fieldId(field.key);
         input.type = field.kind === 'text' ? 'text' : 'number';
-        if (field.kind === 'money') {
+        if (field.kind === 'money' || field.kind === 'percent') {
             input.min = '0';
         }
         if (field.kind === 'percent') {
-            input.min = '0';
             input.step = '0.01';
         }
-        input.value = accountFieldValue(account, field);
+        input.value = fieldValue(item, field);
         wrapper.append(label, input);
         container.appendChild(wrapper);
-        attachHelp(label, field.help, `${accountFieldId(field.key)}Help`);
+        attachHelp(label, field.help, `${fieldId(field.key)}Help`);
     }
     wireHelpPopovers(container);
 }
 
-// Percentages are held as fractions everywhere else, and shown as percent
+// Percentages are held as fractions everywhere else and shown as percent
 // here, the same way the old fixed mortgage-rate field did.
-function accountFieldValue(account, field) {
-    const value = account[field.key];
+function fieldValue(item, field) {
+    const value = item[field.key];
     if (value === undefined) {
         return '';
     }
     return field.kind === 'percent' ? value * 100 : value;
 }
 
-function readAccountFields(account) {
-    const rv = { type: account.type };
-    for (const field of [...ACCOUNT_COMMON_FIELDS, ...ACCOUNT_TYPES[account.type].fields]) {
-        const raw = document.getElementById(accountFieldId(field.key)).value;
+function readDialogFields() {
+    const rv = {};
+    for (const field of dialogFields()) {
+        const raw = document.getElementById(fieldId(field.key)).value;
         if (field.kind === 'text') {
             rv[field.key] = raw;
         } else if (raw !== '') {
@@ -272,38 +296,63 @@ function readAccountFields(account) {
     return rv;
 }
 
-function openAccountDialog(index) {
-    editingAccount = index;
-    const account = accounts[index];
-    document.getElementById('accountDialogTitle').textContent = ACCOUNT_TYPES[account.type].label;
-    renderAccountFields(account);
-    document.getElementById('accountDialog').showModal();
+const LISTS = {
+    accounts: {
+        items: () => accounts,
+        title: (item) => ACCOUNT_TYPES[item.type].label,
+        // The type is not a field the dialog shows, so it is carried over
+        // from the box being edited rather than read back out of it.
+        merge: (item, edited) => ({ type: item.type, ...edited }),
+        render: renderAccountBoxes,
+        // Rejected here rather than at Optimize time: the name is what the
+        // box shows and what the results are labelled with, and two
+        // accounts sharing one would have Bookkeeper keep only the second.
+        problem: (edited) => {
+            if (!edited.name) {
+                return 'An account needs a name.';
+            }
+            return accountNames(editing.index).includes(edited.name)
+                ? `There is already an account called ${edited.name}.`
+                : null;
+        },
+    },
+    expenses: {
+        items: () => expenses,
+        title: () => 'One-time expense',
+        merge: (item, edited) => edited,
+        render: renderExpenseBoxes,
+        problem: () => null,
+    },
+};
+
+function openDialog(list, index) {
+    editing = { list, index };
+    document.getElementById('dialogTitle').textContent = LISTS[list].title(LISTS[list].items()[index]);
+    renderDialogFields(LISTS[list].items()[index]);
+    document.getElementById('itemDialog').showModal();
 }
 
-// Rejected here rather than at Optimize time: the name is what the box
-// shows and what the results are labelled with, and two accounts sharing
-// one would have Bookkeeper silently keep only the second.
-function accountProblem(edited) {
-    if (!edited.name) {
-        return 'An account needs a name.';
-    }
-    if (accountNames(editingAccount).includes(edited.name)) {
-        return `There is already an account called ${edited.name}.`;
-    }
-    return null;
-}
-
-function saveAccountDialog() {
-    const edited = readAccountFields(accounts[editingAccount]);
-    const problem = accountProblem(edited);
+function saveDialog() {
+    const list = LISTS[editing.list];
+    const edited = list.merge(list.items()[editing.index], readDialogFields());
+    const problem = list.problem(edited);
     if (problem) {
         alert(problem);
-        openAccountDialog(editingAccount);
+        openDialog(editing.list, editing.index);
         return;
     }
-    accounts[editingAccount] = edited;
-    editingAccount = -1;
-    renderAccountBoxes();
+    list.items()[editing.index] = edited;
+    editing = { list: null, index: -1 };
+    list.render();
+    setUnexportedChanges(true);
+}
+
+function deleteItem() {
+    const list = LISTS[editing.list];
+    list.items().splice(editing.index, 1);
+    editing = { list: null, index: -1 };
+    document.getElementById('itemDialog').close();
+    list.render();
     setUnexportedChanges(true);
 }
 
@@ -311,59 +360,14 @@ function addAccount(type) {
     accounts.push({ type, name: defaultAccountName(type, accountNames(-1)) });
     renderAccountBoxes();
     setUnexportedChanges(true);
-    openAccountDialog(accounts.length - 1);
+    openDialog('accounts', accounts.length - 1);
 }
 
-function deleteAccount() {
-    accounts.splice(editingAccount, 1);
-    editingAccount = -1;
-    document.getElementById('accountDialog').close();
-    renderAccountBoxes();
+function addExpense() {
+    expenses.push({ year: new Date().getFullYear() });
+    renderExpenseBoxes();
     setUnexportedChanges(true);
-}
-
-// One-time expenses are rows rather than boxes: a year and an amount is
-// the whole of one, so a dialog would be more ceremony than content.
-function addLumpSumRow(lumpSum = {}) {
-    const row = document.createElement('div');
-    row.className = 'lump-row';
-    const year = document.createElement('select');
-    year.className = 'lump-year';
-    year.setAttribute('aria-label', 'Year of the expense');
-    const thisYear = new Date().getFullYear();
-    for (const value of range(thisYear, thisYear + 50)) {
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = value;
-        option.selected = value === lumpSum.year;
-        year.appendChild(option);
-    }
-    const amount = document.createElement('input');
-    amount.type = 'number';
-    amount.min = '0';
-    amount.className = 'lump-amount';
-    amount.setAttribute('aria-label', 'Amount of the expense');
-    amount.placeholder = 'Amount';
-    if (lumpSum.amount !== undefined) {
-        amount.value = lumpSum.amount;
-    }
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'danger';
-    remove.textContent = 'Remove';
-    remove.addEventListener('click', () => {
-        row.remove();
-        setUnexportedChanges(true);
-    });
-    row.append(year, amount, remove);
-    document.getElementById('lumpSumRows').appendChild(row);
-}
-
-function readLumpSums() {
-    return [...document.querySelectorAll('.lump-row')].map((row) => ({
-        year: Number(row.querySelector('.lump-year').value),
-        amount: row.querySelector('.lump-amount').value === '' ? undefined : Number(row.querySelector('.lump-amount').value),
-    }));
+    openDialog('expenses', expenses.length - 1);
 }
 
 // Bumped whenever the shape below changes incompatibly. Import refuses a
@@ -395,7 +399,7 @@ function readForm() {
         socialSecurityAt67: numOrUndefined('socialSecurityAt67'),
         medicarePartG: numOrUndefined('medicarePartG'),
         accounts: structuredClone(accounts),
-        lumpSums: readLumpSums(),
+        lumpSums: structuredClone(expenses),
         lifeExpectancy: selectNumber('lifeExpectancy'),
         retirementYear: selectNumber('retirementYear'),
         monthlySpending: numOrUndefined('monthlySpending'),
@@ -420,11 +424,9 @@ function populateForm(input) {
     setValue('interestRate', input.interestRate);
     setValue('investmentReturn', input.investmentReturn);
     accounts = structuredClone(input.accounts ?? []);
+    expenses = structuredClone(input.lumpSums ?? []);
     renderAccountBoxes();
-    document.getElementById('lumpSumRows').innerHTML = '';
-    for (const lumpSum of input.lumpSums ?? []) {
-        addLumpSumRow(lumpSum);
-    }
+    renderExpenseBoxes();
 }
 
 // Triggers a browser download of the current form's fields as JSON --
@@ -762,20 +764,17 @@ document.getElementById('addAccountButton').addEventListener('click', () => {
 // A dialog form submitted with method="dialog" closes it and reports which
 // button was used, so Cancel needs no handler of its own: it simply is not
 // "save", and the edits live only in the dialog's inputs until then.
-document.getElementById('accountForm').addEventListener('submit', (event) => {
+document.getElementById('itemForm').addEventListener('submit', (event) => {
     if (event.submitter.value === 'save') {
-        saveAccountDialog();
+        saveDialog();
     } else {
-        editingAccount = -1;
+        editing = { list: null, index: -1 };
     }
 });
 
-document.getElementById('deleteAccountButton').addEventListener('click', deleteAccount);
+document.getElementById('deleteItemButton').addEventListener('click', deleteItem);
 
-document.getElementById('addLumpSumButton').addEventListener('click', () => {
-    addLumpSumRow();
-    setUnexportedChanges(true);
-});
+document.getElementById('addExpenseButton').addEventListener('click', addExpense);
 
 document.getElementById('planForm').addEventListener('input', () => {
     setUnexportedChanges(true);

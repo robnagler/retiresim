@@ -179,15 +179,6 @@
     .add-row button, .subsection button { margin: 0; }
     .subsection { margin-top: 1.5rem; }
     .sublabel { font-size: 0.9rem; font-weight: 500; }
-    .lump-row { display: flex; gap: 0.75rem; align-items: center; margin: 0.5rem 0; }
-    .lump-row select, .lump-row input {
-      padding: 0.5rem 0.6rem;
-      border: 1px solid #bbb;
-      border-radius: 6px;
-      font-size: 1rem;
-      background: #fff;
-    }
-    .lump-row input { width: 8rem; }
     button.danger { background: #fff; color: #b91c1c; border: 1px solid #b91c1c; }
     button.danger:hover { background: #fef2f2; }
     dialog {
@@ -233,6 +224,17 @@
         <div class="field">
           <label for="birthYear">Birth year</label>
           <select id="birthYear" required></select>
+          <div class="hint">&nbsp;</div>
+        </div>
+        <div class="field">
+          <label for="monthlySalary">Monthly salary</label>
+          <input type="number" id="monthlySalary" min="0">
+          <div class="hint">&nbsp;</div>
+        </div>
+        <div class="field">
+          <label for="monthlySpending">Monthly spending</label>
+          <input type="number" id="monthlySpending" min="0" required>
+          <div class="hint">excluding mortgage and Medicare</div>
         </div>
       </div>
     </fieldset>
@@ -250,52 +252,40 @@
 
     <fieldset>
       <legend>Personal decisions</legend>
-      <div class="two-col">
-        <div class="fields-stack">
-          <div class="field">
-            <label for="monthlySalary">Monthly salary</label>
-            <input type="number" id="monthlySalary" min="0">
-            <div class="hint">&nbsp;</div>
-          </div>
-          <div class="field">
-            <label for="monthlySpending">Monthly spending</label>
-            <input type="number" id="monthlySpending" min="0" required>
-            <div class="hint">excluding mortgage and Medicare</div>
-          </div>
-          <div class="subsection">
-            <span class="sublabel">One-time expenses</span>
-            <button type="button" class="help" data-help-for="lumpSumHelp" aria-label="More about one-time expenses">?</button>
-            <div popover="manual" id="lumpSumHelp">A large expense in a single year rather than every year -- a new roof, a car, a wedding. Spending it changes which accounts the plan draws from that year, which is the point of entering it separately.</div>
-            <div id="lumpSumRows"></div>
-            <button type="button" id="addLumpSumButton" class="secondary">Add expense</button>
-          </div>
+      <div class="fields">
+        <div class="field">
+          <label for="retirementYear">Retirement year</label>
+          <select id="retirementYear" required></select>
+          <div class="hint">&nbsp;</div>
         </div>
-        <div class="fields-stack">
-          <div class="field">
-            <label for="retirementYear">Retirement year</label>
-            <select id="retirementYear" required></select>
-            <div class="hint">&nbsp;</div>
-          </div>
-          <div class="field">
-            <label for="lifeExpectancy">Life expectancy</label>
-            <select id="lifeExpectancy" required></select>
-            <div class="hint">&nbsp;</div>
-          </div>
-          <div class="field">
-            <label for="socialSecurityAt67">Monthly Social Security at 67</label>
-            <input type="number" id="socialSecurityAt67" min="0" required>
-            <div class="hint">value at full retirement</div>
-          </div>
-          <div class="field">
-            <!-- "Medigap Plan G", not "Medicare Part G": Medicare has Parts
-                 A through D, while Plan G is a Medigap supplement sold by
-                 private insurers. The element id and the config key still
-                 say medicarePartG, since renaming them changes the export
-                 format. -->
-            <label for="medicarePartG">Monthly Medigap Plan G</label>
-            <input type="number" id="medicarePartG" min="0">
-            <div class="hint">defaults to the same as Part B if left blank</div>
-          </div>
+        <div class="field">
+          <label for="lifeExpectancy">Life expectancy</label>
+          <select id="lifeExpectancy" required></select>
+          <div class="hint">&nbsp;</div>
+        </div>
+        <div class="field">
+          <label for="socialSecurityAt67">Monthly Social Security at 67</label>
+          <input type="number" id="socialSecurityAt67" min="0" required>
+          <div class="hint">value at full retirement</div>
+        </div>
+        <div class="field">
+          <!-- "Medigap Plan G", not "Medicare Part G": Medicare has Parts
+               A through D, while Plan G is a Medigap supplement sold by
+               private insurers. The element id and the config key still
+               say medicarePartG, since renaming them changes the export
+               format. -->
+          <label for="medicarePartG">Monthly Medigap Plan G</label>
+          <input type="number" id="medicarePartG" min="0">
+          <div class="hint">defaults to the same as Part B if left blank</div>
+        </div>
+      </div>
+      <div class="subsection">
+        <span class="sublabel">One-time expenses</span>
+        <button type="button" class="help" data-help-for="lumpSumHelp" aria-label="More about one-time expenses">?</button>
+        <div popover="manual" id="lumpSumHelp">A large expense in a single year rather than every year -- a new roof, a car, a wedding. Spending it changes which accounts the plan draws from that year, which is the point of entering it separately.</div>
+        <div id="expenseBoxes" class="boxes"></div>
+        <div class="add-row">
+          <button type="button" id="addExpenseButton" class="secondary">Add expense</button>
         </div>
       </div>
     </fieldset>
@@ -342,16 +332,16 @@
     </div>
   </form>
 
-  <!-- One dialog reused for whichever account box was clicked; app.js
-       fills it from accountTypes.js rather than the page carrying a copy
-       of every type's fields. -->
-  <dialog id="accountDialog">
-    <form method="dialog" id="accountForm">
-      <h2 id="accountDialogTitle"></h2>
-      <div id="accountFields" class="fields-stack"></div>
+  <!-- One dialog for whichever box was clicked, account or one-time
+       expense; app.js fills it from accountTypes.js rather than the page
+       carrying a copy of every type's fields. -->
+  <dialog id="itemDialog">
+    <form method="dialog" id="itemForm">
+      <h2 id="dialogTitle"></h2>
+      <div id="dialogFields" class="fields-stack"></div>
       <div class="button-row">
         <button type="submit" value="save">Save</button>
-        <button type="button" id="deleteAccountButton" class="danger">Delete</button>
+        <button type="button" id="deleteItemButton" class="danger">Delete</button>
         <button type="submit" value="cancel" class="secondary">Cancel</button>
       </div>
     </form>
