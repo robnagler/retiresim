@@ -554,9 +554,16 @@ function renderRobustness(configData, results) {
     if (failed.length) {
         const first = Math.min(...failed);
         const last = Math.max(...failed);
-        p(first === last
-            ? `The plans that emptied before the end did so at age ${first}.`
-            : `The plans that emptied before the end did so between ages ${first} and ${last}.`);
+        if (failed.length === trials.length) {
+            // Worth saying plainly when it is every one of them, rather
+            // than leaving the reader to notice that the count above
+            // happened to be the whole batch.
+            p(`All plans ran out by age ${last}.`);
+        } else {
+            p(first === last
+                ? `The plans that emptied before the end did so at age ${first}.`
+                : `The plans that emptied before the end did so between ages ${first} and ${last}.`);
+        }
     }
     return trials;
 }
