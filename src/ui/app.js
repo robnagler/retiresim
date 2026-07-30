@@ -84,6 +84,23 @@ function selectNumber(id) {
     return Number(document.getElementById(id).value);
 }
 
+// value === undefined clears the field back to blank (used on import, so
+// re-importing over a partially-filled form doesn't leave stale values
+// behind in fields the imported file doesn't set).
+function setValue(id, value) {
+    document.getElementById(id).value = value === undefined ? '' : value;
+}
+
+function updateMortgageFieldsVisibility() {
+    const display = document.getElementById('mortgageBalance').value ? '' : 'none';
+    document.getElementById('mortgageRateField').style.display = display;
+    document.getElementById('mortgageEndYearField').style.display = display;
+}
+
+function updateInheritedYearVisibility() {
+    document.getElementById('inheritedIraYearField').style.display = document.getElementById('inheritedIraBalance').value ? '' : 'none';
+}
+
 // A balance with no rate/year/etc alongside it produces a nonsensical
 // (NaN-driven) account -- financial correctness takes priority over a
 // convenient form, so this blocks submission instead of silently
@@ -123,6 +140,51 @@ function readForm() {
     };
 }
 
+// Inverse of readForm() -- populates the form from a previously-exported
+// input object (see exportFields()/importFields() below). Fields the
+// imported object doesn't set are cleared back to blank rather than left
+// as whatever the form happened to already show.
+function populateForm(input) {
+    setValue('birthYear', input.birthYear);
+    setValue('salary', input.salary);
+    setValue('socialSecurityAt67', input.socialSecurityAt67);
+    setValue('medicarePartG', input.medicarePartG);
+    setValue('mortgageBalance', input.mortgageBalance);
+    setValue('mortgageRate', input.mortgageRate === undefined ? undefined : input.mortgageRate * 100);
+    setValue('mortgageEndYear', input.mortgageEndYear);
+    setValue('taxableBalance', input.taxableBalance);
+    setValue('traditionalIraBalance', input.traditionalIraBalance);
+    setValue('rothIraBalance', input.rothIraBalance);
+    setValue('inheritedIraBalance', input.inheritedIraBalance);
+    setValue('inheritedIraYear', input.inheritedIraYear);
+    setValue('hsaBalance', input.hsaBalance);
+    setValue('lifeExpectancy', input.lifeExpectancy);
+    setValue('retirementYear', input.retirementYear);
+    setValue('yearlySpending', input.yearlySpending);
+    setValue('inflation', input.inflation);
+    setValue('interestRate', input.interestRate);
+    setValue('investmentReturn', input.investmentReturn);
+    updateMortgageFieldsVisibility();
+    updateInheritedYearVisibility();
+}
+
+// Triggers a browser download of the current form's fields as JSON --
+// "the fields only" per CLAUDE.md's UI spec, i.e. readForm()'s raw input
+// shape, not buildConfigData()'s expanded simulation config.
+function exportFields() {
+    const blob = new Blob([JSON.stringify(readForm(), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'retirement-plan.json';
+    link.click();
+    URL.revokeObjectURL(url);
+}
+
+async function importFields(file) {
+    populateForm(JSON.parse(await file.text()));
+}
+
 // Holds the currently-drawn chart, if any, so a second Optimize click
 // destroys it before drawing a new one -- Chart.js throws if a chart is
 // created on a canvas that already has one attached.
@@ -157,17 +219,11 @@ populateSelects();
 // Inherited year only means anything once a non-spousal inherited IRA
 // balance is entered -- hidden until then instead of showing an
 // always-visible field most people will never touch.
-document.getElementById('inheritedIraBalance').addEventListener('input', (event) => {
-    document.getElementById('inheritedIraYearField').style.display = event.target.value ? '' : 'none';
-});
+document.getElementById('inheritedIraBalance').addEventListener('input', updateInheritedYearVisibility);
 
 // Mortgage rate/end year only mean anything once a mortgage balance is
 // entered -- same treatment as inherited year above.
-document.getElementById('mortgageBalance').addEventListener('input', (event) => {
-    const display = event.target.value ? '' : 'none';
-    document.getElementById('mortgageRateField').style.display = display;
-    document.getElementById('mortgageEndYearField').style.display = display;
-});
+document.getElementById('mortgageBalance').addEventListener('input', updateMortgageFieldsVisibility);
 
 document.getElementById('planForm').addEventListener('submit', (event) => {
     event.preventDefault();
@@ -180,4 +236,20 @@ document.getElementById('planForm').addEventListener('submit', (event) => {
     const configData = buildConfigData(input);
     const results = new Optimizer().runAll(configData, classes, OPTIMIZE_VARIABLES);
     renderResults(results);
+});
+
+document.getElementById('exportButton').addEventListener('click', exportFields);
+
+// Clicking the visible "Import" button just proxies to the hidden real
+// file input, since styling a native file input consistently with the
+// rest of the form isn't possible.
+document.getElementById('importButton').addEventListener('click', () => {
+    document.getElementById('importFile').click();
+});
+document.getElementById('importFile').addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        await importFields(file);
+    }
+    event.target.value = '';
 });

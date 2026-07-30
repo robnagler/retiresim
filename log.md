@@ -2,6 +2,9 @@
 
 ## 2026-07-30
 
+* 20:20:00 **Prompt**: "do the export/import buttons" followed by "it works fine"
+* 20:20:00 **Update**: Implemented Export (downloads the raw form fields as JSON, not the expanded simulation config) and Import (repopulates the form from a previously-exported file, including re-syncing the mortgage/inherited-year show-hide state). User confirmed the round-trip works. 204/204 tests pass.
+* 20:09:40 **Update**: Committed as `4600b71` and pushed `8e90b95..4600b71` to origin/main (now `robnagler/retiresim`).
 * 20:08:00 **Prompt**: "fix" (package.json's name field) followed by "gkcp"
 * 20:07:00 **Update**: Updated package.json's name field to match; confirmed no other tracked file besides log.md's own historical entries still says the old project name.
 * 20:05:00 **Prompt**: "do the actual folder rename"
