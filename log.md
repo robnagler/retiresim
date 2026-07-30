@@ -2,6 +2,10 @@
 
 ## 2026-07-30
 
+* 19:14:00 **Prompt**: "do 4"
+* 19:14:00 **Update**: Implemented plan step 4 -- src/ui/chart.js, a thin wrapper building a Chart.js line-chart config from a net-worth-by-year series, defaulting to the CDN-loaded global Chart constructor but accepting an injected fake for testing (Chart.js itself needs a real browser/canvas, which node --test doesn't have). 203/203 tests pass.
+* 19:09:59 **Update**: Committed as `ed1d911` and pushed `9e40330..ed1d911` to origin/main.
+* 19:09:00 **Prompt**: "gckp"
 * 19:07:00 **Prompt**: "the tax calculator should be injected"
 * 19:06:00 **Update**: applyDefaults() now injects the whole Tax/TaxCalculator spendingOrder entry (not just its fields) when one isn't already present, since it's pure identical boilerplate every config previously had to repeat by hand. Removed the now-unnecessary Tax entry from config/cfg.json and main.js's illustrative default. Updated the affected tests. 201/201 tests pass; all CLI modes verified clean with identical results to before.
 * 19:02:00 **Prompt**: "for initialMAGI will just use the salary for this"
