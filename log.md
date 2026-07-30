@@ -2,6 +2,8 @@
 
 ## 2026-07-31
 
+* 17:10:50 **Answer/Update**: Confirmed a trial just above the floor lands in the next rounded bucket, and found a real fault while checking: a trial only slightly above the floor produced a bucket labelled below the floor, sitting beside the under-floor bucket with an overlapping range and a contradictory label. The first boundary is now clamped to the floor.
+* 17:08:00 **Prompt**: "so would it show under 25k and 50k if there was a trial at 24k?"
 * 17:06:39 **Update**: Everything below a month's spending now shares one bucket instead of spreading over three or four bars that say the same thing. The threshold comes from the plan's own spending rather than being a fixed figure, and the bucket stays separate from the failures, since those trials did last the whole way and merging them would put a number on that bar disagreeing with the failure count stated beside the chart.
 * 17:00:00 **Prompt**: "the 2k, 5k, 10k are legit but they are immaterial. i think 10k (or monthly spending) is probably like 'ran out'. from a ui point of view it takes up too much space ven though it is correct."
 * 16:57:04 **Update**: Snapped the bucket boundaries to 1, 2 and 5 within each power of ten, so the axis reads $100K, $200K, $500K, $1M rather than $119.6K, $190.2K, $302.3K. The screenshot also showed two smaller faults, both fixed: 199 of 200 surviving was being reported as 100% right beside a sentence saying one ran out, and a single failure year read "between 2041 and 2041".

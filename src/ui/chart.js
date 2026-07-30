@@ -155,6 +155,14 @@ export function netWorthBins(results, floor = 0) {
         return first;
     }
     const bounds = niceBounds(Math.min(...values), Math.max(...values));
+    // The first boundary is the one at or below the lowest value, which
+    // can land below the floor -- leaving a bucket labelled "$10K" sitting
+    // to the right of "Under $13K", two bars whose ranges overlap and
+    // whose labels disagree. The floor itself is the honest boundary
+    // there: nothing below it reached this far.
+    if (floor > 0 && bounds[0] < floor) {
+        bounds[0] = floor;
+    }
     const bins = bounds.map((bound) => ({ label: CURRENCY.format(bound), count: 0 }));
     for (const value of values) {
         // The last boundary at or below the value: findLast rather than a

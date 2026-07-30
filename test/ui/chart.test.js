@@ -149,6 +149,13 @@ test('netWorthBins keeps the near-broke bucket separate from the failures, whose
     assert.deepEqual(bins, [{ label: 'Ran out', count: 1 }, { label: 'Under $10K', count: 1 }]);
 });
 
+test('netWorthBins never labels a bucket below the floor, which would overlap the under-floor bucket beside it', () => {
+    const bins = netWorthBins([{ netWorth: 0 }, { netWorth: 5000 }, { netWorth: 15000 }], 13000);
+
+    assert.deepEqual(bins.slice(0, 3).map((bin) => bin.label), ['Ran out', 'Under $13K', '$13K']);
+    assert.equal(bins[2].count, 1);
+});
+
 test('netWorthBins has no under-floor bucket when every trial cleared it', () => {
     assert.equal(netWorthBins([{ netWorth: 400000 }, { netWorth: 900000 }], 10000)[0].label, '$200K');
 });
