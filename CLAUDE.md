@@ -48,33 +48,53 @@ Build the project slowly one module at a time.
 
 - Plain JS, CSS, and HTML. Maybe a graphing package that's very simple
 - No bundles, no images
-- A single form with
-   - Facts
+- A form in four sections, with the results beside it on a wide window and
+  stacked beneath on a narrow one
+   - Basic facts
       - Birth year [select: <this year - 75>-<this year>]
+   - Account balances -- one box per account rather than a fixed field per
+     kind, each opening a native `<dialog>` to edit it, with a menu to add
+     another. `src/ui/accountTypes.js` is the single table behind all of
+     it: the menu of types, the fields each type's dialog shows, and the
+     help behind each `[?]`. Adding a kind of account means an entry there
+     and a matching one in `buildConfig.js`'s `ACCOUNT_FIELDS`, which
+     `test/ui/accountTypes.test.js` checks stay in step. `Mortgage` is a
+     box like the rest, despite being a spender internally and a liability
+     rather than an asset -- to someone filling in the form it is a balance
+     you open and edit. Names are free text the user chose and must be
+     unique, since `Bookkeeper` keys accounts by name and a duplicate would
+     silently shadow rather than fail; the form numbers duplicates as it
+     creates them ("Roth IRA 2") and `buildConfigData` throws on one that
+     gets through anyway. Every entry carries an explicit `class` so a name
+     never has to start with a class name. This is what finally allows more
+     than one account of a kind, which the real config already needed for
+     two mortgages
+   - Personal decisions
+      - Retirement Year: [select: <this year>-<this year + 30>]
+      - Life Expectancy [select: 80-110]
+      - Monthly Spending: [number: blank] (excluding mortgage and medicare)
       - Monthly Salary: [number: blank]
       - Monthly Social Security at 67: [number: blank]
-      - Medigap Plan G: [number: default to same value as Part B] (this brief originally said "Medicare Part G", which does not exist -- Medicare has Parts A through D, and Plan G is a Medigap supplement sold by private insurers. The wrong name reached the form label before being caught; the element id and cfg key still read `medicarePartG`/`partGMonthly`, deliberately, since renaming them changes the export format and belongs with the versioning work in the form-restructure issue)
-      - Mortgage Balance: [number: blank] Rate: [number: blank] End ---Year: [select: <this year>-<this year + 30>]
-      - Taxable Balance: [number: blank]
-      - Traditional IRA: [number: blank]
-      - Roth IRA: [number: blank]
-      - Non-Spousal Inherited IRA: [number: blank] Inherited Year: [select: <this year - 30> -<this year>]
-      - HSA Balance: [number: blank]
-
-   - Predictions
-      - Life Expectancy [select: 80-110]
-      - Retirement Year: [select: <this year>-<this year + 30>]
-      - Monthly Spending: [number: blank] (excluding mortgage and medicare)
+      - Monthly Medigap Plan G: [number: default to same value as Part B]
+        (this brief originally said "Medicare Part G", which does not exist
+        -- Medicare has Parts A through D, and Plan G is a Medigap
+        supplement sold by private insurers. The wrong name reached the
+        form label before being caught; the element id and cfg key still
+        read `medicarePartG`/`partGMonthly`)
+      - One-time expenses: repeatable {year, amount} rows, collapsed into
+        the single `LumpSum` entry's `cfg.amounts` map. Two rows on one
+        year add together, which is what entering two expenses in the same
+        year means. `LumpSum` existed in the model with no UI at all until
+        this
       (every flow amount on this form is monthly, since that is how a
       salary, a benefit and a premium are all quoted in real life; only
       balances are lump sums. The form keys say so too --
       `monthlySalary`/`monthlySpending` -- because the failure this
       prevents is a figure entered under the wrong convention, which is
-      wrong by twelve with nothing to flag it. `socialSecurityAt67` and
-      `medicarePartG` were already monthly and keep their key names until
-      the export-format versioning work renames them together. Internally
+      wrong by twelve with nothing to flag it. Internally
       `LivingExpense.balance` is still a year's spending, so `buildConfig`
       annualizes there -- the single place that conversion now happens)
+   - Future economy
       - Inflation: [select: 0-10% increments .5%]
       - Interest Rate: [select: 1%-5%, increments 1%]
       - Investment Return:  [select: 5%-15%]
@@ -82,8 +102,14 @@ Build the project slowly one module at a time.
 - Button: Optimize
 - Optimal amounts with the spending strategies explained
 - Graph: networth over time for optimal
-- Button: Export that saves a json file of the fields only
-- Button: Import that imports a json file
+- Button: Export that saves a json file of the fields only, named with a
+  local-time timestamp (`retirement-plan-20260730T143800.json`) so each save
+  is its own file rather than one the browser numbers "(1)", "(2)"
+- Button: Import that imports a json file. The exported object carries a
+  `version` (`app.js`'s `INPUT_VERSION`), and Import refuses a file whose
+  version it does not recognise rather than filling the form from fields
+  that may no longer mean what they did -- the failure the monthly rename
+  escaped only because the old keys happened not to match the new ones
 
 ## Modularization
 

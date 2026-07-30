@@ -3,7 +3,9 @@
 // this map, so adding a field without explaining it is a test failure
 // (test/ui/help.test.js reads index.html and checks both directions).
 //
-// The keys are element ids, matching readForm()/populateForm()'s naming.
+// The keys are element ids for fields on the form itself. Per-account
+// fields live in accountTypes.js instead, since which of them exist
+// depends on the type of account being edited.
 // Text is plain prose, no markup: it's set via textContent, so a stray
 // angle bracket can't turn into HTML.
 export const FIELD_HELP = {
@@ -11,15 +13,6 @@ export const FIELD_HELP = {
     monthlySalary: 'Gross employment income per month, before taxes. Leave blank if already retired. It stops in the retirement year below.',
     socialSecurityAt67: 'Your monthly benefit at full retirement age (67), not the amount at the age you plan to claim -- the simulator applies the roughly 8% per year adjustment itself, and searches for the best claiming age.',
     medicarePartG: 'Monthly premium for a Medigap Plan G supplement, which private insurers sell to cover what Medicare itself does not. Medicare Part B and Part D are included automatically at their standard amounts. Leave blank to use the same value as Part B.',
-    mortgageBalance: 'Amount still owed, not the home value. The house itself is not modeled as an asset, so home equity does not count toward net worth.',
-    mortgageRate: 'The loan\'s own fixed annual rate. The monthly payment is derived from the balance, this rate, and the end year -- you do not enter the payment.',
-    mortgageEndYear: 'The year the loan is scheduled to be paid off. The payment is sized so the balance reaches zero exactly then.',
-    taxableBalance: 'Brokerage or bank money that is not in a retirement account. Withdrawals here are taxed only on the gain, at long-term capital gains rates.',
-    traditionalIraBalance: 'Pre-tax retirement money, including a 401(k). Every withdrawal counts as ordinary income, and required minimum distributions force withdrawals later in life.',
-    rothIraBalance: 'After-tax retirement money. Withdrawals are tax-free and there are no required minimum distributions, which makes it the most flexible account to draw from.',
-    inheritedIraBalance: 'An IRA inherited from someone other than a spouse. It has its own withdrawal rules and, under current law, generally must be emptied within ten years.',
-    inheritedIraYear: 'The year it was inherited, which starts the clock on those withdrawal rules.',
-    hsaBalance: 'Health savings account money. It is spent down on a schedule for medical costs over your lifetime, and is never used to cover ordinary shortfalls.',
     lifeExpectancy: 'The age the simulation runs to. This is a planning horizon, not a prediction -- planning to a longer age is the conservative choice, since outliving the money is the risk that matters.',
     retirementYear: 'The year employment income stops. Spending, Medicare, and taxes continue regardless.',
     monthlySpending: 'What you spend in a month in today\'s dollars, excluding the mortgage payment and Medicare premiums, which are counted separately. It grows with inflation. Health insurance before age 65 belongs here.',

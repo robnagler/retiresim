@@ -17,14 +17,16 @@ import { Medicare } from '../biz/Medicare.js';
 import { Salary } from '../biz/Salary.js';
 import { SocialSecurity } from '../biz/SocialSecurity.js';
 import { Cash } from '../biz/Cash.js';
+import { LumpSum } from '../biz/LumpSum.js';
 import { RobustnessValidator } from '../biz/RobustnessValidator.js';
 import { renderNetWorthChart, renderRobustnessChart } from './chart.js';
 import { exportFileName } from './fileName.js';
+import { ACCOUNT_COMMON_FIELDS, ACCOUNT_TYPES, EXPENSE_FIELDS, defaultAccountName } from './accountTypes.js';
 import { FIELD_HELP } from './help.js';
 
 const classes = {
     TaxableAccount, TraditionalIra, NonSpousalInheritedIra, RothIra, HsaAccount,
-    Mortgage, LivingExpense, TaxCalculator, Medicare, Salary, SocialSecurity, Cash,
+    Mortgage, LivingExpense, TaxCalculator, Medicare, Salary, SocialSecurity, Cash, LumpSum,
 };
 
 const CURRENCY = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -70,7 +72,7 @@ function categoryCap(candidate, category) {
 // with two variables now in OPTIMIZE_VARIABLES neither is reliably
 // "last" -- see Optimizer.js's runAll() doc comment for why withdrawal
 // order specifically runs first.
-function renderStrategy(container, results) {
+function renderStrategy(container, results, birthYear) {
     container.innerHTML = '';
     const finalPlan = results[results.length - 1];
     const finalCandidate = finalPlan.netWorth.best;
@@ -83,7 +85,7 @@ function renderStrategy(container, results) {
     };
 
     if (failedYear !== undefined) {
-        p(`This plan runs out of money in ${failedYear}. Try lowering yearly spending or adjusting other assumptions.`);
+        p(`This plan runs out of money at age ${failedYear - birthYear}. Try lowering monthly spending or adjusting other assumptions.`);
         return;
     }
 
@@ -149,8 +151,6 @@ function percentValues(minPct, maxPct, stepPct) {
 function populateSelects() {
     const year = new Date().getFullYear();
     populateSelect('birthYear', range(year - 75, year));
-    populateSelect('mortgageEndYear', range(year, year + 30));
-    populateSelect('inheritedIraYear', range(year - 30, year));
     populateSelect('lifeExpectancy', range(80, 110), String, 90);
     populateSelect('retirementYear', range(year, year + 30));
     populateSelect('inflation', percentValues(0, 10, 0.5), formatPercent, 0.025);
@@ -174,46 +174,232 @@ function setValue(id, value) {
     document.getElementById(id).value = value === undefined ? '' : value;
 }
 
-function updateMortgageFieldsVisibility() {
-    const display = document.getElementById('mortgageBalance').value ? '' : 'none';
-    document.getElementById('mortgageRateField').style.display = display;
-    document.getElementById('mortgageEndYearField').style.display = display;
+// The accounts being edited, as {type, name, balance, ...perTypeFields},
+// and the one-time expenses as {year, amount}. Held here rather than read
+// back out of the DOM because a box shows only a summary -- the fields
+// behind it exist in these arrays, not on the page, except while the
+// dialog for one of them is open.
+let accounts = [];
+let expenses = [];
+// What the open dialog is editing: which list, and which entry in it.
+// index is -1 while the dialog is closed.
+let editing = { list: null, index: -1 };
+
+const CURRENCY_BOX = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+function accountNames(exceptIndex) {
+    return accounts.filter((unused, i) => i !== exceptIndex).map((account) => account.name);
 }
 
-function updateInheritedYearVisibility() {
-    document.getElementById('inheritedIraYearField').style.display = document.getElementById('inheritedIraBalance').value ? '' : 'none';
+// Boxes are rebuilt from scratch on every change: the lists are short, and
+// rebuilding avoids keeping DOM nodes and array indexes in agreement,
+// which is where this kind of code usually goes wrong.
+function renderBoxes(containerId, items, describe, onClick) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    items.forEach((item, index) => {
+        const box = document.createElement('button');
+        box.type = 'button';
+        box.className = 'box';
+        for (const [text, className] of describe(item)) {
+            const el = document.createElement('span');
+            el.className = className;
+            el.textContent = text;
+            box.appendChild(el);
+        }
+        box.addEventListener('click', () => onClick(index));
+        container.appendChild(box);
+    });
 }
+
+function money(value) {
+    return value === undefined ? 'no amount' : CURRENCY_BOX.format(value);
+}
+
+function renderAccountBoxes() {
+    renderBoxes('accountBoxes', accounts, (account) => {
+        const lines = [[account.name, 'box-name'], [money(account.balance), 'box-balance']];
+        // The type is only worth a line when it says something the name
+        // does not: a box named for its own type would repeat itself.
+        if (account.name !== ACCOUNT_TYPES[account.type].label) {
+            lines.push([ACCOUNT_TYPES[account.type].label, 'box-type']);
+        }
+        return lines;
+    }, (index) => openDialog('accounts', index));
+}
+
+function renderExpenseBoxes() {
+    renderBoxes('expenseBoxes', expenses, (expense) => [
+        [expense.year === undefined ? 'no year' : String(expense.year), 'box-name'],
+        [money(expense.amount), 'box-balance'],
+    ], (index) => openDialog('expenses', index));
+}
+
+function fieldId(key) {
+    return `dialogField-${key}`;
+}
+
+// Which fields the dialog shows depends on what is being edited, so its
+// contents are built per opening rather than written into the page once.
+function dialogFields() {
+    return editing.list === 'accounts'
+        ? [...ACCOUNT_COMMON_FIELDS, ...ACCOUNT_TYPES[accounts[editing.index].type].fields]
+        : EXPENSE_FIELDS;
+}
+
+function renderDialogFields(item) {
+    const container = document.getElementById('dialogFields');
+    container.innerHTML = '';
+    for (const field of dialogFields()) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'field';
+        const label = document.createElement('label');
+        label.htmlFor = fieldId(field.key);
+        label.textContent = field.label;
+        const input = document.createElement('input');
+        input.id = fieldId(field.key);
+        input.type = field.kind === 'text' ? 'text' : 'number';
+        if (field.kind === 'money' || field.kind === 'percent') {
+            input.min = '0';
+        }
+        if (field.kind === 'percent') {
+            input.step = '0.01';
+        }
+        input.value = fieldValue(item, field);
+        wrapper.append(label, input);
+        container.appendChild(wrapper);
+        attachHelp(label, field.help, `${fieldId(field.key)}Help`);
+    }
+    wireHelpPopovers(container);
+}
+
+// Percentages are held as fractions everywhere else and shown as percent
+// here, the same way the old fixed mortgage-rate field did.
+function fieldValue(item, field) {
+    const value = item[field.key];
+    if (value === undefined) {
+        return '';
+    }
+    return field.kind === 'percent' ? value * 100 : value;
+}
+
+function readDialogFields() {
+    const rv = {};
+    for (const field of dialogFields()) {
+        const raw = document.getElementById(fieldId(field.key)).value;
+        if (field.kind === 'text') {
+            rv[field.key] = raw;
+        } else if (raw !== '') {
+            rv[field.key] = field.kind === 'percent' ? Number(raw) / 100 : Number(raw);
+        }
+    }
+    return rv;
+}
+
+const LISTS = {
+    accounts: {
+        items: () => accounts,
+        title: (item) => ACCOUNT_TYPES[item.type].label,
+        // The type is not a field the dialog shows, so it is carried over
+        // from the box being edited rather than read back out of it.
+        merge: (item, edited) => ({ type: item.type, ...edited }),
+        render: renderAccountBoxes,
+        // Rejected here rather than at Optimize time: the name is what the
+        // box shows and what the results are labelled with, and two
+        // accounts sharing one would have Bookkeeper keep only the second.
+        problem: (edited) => {
+            if (!edited.name) {
+                return 'An account needs a name.';
+            }
+            return accountNames(editing.index).includes(edited.name)
+                ? `There is already an account called ${edited.name}.`
+                : null;
+        },
+    },
+    expenses: {
+        items: () => expenses,
+        title: () => 'One-time expense',
+        merge: (item, edited) => edited,
+        render: renderExpenseBoxes,
+        problem: () => null,
+    },
+};
+
+function openDialog(list, index) {
+    editing = { list, index };
+    document.getElementById('dialogTitle').textContent = LISTS[list].title(LISTS[list].items()[index]);
+    renderDialogFields(LISTS[list].items()[index]);
+    document.getElementById('itemDialog').showModal();
+}
+
+function saveDialog() {
+    const list = LISTS[editing.list];
+    const edited = list.merge(list.items()[editing.index], readDialogFields());
+    const problem = list.problem(edited);
+    if (problem) {
+        alert(problem);
+        openDialog(editing.list, editing.index);
+        return;
+    }
+    list.items()[editing.index] = edited;
+    editing = { list: null, index: -1 };
+    list.render();
+    setUnexportedChanges(true);
+}
+
+function deleteItem() {
+    const list = LISTS[editing.list];
+    list.items().splice(editing.index, 1);
+    editing = { list: null, index: -1 };
+    document.getElementById('itemDialog').close();
+    list.render();
+    setUnexportedChanges(true);
+}
+
+function addAccount(type) {
+    accounts.push({ type, name: defaultAccountName(type, accountNames(-1)) });
+    renderAccountBoxes();
+    setUnexportedChanges(true);
+    openDialog('accounts', accounts.length - 1);
+}
+
+function addExpense() {
+    expenses.push({ year: new Date().getFullYear() });
+    renderExpenseBoxes();
+    setUnexportedChanges(true);
+    openDialog('expenses', expenses.length - 1);
+}
+
+// Bumped whenever the shape below changes incompatibly. Import refuses a
+// file it does not recognise rather than filling the form from fields that
+// no longer mean what they did -- the failure the monthly rename avoided
+// only because the old keys happened not to match the new ones.
+export const INPUT_VERSION = 1;
 
 // A balance with no rate/year/etc alongside it produces a nonsensical
 // (NaN-driven) account -- financial correctness takes priority over a
 // convenient form, so this blocks submission instead of silently
 // computing garbage (CLAUDE.md's Goal states correctness comes first).
 function validate(input) {
-    if (input.mortgageBalance && (input.mortgageRate === undefined || input.mortgageEndYear === undefined)) {
-        return 'Mortgage rate and end year are required when a mortgage balance is entered.';
-    }
-    if (input.inheritedIraBalance && input.inheritedIraYear === undefined) {
-        return 'Inherited year is required when a non-spousal inherited IRA balance is entered.';
+    for (const account of input.accounts) {
+        for (const field of ACCOUNT_TYPES[account.type].fields) {
+            if (account.balance && account[field.key] === undefined) {
+                return `${account.name} needs ${field.label} filled in.`;
+            }
+        }
     }
     return null;
 }
 
 function readForm() {
-    const mortgageRatePercent = numOrUndefined('mortgageRate');
     return {
+        version: INPUT_VERSION,
         birthYear: selectNumber('birthYear'),
         monthlySalary: numOrUndefined('monthlySalary'),
         socialSecurityAt67: numOrUndefined('socialSecurityAt67'),
         medicarePartG: numOrUndefined('medicarePartG'),
-        mortgageBalance: numOrUndefined('mortgageBalance'),
-        mortgageRate: mortgageRatePercent === undefined ? undefined : mortgageRatePercent / 100,
-        mortgageEndYear: numOrUndefined('mortgageEndYear'),
-        taxableBalance: numOrUndefined('taxableBalance'),
-        traditionalIraBalance: numOrUndefined('traditionalIraBalance'),
-        rothIraBalance: numOrUndefined('rothIraBalance'),
-        inheritedIraBalance: numOrUndefined('inheritedIraBalance'),
-        inheritedIraYear: numOrUndefined('inheritedIraYear'),
-        hsaBalance: numOrUndefined('hsaBalance'),
+        accounts: structuredClone(accounts),
+        lumpSums: structuredClone(expenses),
         lifeExpectancy: selectNumber('lifeExpectancy'),
         retirementYear: selectNumber('retirementYear'),
         monthlySpending: numOrUndefined('monthlySpending'),
@@ -224,31 +410,23 @@ function readForm() {
 }
 
 // Inverse of readForm() -- populates the form from a previously-exported
-// input object (see exportFields()/importFields() below). Fields the
-// imported object doesn't set are cleared back to blank rather than left
-// as whatever the form happened to already show.
+// input object. Fields the imported object doesn't set are cleared back to
+// blank rather than left as whatever the form happened to already show.
 function populateForm(input) {
     setValue('birthYear', input.birthYear);
     setValue('monthlySalary', input.monthlySalary);
     setValue('socialSecurityAt67', input.socialSecurityAt67);
     setValue('medicarePartG', input.medicarePartG);
-    setValue('mortgageBalance', input.mortgageBalance);
-    setValue('mortgageRate', input.mortgageRate === undefined ? undefined : input.mortgageRate * 100);
-    setValue('mortgageEndYear', input.mortgageEndYear);
-    setValue('taxableBalance', input.taxableBalance);
-    setValue('traditionalIraBalance', input.traditionalIraBalance);
-    setValue('rothIraBalance', input.rothIraBalance);
-    setValue('inheritedIraBalance', input.inheritedIraBalance);
-    setValue('inheritedIraYear', input.inheritedIraYear);
-    setValue('hsaBalance', input.hsaBalance);
     setValue('lifeExpectancy', input.lifeExpectancy);
     setValue('retirementYear', input.retirementYear);
     setValue('monthlySpending', input.monthlySpending);
     setValue('inflation', input.inflation);
     setValue('interestRate', input.interestRate);
     setValue('investmentReturn', input.investmentReturn);
-    updateMortgageFieldsVisibility();
-    updateInheritedYearVisibility();
+    accounts = structuredClone(input.accounts ?? []);
+    expenses = structuredClone(input.lumpSums ?? []);
+    renderAccountBoxes();
+    renderExpenseBoxes();
 }
 
 // Triggers a browser download of the current form's fields as JSON --
@@ -269,8 +447,18 @@ function exportFields() {
     URL.revokeObjectURL(url);
 }
 
+// Refuses a file from a different version rather than filling the form
+// from fields that may no longer mean what they did. Exports predating the
+// version field are the ones this is really about: their account fields
+// were flat and named differently, so silently accepting one would drop
+// every account without saying so.
 async function importFields(file) {
-    populateForm(JSON.parse(await file.text()));
+    const input = JSON.parse(await file.text());
+    if (input.version !== INPUT_VERSION) {
+        alert(`This file was saved by a different version of the simulator (${input.version ?? 'no version'}, expected ${INPUT_VERSION}) and cannot be imported.`);
+        return;
+    }
+    populateForm(input);
 }
 
 // Every chart currently drawn, so a second Optimize click destroys them
@@ -295,6 +483,8 @@ function drawChart(containerId, canvasId, series, render) {
 // is the same default the command line uses, and takes well under a second,
 // so there is no case for making the user ask for it separately.
 const ROBUSTNESS_TRIALS = 200;
+const MONTHS_PER_YEAR = 12;
+const RAN_OUT_MONTHS = 3;
 
 // The optimizer answers "what is the best plan under one assumed return
 // every year," which is never what happens. Running the winner straight
@@ -302,13 +492,44 @@ const ROBUSTNESS_TRIALS = 200;
 // leaves open -- how often this plan survives real market history -- and
 // doing it automatically means the plan being stress-tested is always the
 // plan just chosen, rather than whatever was last copied somewhere by hand.
+// Rounded to a whole percent, except that it never rounds up to 100% while
+// any trial failed: 199 of 200 surviving is 99.5%, and reporting it as 100%
+// beside a sentence saying one ran out is the sort of contradiction that
+// makes a reader distrust the rest of the page.
+function survivedPercent(survived, total) {
+    const percent = (100 * survived) / total;
+    if (survived < total && percent > 99) {
+        return `${percent.toFixed(1)}%`;
+    }
+    return `${percent.toFixed(0)}%`;
+}
+
+// Every config carries a birth year on its Medicare entry, which
+// buildConfigData always builds -- Medicare needs one to know when
+// premiums start, so there is no plan without it.
+function birthYearOf(configData) {
+    return configData.Cash.spendingOrder.find((e) => e.name === 'Medicare').birthYear;
+}
+
+// Three months of the plan's own spending, rather than a fixed figure
+// that would be meaningless for one household and half a year's living for
+// another.
+function ranOutFloor(configData) {
+    return (configData.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance / MONTHS_PER_YEAR) * RAN_OUT_MONTHS;
+}
+
 function renderRobustness(configData, results) {
     const container = document.getElementById('robustness');
     container.innerHTML = '';
     const winning = new Optimizer().winningConfigData(configData, results, OPTIMIZE_VARIABLES);
     const trials = new RobustnessValidator().run(winning, classes, ROBUSTNESS_TRIALS);
-    const insolvent = trials.filter((t) => t.failedYear !== null);
-    const survived = trials.length - insolvent.length;
+    // Finishing the horizon with three months of spending left is not
+    // surviving it in any sense worth reporting differently from failing,
+    // and against a model with this much uncertainty in it the gap between
+    // that and zero is noise. The same threshold decides the chart's first
+    // bucket, so the count below and the bar agree.
+    const floor = ranOutFloor(configData);
+    const lasted = trials.filter((t) => t.netWorth > floor);
     const sorted = trials.map((t) => t.netWorth).sort((a, b) => a - b);
     const percentile = (p) => sorted[Math.floor(p * (sorted.length - 1))];
 
@@ -317,20 +538,38 @@ function renderRobustness(configData, results) {
         el.textContent = text;
         container.appendChild(el);
     };
-    p(`Tested against ${trials.length} sampled market histories: the money lasted in ${survived} of them (${((100 * survived) / trials.length).toFixed(0)}%).`);
+    p(`Tested against ${trials.length} sampled market histories: the money lasted in ${lasted.length} of them (${survivedPercent(lasted.length, trials.length)}).`);
+    p(`Running out here means finishing with less than three months of spending left, since a plan that ends that close to empty has not really survived.`);
     // Median rather than mean: the spread is heavily right-skewed, since a
     // few lucky histories compound to outsized totals while every insolvent
     // one sits at exactly zero.
     p(`Typical ending net worth ${CURRENCY.format(percentile(0.5))}, ranging from ${CURRENCY.format(percentile(0.1))} in the worst tenth to ${CURRENCY.format(percentile(0.9))} in the best tenth.`);
-    if (insolvent.length) {
-        const years = insolvent.map((t) => t.failedYear);
-        p(`When it ran out, that happened between ${Math.min(...years)} and ${Math.max(...years)}.`);
+    // Only the trials that actually hit a shortfall have a year to report;
+    // one that merely finished near empty never failed at any point.
+    //
+    // Reported as an age rather than a calendar year: "at 83" is a fact
+    // about the reader, which a year only becomes after they work out the
+    // arithmetic themselves.
+    const failed = trials.filter((t) => t.failedYear !== null).map((t) => t.failedYear - birthYearOf(configData));
+    if (failed.length) {
+        const first = Math.min(...failed);
+        const last = Math.max(...failed);
+        if (failed.length === trials.length) {
+            // Worth saying plainly when it is every one of them, rather
+            // than leaving the reader to notice that the count above
+            // happened to be the whole batch.
+            p(`All plans ran out by age ${last}.`);
+        } else {
+            p(first === last
+                ? `The plans that emptied before the end did so at age ${first}.`
+                : `The plans that emptied before the end did so between ages ${first} and ${last}.`);
+        }
     }
     return trials;
 }
 
 function renderResults(configData, results) {
-    renderStrategy(document.getElementById('results'), results);
+    renderStrategy(document.getElementById('results'), results, birthYearOf(configData));
 
     for (const chart of currentCharts) {
         chart.destroy();
@@ -351,7 +590,9 @@ function renderResults(configData, results) {
     if (trials === null) {
         document.getElementById('robustness').innerHTML = '';
     }
-    drawChart('robustnessChartContainer', 'robustnessChart', trials, renderRobustnessChart);
+    const floor = ranOutFloor(configData);
+    drawChart('robustnessChartContainer', 'robustnessChart', trials,
+        (canvas, series) => renderRobustnessChart(canvas, series, floor));
 }
 
 // How far down and right of the [?] the popover's top-left corner sits,
@@ -380,9 +621,9 @@ function placePopover(popover, button) {
     popover.style.top = `${Math.max(POPOVER_MARGIN, top)}px`;
 }
 
-// One close function per wired [?], so a single document-level listener
+// One {popover, close} per wired [?], so a single document-level listener
 // can dismiss them all rather than every popover carrying its own.
-const helpControls = [];
+let helpControls = [];
 
 // Hover opens, clicking pins it open until clicked again. The popover
 // attribute is "manual" rather than the default "auto" precisely because
@@ -451,69 +692,89 @@ function wireHelp(button, popover) {
         });
     }
 
-    helpControls.push(() => {
-        pinned = false;
-        cancelHide();
-        hide();
+    helpControls.push({
+        popover,
+        close: () => {
+            pinned = false;
+            cancelHide();
+            hide();
+        },
     });
 }
 
 // Buttons point at their popover with data-help-for rather than the native
 // popovertarget: popovertarget makes the browser toggle the popover itself,
 // which would double up with the click-to-pin handling above.
-function wireHelpPopovers() {
-    for (const button of document.querySelectorAll('[data-help-for]')) {
+//
+// Takes a root because the account dialog builds its fields fresh every
+// time it opens, so its [?] buttons are not on the page when the form's
+// own are wired. Controls whose popover has since been discarded with the
+// dialog contents are dropped here rather than accumulating.
+function wireHelpPopovers(root = document) {
+    helpControls = helpControls.filter((control) => control.popover.isConnected);
+    for (const button of root.querySelectorAll('[data-help-for]')) {
         wireHelp(button, document.getElementById(button.dataset.helpFor));
     }
+}
+
+// Attached once, not per root: these are document-level, and wiring them
+// again for every dialog would close each popover as many times as the
+// dialog had been opened.
+function wireHelpDismissal() {
     // Any click closes every open help, wherever it landed -- including
     // inside the popover itself, which is the quickest way to get rid of
     // one you have finished reading. The only exception is a click on a
     // [?] button, whose own handler stops propagation before this runs so
     // it can pin instead.
     document.addEventListener('click', () => {
-        for (const close of helpControls) {
-            close();
+        for (const control of helpControls) {
+            control.close();
         }
     });
     // Manual popovers opt out of the browser's own Esc handling along with
     // its light dismiss, so closing on Esc is this code's job too.
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
-            for (const close of helpControls) {
-                close();
+            for (const control of helpControls) {
+                control.close();
             }
         }
     });
 }
 
-// One [?] per labeled field, generated rather than written into the markup
-// nineteen times over. Uses the native popover API -- the browser handles
-// toggling, Esc, and click-away dismissal, and top-layer rendering means no
-// z-index fights -- with the same text also set as `title` so hovering
-// works without a click on devices that have a pointer.
+// Builds one [?] and its popover for a label. Uses the native popover API
+// -- the browser handles top-layer rendering, so there are no z-index
+// fights -- with placement and the hover/pin behaviour handled above.
+function attachHelp(label, text, popoverId) {
+    const popover = document.createElement('div');
+    popover.id = popoverId;
+    popover.setAttribute('popover', 'manual');
+    // textContent, not innerHTML: this is prose, and prose is allowed to
+    // contain characters that would otherwise be markup.
+    popover.textContent = text;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'help';
+    button.textContent = '?';
+    // No title attribute: the popover already opens on hover, and the
+    // browser's own tooltip would appear on top of it saying the same
+    // thing.
+    button.setAttribute('aria-label', `More about ${label.textContent.trim()}`);
+    button.dataset.helpFor = popover.id;
+    label.append(button);
+    label.after(popover);
+}
+
+// One [?] per labeled field on the form itself, generated rather than
+// written into the markup a dozen times over. The account dialog's fields
+// get theirs from renderAccountFields(), which calls attachHelp directly.
 function attachFieldHelp() {
     for (const [id, text] of Object.entries(FIELD_HELP)) {
         const label = document.querySelector(`label[for="${id}"]`);
         if (label === null) {
             throw new Error(`id=${id} has help text but no labeled field`);
         }
-        const popover = document.createElement('div');
-        popover.id = `${id}Help`;
-        popover.setAttribute('popover', 'manual');
-        // textContent, not innerHTML: help.js holds prose, and prose is
-        // allowed to contain characters that would otherwise be markup.
-        popover.textContent = text;
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'help';
-        button.textContent = '?';
-        // No title attribute: the popover already opens on hover, and the
-        // browser's own tooltip would appear on top of it saying the same
-        // thing.
-        button.setAttribute('aria-label', `More about ${label.textContent.trim()}`);
-        button.dataset.helpFor = popover.id;
-        label.append(button);
-        label.after(popover);
+        attachHelp(label, text, `${id}Help`);
     }
 }
 
@@ -540,6 +801,33 @@ populateSelects();
 attachFieldHelp();
 // After attachFieldHelp(), so the generated [?] buttons are included.
 wireHelpPopovers();
+wireHelpDismissal();
+
+for (const [type, spec] of Object.entries(ACCOUNT_TYPES)) {
+    const option = document.createElement('option');
+    option.value = type;
+    option.textContent = spec.label;
+    document.getElementById('addAccountType').appendChild(option);
+}
+
+document.getElementById('addAccountButton').addEventListener('click', () => {
+    addAccount(document.getElementById('addAccountType').value);
+});
+
+// A dialog form submitted with method="dialog" closes it and reports which
+// button was used, so Cancel needs no handler of its own: it simply is not
+// "save", and the edits live only in the dialog's inputs until then.
+document.getElementById('itemForm').addEventListener('submit', (event) => {
+    if (event.submitter.value === 'save') {
+        saveDialog();
+    } else {
+        editing = { list: null, index: -1 };
+    }
+});
+
+document.getElementById('deleteItemButton').addEventListener('click', deleteItem);
+
+document.getElementById('addExpenseButton').addEventListener('click', addExpense);
 
 document.getElementById('planForm').addEventListener('input', () => {
     setUnexportedChanges(true);
@@ -554,15 +842,6 @@ window.addEventListener('beforeunload', (event) => {
         event.preventDefault();
     }
 });
-
-// Inherited year only means anything once a non-spousal inherited IRA
-// balance is entered -- hidden until then instead of showing an
-// always-visible field most people will never touch.
-document.getElementById('inheritedIraBalance').addEventListener('input', updateInheritedYearVisibility);
-
-// Mortgage rate/end year only mean anything once a mortgage balance is
-// entered -- same treatment as inherited year above.
-document.getElementById('mortgageBalance').addEventListener('input', updateMortgageFieldsVisibility);
 
 document.getElementById('planForm').addEventListener('submit', (event) => {
     event.preventDefault();

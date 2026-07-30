@@ -95,41 +95,71 @@ export function renderNetWorthChart(canvas, series, ChartCtor = globalThis.Chart
     });
 }
 
-const DEFAULT_BINS = 12;
+// Bucket boundaries step 1, 2, 5 within each power of ten, the same
+// sequence axis ticks conventionally use. Dividing the log range into a
+// fixed number of equal parts is arithmetically tidier but labels the axis
+// $119.6K, $190.2K, $302.3K -- precise boundaries nobody chose and nobody
+// can hold in their head.
+const STEPS = [1, 2, 5];
 
-// Buckets the trials' ending net worth into equal-width bins for a
-// histogram. Returns {label, count} per bin, lowest first.
+// The bucket for trials that ran out, which means finishing at or below
+// the caller's floor rather than at exactly zero. A plan ending a
+// thirty-year horizon with a couple of months' spending left has not
+// meaningfully survived it, and against a model carrying this much
+// uncertainty the distinction between that and zero is noise. Labelled
+// rather than priced, since it is a verdict and not a dollar range.
+const RAN_OUT_LABEL = 'Ran out';
+
+// Every 1-2-5 boundary from the one at or below low up to high.
+function niceBounds(low, high) {
+    const all = [];
+    for (let decade = Math.floor(Math.log10(low)); decade <= Math.ceil(Math.log10(high)); decade++) {
+        for (const step of STEPS) {
+            all.push(step * 10 ** decade);
+        }
+    }
+    const start = all.filter((bound) => bound <= low).pop() ?? all[0];
+    return all.filter((bound) => bound >= start && bound <= high);
+}
+
+// Buckets the trials' ending net worth for the histogram: {label, count}
+// per bin, lowest first, the failures first and then the survivors.
 //
-// Every trial counts, including the insolvent ones, which the validator
-// records as a net worth of zero -- they pile up in the lowest bin, which
-// is a fair picture of the outcome, and the insolvency rate is reported as
-// its own number beside the chart rather than being left to be read off a
-// bar. A run where every trial lands on the same value has no width to
-// divide, so it collapses to a single bin rather than dividing by zero.
-export function netWorthBins(results, binCount = DEFAULT_BINS) {
-    const values = results.map((r) => r.netWorth);
-    const low = Math.min(...values);
-    const high = Math.max(...values);
-    if (low === high) {
-        return [{ label: CURRENCY.format(low), count: values.length }];
+// The surviving bins step by orders of magnitude rather than by equal
+// dollar amounts. Outcomes span several, so equal dollar widths put nearly
+// every trial in the first bucket and leave the rest of the axis empty.
+// The labels carry that spacing, so the axis reads logarithmically while
+// staying a plain category axis -- which is what lets the failures have a
+// bucket at all, since zero cannot be placed on a logarithmic scale.
+export function netWorthBins(results, floor = 0) {
+    const ranOut = results.filter((r) => r.netWorth <= floor).length;
+    const first = ranOut ? [{ label: RAN_OUT_LABEL, count: ranOut }] : [];
+    const values = results.map((r) => r.netWorth).filter((value) => value > floor && value > 0);
+    if (!values.length) {
+        return first;
     }
-    const width = (high - low) / binCount;
-    const bins = Array.from({ length: binCount }, (unused, i) => ({
-        label: `${CURRENCY.format(low + i * width)}`,
-        count: 0,
-    }));
+    const bounds = niceBounds(Math.min(...values), Math.max(...values));
+    // The first boundary is the one at or below the lowest value, which
+    // can land below the floor -- leaving a bucket labelled "$10K" sitting
+    // to the right of "Under $13K", two bars whose ranges overlap and
+    // whose labels disagree. The floor itself is the honest boundary
+    // there: nothing below it reached this far.
+    if (floor > 0 && bounds[0] < floor) {
+        bounds[0] = floor;
+    }
+    const bins = bounds.map((bound) => ({ label: CURRENCY.format(bound), count: 0 }));
     for (const value of values) {
-        // The maximum would land one past the end by the same arithmetic
-        // every other value uses, so it goes in the top bin instead.
-        bins[Math.min(binCount - 1, Math.floor((value - low) / width))].count += 1;
+        // The last boundary at or below the value: findLast rather than a
+        // computed index, since the boundaries are not evenly spaced.
+        bins[bounds.findLastIndex((bound) => bound <= value)].count += 1;
     }
-    return bins;
+    return [...first, ...bins];
 }
 
 // results is RobustnessValidator.run()'s array of {trial, netWorth,
 // failedYear} -- one entry per sampled market-history trial.
-export function renderRobustnessChart(canvas, results, ChartCtor = globalThis.Chart) {
-    const bins = netWorthBins(results);
+export function renderRobustnessChart(canvas, results, floor = 0, ChartCtor = globalThis.Chart) {
+    const bins = netWorthBins(results, floor);
     return new ChartCtor(canvas, {
         type: 'bar',
         data: {
