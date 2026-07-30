@@ -137,6 +137,9 @@
       line-height: 1.5;
     }
     #results:empty { display: none; padding: 0; }
+    #robustness { margin-top: 1.5rem; color: #333; }
+    #robustness:empty { display: none; }
+    #robustness p { margin: 0.35rem 0; }
     #results p:first-child { margin-top: 0; font-weight: 600; }
     #results ol { margin: 0.5rem 0 0.5rem 1.25rem; padding: 0; }
     #results li { margin-bottom: 0.35rem; }
@@ -283,6 +286,13 @@
   <div id="results"></div>
   <div class="chart-container" id="chartContainer">
     <canvas id="netWorthChart"></canvas>
+  </div>
+  <div class="chart-container" id="accountsChartContainer">
+    <canvas id="accountsChart"></canvas>
+  </div>
+  <div id="robustness"></div>
+  <div class="chart-container" id="robustnessChartContainer">
+    <canvas id="robustnessChart"></canvas>
   </div>
 
   <script type="module" src="src/ui/app.js"></script>

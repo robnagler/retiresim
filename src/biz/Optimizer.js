@@ -211,11 +211,27 @@ export class Optimizer extends Base {
                 }
             };
             const netWorth = this.run(candidates, evaluate);
-            const { endingBalances, netWorthByYear } = this.bestCandidateDetail(base, classes, variable, netWorth.best, failedYears);
-            results.push({ label: variable.label, netWorth, failedYears, endingBalances, netWorthByYear });
+            const detail = this.bestCandidateDetail(base, classes, variable, netWorth.best, failedYears);
+            results.push({ label: variable.label, netWorth, failedYears, ...detail });
             variable.apply(base, netWorth.best);
         }
         return results;
+    }
+
+    // The configData every variable's winning candidate applied to it --
+    // the plan the optimizer actually chose, as opposed to the input it
+    // started from. Needed by anything that wants to do more with that plan
+    // than read its score: the robustness validator takes configData, not a
+    // result, and until this existed the winning values had to be copied
+    // into cfg.json by hand before --robustness could see them.
+    //
+    // Rebuilt from the results rather than returned by runAll(), which
+    // would change its return type and every caller with it; results are in
+    // the same order as variables, since runAll() pushes one per variable.
+    winningConfigData(configData, results, variables = OPTIMIZE_VARIABLES) {
+        const rv = structuredClone(configData);
+        variables.forEach((variable, i) => variable.apply(rv, results[i].netWorth.best));
+        return rv;
     }
 
     // Re-runs just the winning candidate (evaluate() didn't keep any
@@ -228,13 +244,19 @@ export class Optimizer extends Base {
     // out of money -- there's nothing meaningful to show.
     bestCandidateDetail(base, classes, variable, best, failedYears) {
         if (failedYears.has(best)) {
-            return { endingBalances: null, netWorthByYear: null };
+            return { endingBalances: null, netWorthByYear: null, balancesByYear: null };
         }
         const { config, bookkeeper } = this.buildPipeline(base, classes, variable, best);
         const netWorthByYear = [];
+        const balancesByYear = [];
         new Simulator({ bookkeeper, config }).run((year) => {
             netWorthByYear.push({ year, netWorth: bookkeeper.netWorth() });
+            // Captured per year rather than derived afterwards from the
+            // ending balances: the whole point is how the split between
+            // accounts moves as one is drawn down and another keeps
+            // growing, which the final year alone cannot show.
+            balancesByYear.push({ year, balances: bookkeeper.assetBalances() });
         });
-        return { endingBalances: bookkeeper.report(), netWorthByYear };
+        return { endingBalances: bookkeeper.report(), netWorthByYear, balancesByYear };
     }
 }

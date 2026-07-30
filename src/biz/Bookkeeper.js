@@ -95,13 +95,29 @@ export class Bookkeeper extends Base {
     // 1-year lag) -- CLAUDE.md's formula doesn't mention it, and whether
     // unpaid tax should reduce net worth is an open question, not a
     // silent choice made here.
-    netWorth() {
+    // Every account netWorth() counts, keyed by name -- the breakdown
+    // behind the single number, for showing which accounts hold it and how
+    // that shifts over the years. netWorth() sums this rather than walking
+    // the accounts itself, so a chart built from these balances always adds
+    // up to exactly the net worth reported alongside it; two independent
+    // lists would eventually disagree. NonSpousalInheritedIra and
+    // HsaAccount need no mention of their own: they extend TraditionalIra
+    // and RothIra respectively, so instanceof already covers them.
+    assetBalances() {
         const isAsset = (a) => a instanceof TaxableAccount || a instanceof TraditionalIra || a instanceof RothIra || a instanceof Cash;
-        let rv = 0;
+        const rv = {};
         for (const a of this.accounts) {
             if (isAsset(a)) {
-                rv += a.balance;
+                rv[a.name] = a.balance;
             }
+        }
+        return rv;
+    }
+
+    netWorth() {
+        let rv = 0;
+        for (const balance of Object.values(this.assetBalances())) {
+            rv += balance;
         }
         return rv;
     }

@@ -171,6 +171,74 @@ test('runAll catches InsufficientFundsError per-candidate, keeps the grid runnin
     assert.deepEqual(netWorthByYear, [{ year: 2026, netWorth: 500 }]);
 });
 
+test('runAll captures the winner\'s per-account balances each year, adding up to that year\'s net worth', () => {
+    const baseData = testConfigData({
+        Simulator: { startYear: 2026, endYear: 2027 },
+        withdrawalOrder: [{ name: 'TaxableAccount', balance: 1000, basis: 1000 }],
+        spendingOrder: [{ name: 'LivingExpense', balance: 0 }],
+    });
+    const variable = {
+        label: 'Test spend',
+        candidates: () => [100],
+        apply: (data, candidate) => {
+            data.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance = candidate;
+        },
+    };
+
+    const { balancesByYear, netWorthByYear } = new Optimizer()
+        .runAll(baseData, { TaxableAccount, LivingExpense, Cash }, [variable])[0];
+
+    assert.deepEqual(balancesByYear.map((p) => p.year), [2026, 2027]);
+    assert.deepEqual(Object.keys(balancesByYear[0].balances), ['TaxableAccount', 'Cash']);
+    balancesByYear.forEach((point, i) => {
+        const total = Object.values(point.balances).reduce((a, b) => a + b, 0);
+        assert.ok(Math.abs(total - netWorthByYear[i].netWorth) < 1e-9);
+    });
+});
+
+test('runAll returns null balances alongside the other detail when the winner ran out of money', () => {
+    const baseData = testConfigData({
+        Simulator: { startYear: 2026, endYear: 2026 },
+        withdrawalOrder: [{ name: 'TaxableAccount', balance: 10, basis: 10 }],
+        spendingOrder: [{ name: 'LivingExpense', balance: 0 }],
+    });
+    const variable = {
+        label: 'Test spend',
+        candidates: () => [5000],
+        apply: (data, candidate) => {
+            data.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance = candidate;
+        },
+    };
+
+    const result = new Optimizer().runAll(baseData, { TaxableAccount, LivingExpense, Cash }, [variable])[0];
+
+    assert.equal(result.balancesByYear, null);
+    assert.equal(result.netWorthByYear, null);
+});
+
+test('winningConfigData applies every variable\'s winner to a copy, leaving the input configData untouched', () => {
+    const baseData = testConfigData({
+        Simulator: { startYear: 2026, endYear: 2026 },
+        withdrawalOrder: [{ name: 'TaxableAccount', balance: 1000, basis: 1000 }],
+        spendingOrder: [{ name: 'LivingExpense', balance: 0 }],
+    });
+    const variable = {
+        label: 'Test spend',
+        candidates: () => [100, 200],
+        apply: (data, candidate) => {
+            data.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance = candidate;
+        },
+    };
+    const optimizer = new Optimizer();
+    const results = optimizer.runAll(baseData, { TaxableAccount, LivingExpense, Cash }, [variable]);
+
+    const winning = optimizer.winningConfigData(baseData, results, [variable]);
+
+    // 100 wins: spending less leaves more in the account.
+    assert.equal(winning.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance, 100);
+    assert.equal(baseData.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance, 0);
+});
+
 const claimAgeVariable = OPTIMIZE_VARIABLES.find((v) => v.label === 'Social Security claim age');
 
 test('Social Security claim age variable\'s candidates() offers ages from the person\'s current age up to 70, and a single no-op candidate when Social Security isn\'t configured', () => {

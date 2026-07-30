@@ -133,6 +133,40 @@ test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA + Cash balanc
     assert.equal(bookkeeper.netWorth(), 1000 + 2000 + 3000 + 4000 + 5000 + 700);
 });
 
+test('assetBalances breaks netWorth down by account, listing exactly the accounts it counts and summing to it', () => {
+    const config = testConfig({
+        balance: 700,
+        withdrawalOrder: [
+            { name: 'TaxableAccount', balance: 1000, basis: 0 },
+            { name: 'TraditionalIra', balance: 2000, birthYear: 2000 },
+            { name: 'RothIra', balance: 3000, withdraw: 0 },
+            { name: 'NonSpousalInheritedIra', balance: 4000, birthYear: 2000, inheritedYear: 2021 },
+            { name: 'HsaAccount', balance: 5000, withdraw: 0 },
+        ],
+        spendingOrder: [
+            { name: 'Mortgage', balance: -6000, rate: 0.06, endYear: 2100 },
+            { name: 'LivingExpense', balance: 700 },
+            taxSpender({ balance: -50 }),
+        ],
+    });
+    const bookkeeper = new Bookkeeper({
+        config,
+        classes: { TaxableAccount, TraditionalIra, RothIra, NonSpousalInheritedIra, HsaAccount, Mortgage, LivingExpense, TaxCalculator, Cash },
+    });
+
+    const balances = bookkeeper.assetBalances();
+
+    assert.deepEqual(balances, {
+        TaxableAccount: 1000,
+        TraditionalIra: 2000,
+        RothIra: 3000,
+        NonSpousalInheritedIra: 4000,
+        HsaAccount: 5000,
+        Cash: 700,
+    });
+    assert.equal(Object.values(balances).reduce((a, b) => a + b, 0), bookkeeper.netWorth());
+});
+
 test('reportTransactions dumps each journal entry for the given year as a category/source/dest/amount table', () => {
     const config = testConfig({ sp500Rate: 0.1, withdrawalOrder: [{ name: 'Account', balance: 1000 }] });
     const bookkeeper = new Bookkeeper({ config, classes: { Account, Cash } });
