@@ -2,8 +2,192 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>rnfinance</title>
+  <title>Retirement Simulator</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      max-width: 50rem;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      color: #1a1a1a;
+    }
+    h1 { font-size: 1.75rem; margin-bottom: 1.5rem; }
+    fieldset {
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 0.5rem 1.75rem 1.75rem;
+      margin: 0 0 1.5rem;
+    }
+    legend { font-size: 1.15rem; font-weight: 600; padding: 0 0.5rem; }
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem 2rem;
+    }
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem 2rem;
+    }
+    .fields-stack { display: flex; flex-direction: column; gap: 1.5rem; }
+    .field { display: flex; flex-direction: column; }
+    .field label { font-size: 0.9rem; font-weight: 500; margin-bottom: 0.4rem; }
+    .field input, .field select {
+      padding: 0.5rem 0.6rem;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+      font-size: 1rem;
+      width: 100%;
+      background: #fff;
+    }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .hint { color: #888; font-size: 0.8em; margin-top: 0.35rem; }
+    button {
+      font-size: 1rem;
+      font-weight: 500;
+      padding: 0.65rem 1.75rem;
+      margin: 0.5rem 0 1.5rem;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover { background: #1d4ed8; }
+    #results pre {
+      background: #f4f4f4;
+      padding: 1rem;
+      overflow-x: auto;
+      border-radius: 8px;
+    }
+    canvas { max-width: 100%; }
+    @media (max-width: 36rem) {
+      .fields, .two-col { grid-template-columns: 1fr; }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+  <h1>Retirement Simulator</h1>
+  <form id="planForm">
+    <fieldset>
+      <legend>Facts</legend>
+      <div class="two-col">
+        <div class="fields-stack">
+          <div class="field">
+            <label for="birthYear">Birth year</label>
+            <select id="birthYear" required></select>
+            <div class="hint">&nbsp;</div>
+          </div>
+          <div class="field">
+            <label for="salary">Salary</label>
+            <input type="number" id="salary" min="0">
+            <div class="hint">&nbsp;</div>
+          </div>
+          <div class="field">
+            <label for="socialSecurityAt67">Social Security at 67</label>
+            <input type="number" id="socialSecurityAt67" min="0" required>
+            <div class="hint">value at full retirement</div>
+          </div>
+          <div class="field">
+            <label for="medicarePartG">Medicare Part G</label>
+            <input type="number" id="medicarePartG" min="0">
+            <div class="hint">defaults to the same as Part B if left blank</div>
+          </div>
+          <div class="field">
+            <label for="mortgageBalance">Mortgage balance</label>
+            <input type="number" id="mortgageBalance" min="0">
+            <div class="hint">&nbsp;</div>
+          </div>
+          <div class="field" id="mortgageRateField" style="display: none;">
+            <label for="mortgageRate">Mortgage rate (%)</label>
+            <input type="number" id="mortgageRate" min="0" step="0.01">
+            <div class="hint">&nbsp;</div>
+          </div>
+          <div class="field" id="mortgageEndYearField" style="display: none;">
+            <label for="mortgageEndYear">Mortgage end year</label>
+            <select id="mortgageEndYear"></select>
+            <div class="hint">&nbsp;</div>
+          </div>
+        </div>
+        <div class="fields-stack">
+          <div class="field">
+            <label for="taxableBalance">Taxable Account Balance</label>
+            <input type="number" id="taxableBalance" min="0" required>
+            <div class="hint">&nbsp;</div>
+          </div>
+          <div class="field">
+            <label for="traditionalIraBalance">Traditional IRA</label>
+            <input type="number" id="traditionalIraBalance" min="0">
+            <div class="hint">&nbsp;</div>
+          </div>
+          <div class="field">
+            <label for="rothIraBalance">Roth IRA</label>
+            <input type="number" id="rothIraBalance" min="0">
+            <div class="hint">&nbsp;</div>
+          </div>
+          <div class="field">
+            <label for="inheritedIraBalance">Non-spousal inherited IRA</label>
+            <input type="number" id="inheritedIraBalance" min="0">
+            <div class="hint">&nbsp;</div>
+          </div>
+          <div class="field" id="inheritedIraYearField" style="display: none;">
+            <label for="inheritedIraYear">Inherited year</label>
+            <select id="inheritedIraYear"></select>
+            <div class="hint">&nbsp;</div>
+          </div>
+          <div class="field">
+            <label for="hsaBalance">HSA balance</label>
+            <input type="number" id="hsaBalance" min="0">
+            <div class="hint">&nbsp;</div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Predictions</legend>
+      <div class="fields">
+        <div class="field">
+          <label for="lifeExpectancy">Life expectancy</label>
+          <select id="lifeExpectancy" required></select>
+        </div>
+        <div class="field">
+          <label for="retirementYear">Retirement year</label>
+          <select id="retirementYear" required></select>
+        </div>
+        <div class="field">
+          <label for="yearlySpending">Yearly spending</label>
+          <input type="number" id="yearlySpending" min="0" required>
+          <div class="hint">excluding mortgage and Medicare</div>
+        </div>
+        <div class="field">
+          <label for="inflation">Inflation</label>
+          <select id="inflation"></select>
+          <div class="hint">&nbsp;</div>
+        </div>
+        <div class="field">
+          <label for="interestRate">Interest rate</label>
+          <select id="interestRate"></select>
+        </div>
+        <div class="field">
+          <label for="investmentReturn">Investment return</label>
+          <select id="investmentReturn"></select>
+        </div>
+      </div>
+    </fieldset>
+
+    <button type="submit">Optimize</button>
+  </form>
+
+  <div id="results"></div>
+  <canvas id="netWorthChart"></canvas>
+
+  <script type="module" src="src/ui/app.js"></script>
 </body>
 </html>

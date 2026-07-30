@@ -53,7 +53,8 @@ Build the project slowly one module at a time.
 - Button: Optimize
 - Optimal amounts with the spending strategies explained
 - Graph: networth over time for optimal
-
+- Button: Export that saves a json file of the fields only
+- Button: Import that imports a json file
 
 ## Modularization
 

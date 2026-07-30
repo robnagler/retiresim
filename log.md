@@ -2,6 +2,25 @@
 
 ## 2026-07-30
 
+* 19:51:00 **Prompt**: "default life expect to 90"
+* 19:51:00 **Update**: Added a default pre-selected Life Expectancy option (90), same pattern as the earlier rate-select defaults.
+* 19:47:00 **Prompt**: "ther's a screen schot in ~/d/. it just doesn't look good the way you did it... there's an alignment problem with missing descriptions. new screenshot available"
+* 19:47:00 **Update**: Found the real cause via the screenshots: the two-column Facts layout used two independent flex stacks rather than a shared grid, so any field with real hint text was taller than its counterpart in the other column, and everything below it drifted out of row alignment. Fixed by giving every field a reserved hint-line slot (an invisible placeholder where there's no real hint), including one row in Predictions with the same issue.
+* 19:35:00 **Prompt**: "wait on the buttons; a few fields are required: birth year, taxable account balance, social security. medicare part g (default it to 203, btw). inherited year should not show by default. life expectancy, retirement ear, yearly spending, inflation defaults to 2.5% interest at 3% return at 7%. actually i see that part g defaults, that's fine" followed by "Same with mortgage year end" and "salary end is at retirement year do you calc that"
+* 19:35:00 **Update**: Marked birth year/Social Security/taxable balance/life expectancy/retirement year/yearly spending as required form fields; added pre-selected defaults for inflation (2.5%), interest rate (3%), and investment return (7%); hid the inherited-year and mortgage-rate/end-year fields until their related balance is entered, matching the same show-on-input pattern. Confirmed Salary.endYear was already wired directly from the Retirement Year field (no separate calculation needed).
+* 19:20:00 **Prompt**: "am i missing any facts?"
+* 19:20:00 **Answer**: Compared the live form field-by-field against CLAUDE.md's own Facts spec -- nothing missing. Flagged that CLAUDE.md had since grown two new unbuilt items (Export/Import buttons) and named the real simplifications already baked into the design (single account of each type, single-filer, one state's tax rate).
+* 19:18:00 **Prompt**: "stack all the accounts on the right side and say Taxable Account Balance for the first one. don't need to put the descriptors in parens when they are small and under the box in gray."
+* 19:18:00 **Update**: Split the Facts section into two explicit columns -- general facts on the left, every account balance stacked on the right -- renamed the first account field, and dropped the parentheses from hint text.
+* 19:17:00 **Prompt**: "much better"
+* 19:16:00 **Prompt**: "more spacing around the boxes"
+* 19:16:00 **Update**: Increased padding/margin around form fields per feedback on the first real screenshot.
+* 19:16:00 **Prompt**: "call it Retirement Simulator"
+* 19:16:00 **Update**: Renamed the page title/heading from rnfinance to Retirement Simulator.
+* 19:15:30 **Prompt**: "do 5"
+* 19:15:20 **Update**: Implemented plan step 5 -- index.html (the real Facts/Predictions form, an Optimize button, results area, chart canvas, Chart.js via CDN) and src/ui/app.js (DOM glue: populates dynamic selects, reads the form, a real correctness check blocking submission if a balance is entered without its required companion field, then buildConfigData -> Optimizer.runAll -> renders OptimizerReport's table plus the chart). Verified every file the browser would load resolves via a local static server; flagged that actually exercising the page in a browser wasn't possible in this environment and asked for manual confirmation.
+* 19:15:09 **Update**: Committed as `1400f66` and pushed `ed1d911..1400f66` to origin/main.
+* 19:15:00 **Prompt**: "gckp"
 * 19:14:00 **Prompt**: "do 4"
 * 19:14:00 **Update**: Implemented plan step 4 -- src/ui/chart.js, a thin wrapper building a Chart.js line-chart config from a net-worth-by-year series, defaulting to the CDN-loaded global Chart constructor but accepting an injected fake for testing (Chart.js itself needs a real browser/canvas, which node --test doesn't have). 203/203 tests pass.
 * 19:09:59 **Update**: Committed as `ed1d911` and pushed `9e40330..ed1d911` to origin/main.
