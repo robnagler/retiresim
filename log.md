@@ -2,6 +2,8 @@
 
 ## 2026-07-31
 
+* 16:53:53 **Update**: Back to a binned bar chart, keeping the log spacing but as labels on a plain category axis rather than a logarithmic scale -- which is what allows the trials that ran out to have a bucket of their own at the left, since zero cannot sit on a log scale at all. That bucket is labelled rather than priced, so it does not read as a range starting at zero, and it is absent entirely when nothing failed.
+* 16:52:00 **Prompt**: "go back to binned with log scale. put the 0s in the first bucket"
 * 16:49:55 **Update**: Put ending net worth on a logarithmic axis and spaced the bins by orders of magnitude to match, since equal dollar widths pile nearly everything into the first bucket. Trials that ran out are now left off the curve rather than binned: zero has no place on a log axis, and putting them in the lowest positive bin would read as surviving barely, which is the opposite of what happened. Their count is already stated in words beside the chart.
 * 16:47:00 **Prompt**: "make the graph logarithmic on the on the bottom scale"
 * 16:46:37 **Update**: Turned the robustness distribution from bars into a filled line, so it reads as the shape of the spread rather than as counts per bucket.

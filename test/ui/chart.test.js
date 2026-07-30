@@ -89,20 +89,22 @@ test('renderNetWorthChart formats the y-axis as compact currency', () => {
     assert.equal(format(0), '$0');
 });
 
-test('netWorthBins counts every surviving trial, spread across bins lowest first', () => {
-    const results = [100, 1000, 10000, 100000].map((netWorth) => ({ netWorth }));
+test('netWorthBins counts every trial, the ones that ran out first and then the survivors', () => {
+    const results = [0, 100, 1000, 10000, 100000].map((netWorth) => ({ netWorth }));
 
     const bins = netWorthBins(results, 4);
 
-    assert.equal(bins.length, 4);
-    assert.equal(bins.reduce((sum, bin) => sum + bin.count, 0), 4);
+    assert.equal(bins.reduce((sum, bin) => sum + bin.count, 0), 5);
+    assert.equal(bins[0].label, 'Ran out');
+    assert.equal(bins[0].count, 1);
 });
 
-test('netWorthBins spaces bins by orders of magnitude, since outcomes span them and equal dollar widths would pile up in the first', () => {
+test('netWorthBins spaces the surviving bins by orders of magnitude, since equal dollar widths would pile up in the first', () => {
     const bins = netWorthBins([{ netWorth: 100 }, { netWorth: 100000 }], 3);
 
-    // 100 to 100,000 is three decades, so one bin per decade.
-    assert.deepEqual(bins.map((bin) => Math.round(bin.x)), [100, 1000, 10000]);
+    // 100 to 100,000 is three decades, so one bin per decade, and no
+    // "Ran out" bucket since nothing ran out.
+    assert.deepEqual(bins.map((bin) => bin.label), ['$100', '$1K', '$10K']);
 });
 
 test('netWorthBins puts the highest value in the top bin rather than one past the end', () => {
@@ -112,38 +114,33 @@ test('netWorthBins puts the highest value in the top bin rather than one past th
     assert.equal(bins[bins.length - 1].count, 1);
 });
 
-test('netWorthBins leaves out trials that ran out, which have no place on a logarithmic axis and would misread as surviving barely', () => {
+test('netWorthBins gives the failures their own labelled bucket rather than a dollar range starting at zero', () => {
     const bins = netWorthBins([{ netWorth: 0 }, { netWorth: 0 }, { netWorth: 400 }], 4);
 
-    assert.equal(bins.reduce((sum, bin) => sum + bin.count, 0), 1);
+    assert.equal(bins[0].label, 'Ran out');
+    assert.equal(bins[0].count, 2);
+    assert.equal(bins.slice(1).reduce((sum, bin) => sum + bin.count, 0), 1);
 });
 
-test('netWorthBins returns nothing to plot when every trial ran out', () => {
-    assert.deepEqual(netWorthBins([{ netWorth: 0 }, { netWorth: 0 }], 4), []);
+test('netWorthBins has no failure bucket when nothing failed, so an empty one never implies otherwise', () => {
+    assert.equal(netWorthBins([{ netWorth: 400 }, { netWorth: 500 }], 4)[0].label, '$400');
 });
 
-test('netWorthBins collapses to a single bin when every trial lands on the same value, instead of dividing by zero', () => {
-    const bins = netWorthBins([{ netWorth: 500 }, { netWorth: 500 }], 4);
-
-    assert.deepEqual(bins, [{ x: 500, label: '$500', count: 2 }]);
+test('netWorthBins is only the failure bucket when every trial ran out', () => {
+    assert.deepEqual(netWorthBins([{ netWorth: 0 }, { netWorth: 0 }], 4), [{ label: 'Ran out', count: 2 }]);
 });
 
-test('renderRobustnessChart draws the distribution as a line, so its shape reads rather than its bucket counts', () => {
+test('netWorthBins collapses the survivors to a single bin when they all land on the same value, instead of dividing by zero', () => {
+    assert.deepEqual(netWorthBins([{ netWorth: 500 }, { netWorth: 500 }], 4), [{ label: '$500', count: 2 }]);
+});
+
+test('renderRobustnessChart builds a bar per bin, counting every trial including the ones that ran out', () => {
     const results = [0, 100, 200, 300].map((netWorth, trial) => ({ trial, netWorth, failedYear: netWorth === 0 ? 2040 : null }));
 
     const chart = renderRobustnessChart({}, results, FakeChart);
 
-    assert.equal(chart.config.type, 'line');
+    assert.equal(chart.config.type, 'bar');
     assert.equal(chart.config.data.datasets.length, 1);
-    // Three of the four survived; the one that ran out is not plotted.
-    assert.equal(chart.config.data.datasets[0].data.reduce((sum, point) => sum + point.y, 0), 3);
-});
-
-test('renderRobustnessChart puts ending net worth on a logarithmic axis, since outcomes span orders of magnitude', () => {
-    const results = [100, 1000, 10000].map((netWorth, trial) => ({ trial, netWorth, failedYear: null }));
-
-    const chart = renderRobustnessChart({}, results, FakeChart);
-
-    assert.equal(chart.config.options.scales.x.type, 'logarithmic');
-    assert.equal(chart.config.options.scales.x.ticks.callback(1234567), '$1.2M');
+    assert.equal(chart.config.data.datasets[0].data.reduce((sum, count) => sum + count, 0), results.length);
+    assert.equal(chart.config.data.labels[0], 'Ran out');
 });
