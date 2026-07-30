@@ -72,7 +72,7 @@ function categoryCap(candidate, category) {
 // with two variables now in OPTIMIZE_VARIABLES neither is reliably
 // "last" -- see Optimizer.js's runAll() doc comment for why withdrawal
 // order specifically runs first.
-function renderStrategy(container, results) {
+function renderStrategy(container, results, birthYear) {
     container.innerHTML = '';
     const finalPlan = results[results.length - 1];
     const finalCandidate = finalPlan.netWorth.best;
@@ -85,7 +85,7 @@ function renderStrategy(container, results) {
     };
 
     if (failedYear !== undefined) {
-        p(`This plan runs out of money in ${failedYear}. Try lowering yearly spending or adjusting other assumptions.`);
+        p(`This plan runs out of money at age ${failedYear - birthYear}. Try lowering monthly spending or adjusting other assumptions.`);
         return;
     }
 
@@ -569,7 +569,7 @@ function renderRobustness(configData, results) {
 }
 
 function renderResults(configData, results) {
-    renderStrategy(document.getElementById('results'), results);
+    renderStrategy(document.getElementById('results'), results, birthYearOf(configData));
 
     for (const chart of currentCharts) {
         chart.destroy();
