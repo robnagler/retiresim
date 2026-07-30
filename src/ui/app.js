@@ -18,6 +18,8 @@ import { Salary } from '../biz/Salary.js';
 import { SocialSecurity } from '../biz/SocialSecurity.js';
 import { Cash } from '../biz/Cash.js';
 import { renderNetWorthChart } from './chart.js';
+import { FIELD_HELP } from './help.js';
+import { loadInput, saveInput } from './storage.js';
 
 const classes = {
     TaxableAccount, TraditionalIra, NonSpousalInheritedIra, RothIra, HsaAccount,
@@ -290,7 +292,65 @@ function renderResults(results) {
     }
 }
 
+// One [?] per labeled field, generated rather than written into the markup
+// nineteen times over. Uses the native popover API -- the browser handles
+// toggling, Esc, and click-away dismissal, and top-layer rendering means no
+// z-index fights -- with the same text also set as `title` so hovering
+// works without a click on devices that have a pointer.
+function attachFieldHelp() {
+    for (const [id, text] of Object.entries(FIELD_HELP)) {
+        const label = document.querySelector(`label[for="${id}"]`);
+        if (label === null) {
+            throw new Error(`id=${id} has help text but no labeled field`);
+        }
+        const popover = document.createElement('div');
+        popover.id = `${id}Help`;
+        popover.setAttribute('popover', '');
+        // textContent, not innerHTML: help.js holds prose, and prose is
+        // allowed to contain characters that would otherwise be markup.
+        popover.textContent = text;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'help';
+        button.textContent = '?';
+        button.title = text;
+        button.setAttribute('aria-label', `More about ${label.textContent.trim()}`);
+        button.setAttribute('popovertarget', popover.id);
+        label.append(button);
+        label.after(popover);
+    }
+}
+
+// Tracks edits made since the last Export, so the leave-the-page warning
+// only fires when there is something a user might actually want in a file.
+// The form is autosaved to this browser regardless (see storage.js) -- the
+// warning is about the copy that survives clearing site data or moving to
+// another machine, which only Export produces.
+let unexportedChanges = false;
+
 populateSelects();
+attachFieldHelp();
+
+// Restored after populateSelects(), since setting a select's value only
+// sticks once its options exist.
+const restored = loadInput(window.localStorage);
+if (restored !== null) {
+    populateForm(restored);
+}
+
+document.getElementById('planForm').addEventListener('input', () => {
+    saveInput(window.localStorage, readForm());
+    unexportedChanges = true;
+});
+
+// Browsers deliberately ignore any custom message here and show their own
+// generic wording, so this can only prompt -- it cannot say "use Export".
+// That is why the autosave above is the real protection, not this.
+window.addEventListener('beforeunload', (event) => {
+    if (unexportedChanges) {
+        event.preventDefault();
+    }
+});
 
 // Inherited year only means anything once a non-spousal inherited IRA
 // balance is entered -- hidden until then instead of showing an
@@ -314,7 +374,10 @@ document.getElementById('planForm').addEventListener('submit', (event) => {
     renderResults(results);
 });
 
-document.getElementById('exportButton').addEventListener('click', exportFields);
+document.getElementById('exportButton').addEventListener('click', () => {
+    exportFields();
+    unexportedChanges = false;
+});
 
 // Clicking the visible "Import" button just proxies to the hidden real
 // file input, since styling a native file input consistently with the
@@ -326,6 +389,10 @@ document.getElementById('importFile').addEventListener('change', async (event) =
     const file = event.target.files[0];
     if (file) {
         await importFields(file);
+        // The imported values are now the autosaved ones too, and they
+        // already exist in a file the user chose -- nothing unexported.
+        saveInput(window.localStorage, readForm());
+        unexportedChanges = false;
     }
     event.target.value = '';
 });

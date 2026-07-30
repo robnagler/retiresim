@@ -51,6 +51,46 @@
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
     }
     .hint { color: #888; font-size: 0.8em; margin-top: 0.35rem; }
+    .intro { color: #444; margin: -0.75rem 0 1.5rem; }
+    /* A plain ASCII "?" drawn into a circle with CSS rather than a Unicode
+       circled-question-mark character: the only real candidates are emoji
+       (U+2753) or an information glyph (U+24D8), which render in a
+       different font at a different size and are missing outright in some
+       system fonts. This looks identical everywhere and stays a real
+       button, so it is keyboard-focusable and screen-reader labeled. */
+    .help {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.05rem;
+      height: 1.05rem;
+      padding: 0;
+      margin: 0 0 0 0.35rem;
+      border: 1px solid #bbb;
+      border-radius: 50%;
+      background: #fff;
+      color: #666;
+      font-size: 0.72rem;
+      font-weight: 700;
+      line-height: 1;
+      cursor: help;
+      vertical-align: middle;
+    }
+    .help:hover, .help:focus-visible { border-color: #2563eb; color: #2563eb; }
+    /* [popover] elements sit in the browser's top layer, so this positions
+       itself over the page without any z-index wrangling. */
+    [popover] {
+      max-width: 22rem;
+      padding: 0.75rem 0.9rem;
+      border: 1px solid #bbb;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+      font-size: 0.85rem;
+      line-height: 1.45;
+      color: #333;
+    }
+    [popover] p { margin: 0 0 0.6rem; }
+    [popover] p:last-child { margin-bottom: 0; }
     button {
       font-size: 1rem;
       font-weight: 500;
@@ -86,6 +126,19 @@
 </head>
 <body>
   <h1>Retirement Simulator</h1>
+  <!-- The one-liner is always visible; the fuller explanation sits behind
+       the [?]. Both live in the markup rather than being generated, so the
+       page still explains itself if the module scripts fail to load. -->
+  <p class="intro">
+    Works out which accounts to spend from, and when to claim Social Security, to leave you the most money at the end of your life.
+    <button type="button" class="help" popovertarget="introHelp" aria-label="More about this simulator">?</button>
+  </p>
+  <div popover id="introHelp">
+    <p>Fill in what you have and what you expect, and the simulator runs your finances year by year to the age you pick -- growing accounts, paying the mortgage, taking required minimum distributions, and computing federal, Colorado, capital gains, and Social Security taxes along with Medicare premiums and their income surcharge.</p>
+    <p>It then searches for the plan that leaves the largest total at the end: which order to draw the accounts down in, how much to take from each before the tax cost outweighs the benefit, and how long to wait before claiming Social Security.</p>
+    <p>Everything stays in your browser. Nothing is uploaded, and nothing is stored anywhere but this computer.</p>
+    <p><strong>This is not financial advice.</strong> It is a model, and it is only as good as the assumptions you give it -- particularly the investment return, which no one can know in advance.</p>
+  </div>
   <form id="planForm">
     <fieldset>
       <legend>Facts</legend>

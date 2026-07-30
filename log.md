@@ -1,5 +1,12 @@
 # Log
 
+## 2026-07-31
+
+* 10:47:12 **Update**: Saved the phased plan to memory (it was not stored in the repo anywhere) and built phase 1 on branch `1-ui-help-and-autosave` for issue #1: an intro line above the form with the fuller explanation behind a `[?]`, per-field `[?]` help generated from a new `src/ui/help.js`, local autosave with a leave-the-page backstop in a new `src/ui/storage.js`, and a README that introduces the project. 222/222 tests pass, including new tests that fail if a field gains no help text or a help entry outlives its field. Browser behavior is unverified by me -- the user is testing it.
+* 10:32:27 **Prompt**: "ignore slicops; ignore domain name robnagler.com/retiresim is fine; explain at top of the ui or maybe a one liner with a [?] for clicking/hover for more info. we should add [?] to fields. there's a utf-8 symbol for a question mark in a circle, i think. drop bootstrap. let's wait on phase 4. wiki is fine to be in public. put the plan somewhere. i find these interesting. do they get stored anywhere in the repo? maybe we can have a Plans wiki? put that off to later in phase 5 but save this plan somewhere in your settings. start on phase 1"
+* 10:19:35 **Answer**: Grouped the new TODO list into five phases (infra/docs quick wins, charts, UI restructure, modeling, wiki), answered the two questions embedded in it (withdrawal order is fixed for the whole run today; recommended against Bootstrap in favor of native dialog), and flagged sequencing risks -- chiefly that the UI restructure should land before new input fields so the Export format only migrates once. Verified along the way that the robustness validator is already IO-less and fast enough to run in the browser, and that LumpSum exists in the model but has no UI.
+* 10:18:50 **Prompt**: "come up with a plan for the new todo"
+
 ## 2026-07-30
 
 * 21:49:59 **Update**: Committed as `479e0ba` and pushed to origin/main; the Pages site rebuilt on that commit, so the deployed UI picks up the age-65 gate.

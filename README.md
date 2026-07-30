@@ -1,15 +1,42 @@
 # Retirement Simulator
 
-A year-by-year retirement financial simulator and optimizer: model your
-accounts, income, and spending, then search for the withdrawal strategy
-and Social Security claiming age that leave you with the most net worth
-without running out of money.
+Once you retire, the money has to come from somewhere, and the order you
+take it in changes how much of it you keep. Spending a taxable account
+first leaves more in the accounts that grow tax-free, but realizes capital
+gains now. Draining a traditional IRA early raises this year's tax bill
+and next year's Medicare premium, yet leaves a smaller balance for the
+required distributions that arrive whether you want them or not. Claiming
+Social Security at 70 pays much more per month than claiming at 62 -- if
+you can afford the eight years in between.
+
+This simulates all of that, year by year, and then searches for the
+answers.
+
+**What it does.** You describe what you have (account balances, a
+mortgage, salary, expected Social Security) and what you expect (how long
+to plan for, when to retire, yearly spending, inflation and market
+assumptions). It then runs your finances forward to the age you choose:
+accounts grow, the mortgage amortizes, required minimum distributions come
+out on schedule, Social Security starts when claimed, and each year's
+federal, Colorado, capital gains, and Social Security taxes are computed
+along with Medicare premiums and their income-based surcharge. On top of
+that simulation it searches for the plan that ends with the most money --
+which accounts to draw down in which order, how much to take from each
+before the tax cost outweighs the benefit, and how long to delay Social
+Security. Finally, it can stress-test the winning plan against sampled
+real market history to show how often it survives.
+
+**What it does not do.** It is not financial advice, it models a single
+filer in one state, and it cannot tell you what markets will do. A plan
+that looks good under a steady 7% return is a plan under one assumption,
+which is exactly why the robustness check exists.
 
 Financial correctness takes priority over optimization -- every simulated
 year has to reconcile exactly before any optimizer result is trusted.
 
 Plain JavaScript, no build step, no bundler. Runs as a CLI (Node) or as a
-static HTML/JS page in a browser.
+static HTML/JS page in a browser. Nothing is uploaded anywhere; the
+browser version keeps your figures on your own machine.
 
 ## Running it
 
