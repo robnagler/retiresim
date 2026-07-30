@@ -13,20 +13,6 @@ import { Salary } from '../../src/biz/Salary.js';
 import { Cash } from '../../src/biz/Cash.js';
 import { testConfigData, taxSpender } from '../support/testConfig.js';
 
-// Captures console.log output for the duration of fn, restoring it
-// afterward even if fn throws.
-function captureLog(fn) {
-    const lines = [];
-    const original = console.log;
-    console.log = (line) => lines.push(line);
-    try {
-        fn();
-    } finally {
-        console.log = original;
-    }
-    return lines.join('\n');
-}
-
 test('run picks the candidate with the highest score', () => {
     const optimizer = new Optimizer();
 
@@ -149,100 +135,13 @@ test('run wired to a real Config/Bookkeeper/Simulator picks the withdrawal categ
     assert.equal(rv.score, 280000);
 });
 
-// Phase 1 (CLAUDE.md TODO): Optimizer now owns the whole candidate-
-// evaluation pipeline and its console reporting, not just main.js's free
-// functions. formatScore()/printNetWorthTable() moved onto the class --
-// these are pure unit tests of that reporting logic, no Simulator involved.
-test('formatScore reports the raw score normally, and "0 (YYYY)" for a candidate that ran out of money', () => {
-    const optimizer = new Optimizer();
-    const failedYears = new Map([[2, 2031]]);
-
-    assert.equal(optimizer.formatScore(1, 12345.6, failedYears), '12346');
-    assert.equal(optimizer.formatScore(2, 0, failedYears), '0 (2031)');
-});
-
-test('printNetWorthTable collapses to one line when every candidate ran out of money', () => {
-    const optimizer = new Optimizer();
-    const netWorth = { best: 1, score: 0, all: [{ candidate: 1, score: 0 }, { candidate: 2, score: 0 }] };
-    const failedYears = new Map([[1, 2040], [2, 2041]]);
-
-    const out = captureLog(() => optimizer.printNetWorthTable('X', netWorth, failedYears));
-
-    assert.match(out, /every candidate ran out of money/);
-    assert.match(out, /0 \(2040\)/);
-    assert.match(out, /0 \(2041\)/);
-});
-
-test('printNetWorthTable collapses to one line when only one legal candidate exists', () => {
-    const optimizer = new Optimizer();
-    const netWorth = { best: 5, score: 1000, all: [{ candidate: 5, score: 1000 }] };
-
-    const out = captureLog(() => optimizer.printNetWorthTable('X', netWorth, new Map()));
-
-    assert.match(out, /only one legal candidate \(5\), net worth 1000/);
-});
-
-test('printNetWorthTable collapses to one line when every candidate ties', () => {
-    const optimizer = new Optimizer();
-    const netWorth = { best: 1, score: 500, all: [{ candidate: 1, score: 500 }, { candidate: 2, score: 500 }] };
-
-    const out = captureLog(() => optimizer.printNetWorthTable('X', netWorth, new Map()));
-
-    assert.match(out, /no effect on net worth \(all 2 candidates tie at 500\)/);
-});
-
-test('printNetWorthTable prints a full candidate table with the winner marked', () => {
-    const optimizer = new Optimizer();
-    const netWorth = { best: 2, score: 900, all: [{ candidate: 1, score: 500 }, { candidate: 2, score: 900 }] };
-
-    const out = captureLog(() => optimizer.printNetWorthTable('X', netWorth, new Map()));
-
-    assert.match(out, /Candidate/);
-    assert.match(out, /2.*900.*<- best/);
-});
-
-// A candidate with a `columns` object (e.g. categoryOrderCandidate) gets
-// a real multi-column table instead of one long single-column string --
-// this is what makes a 54-row grid like "Withdrawal category order +
-// ceilings" actually readable.
-test('printNetWorthTable prints one column per candidate.columns key, plus Net Worth, left-justifying only the first (label) column', () => {
-    const optimizer = new Optimizer();
-    const candidate = (order, cap) => ({ columns: { Order: order, 'ltcg cap': cap } });
-    const netWorth = {
-        best: undefined,
-        score: 900,
-        all: [
-            { candidate: candidate('Trad > Tax', 'none'), score: 500 },
-            { candidate: candidate('Tax > Trad', '47,000'), score: 900 },
-        ],
-    };
-    netWorth.best = netWorth.all[1].candidate;
-
-    const out = captureLog(() => optimizer.printNetWorthTable('X', netWorth, new Map()));
-    const lines = out.split('\n').filter(Boolean);
-
-    assert.equal(lines[0], 'X');
-    // The label column (Order) is left-justified -- "Trad > Tax" and
-    // "Tax > Trad" are the same length, so this alone wouldn't prove it,
-    // but the header lining up under both rows confirms consistent
-    // column widths regardless of justification direction.
-    assert.match(lines[1], /^  Order\s+ltcg cap\s+Net Worth$/);
-    // The ltcg cap column is right-justified: "none" (4 chars) gets
-    // leading padding to match "47,000" (6 chars) -- a trailing-padded
-    // (left-justified) "none" would leave the header's "ltcg cap" text
-    // starting to the right of where "none" starts, not directly above it.
-    const capColumnStart = lines[1].indexOf('ltcg cap');
-    assert.equal(lines[2].indexOf('none'), capColumnStart + 'ltcg cap'.length - 'none'.length);
-    assert.match(lines[2], /Trad > Tax\s+none\s+500/);
-    assert.match(lines[3], /Tax > Trad\s+47,000\s+900\s+<- best/);
-});
-
 // Integration test: runAll() wired to a real Config/Bookkeeper/Simulator,
-// proving InsufficientFundsError from one candidate is caught, scored 0,
-// displayed as "0 (YYYY)", and doesn't abort the rest of the grid -- the
-// same shape as the moved-from-main.js behavior, now exercised directly
-// against Optimizer.runAll() instead of a free function.
-test('runAll catches InsufficientFundsError per-candidate and keeps the grid running', () => {
+// proving InsufficientFundsError from one candidate is caught, scored 0
+// (with the failing year recorded in failedYears), and doesn't abort the
+// rest of the grid. Optimizer.js is IO-less (see src/cli/OptimizerReport.js
+// for the CLI's console-printing tests) -- this asserts on runAll()'s
+// returned data directly instead of captured console output.
+test('runAll catches InsufficientFundsError per-candidate, keeps the grid running, and returns the winner\'s detail', () => {
     const baseData = testConfigData({
         Simulator: { startYear: 2026, endYear: 2026 },
         withdrawalOrder: [{ name: 'TaxableAccount', balance: 1000, basis: 1000 }],
@@ -258,8 +157,15 @@ test('runAll catches InsufficientFundsError per-candidate and keeps the grid run
         },
     };
 
-    const out = captureLog(() => new Optimizer().runAll(baseData, classes, [variable]));
+    const results = new Optimizer().runAll(baseData, classes, [variable]);
 
-    assert.match(out, /500/);
-    assert.match(out, /0 \(2026\)/);
+    assert.equal(results.length, 1);
+    const { label, netWorth, failedYears, endingBalances, netWorthByYear } = results[0];
+    assert.equal(label, 'Test spend');
+    assert.deepEqual(netWorth.all.map((r) => r.score), [500, 0]);
+    assert.equal(netWorth.best, 500);
+    assert.equal(failedYears.get(2000), 2026);
+    // The winner (500) didn't fail, so its detail is populated.
+    assert.match(endingBalances, /TaxableAccount/);
+    assert.deepEqual(netWorthByYear, [{ year: 2026, netWorth: 500 }]);
 });

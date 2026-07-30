@@ -18,6 +18,8 @@ import { Cash } from '../biz/Cash.js';
 import { Config } from '../biz/Config.js';
 import { Optimizer, OPTIMIZE_VARIABLES } from '../biz/Optimizer.js';
 import { RobustnessValidator } from '../biz/RobustnessValidator.js';
+import { applyDefaults } from '../biz/buildConfig.js';
+import { OptimizerReport } from './OptimizerReport.js';
 
 const classes = {
     TaxableAccount,
@@ -65,29 +67,10 @@ const DEFAULT_CONFIG_DATA = {
         spendingOrder: [
             { name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2045 },
             { name: 'LivingExpense', balance: 60000 },
-            {
-                name: 'Tax',
-                class: 'TaxCalculator',
-                balance: 0,
-                federalBrackets: [
-                    { rate: 0.10, upTo: 11925 },
-                    { rate: 0.12, upTo: 48475 },
-                    { rate: 0.22, upTo: 103350 },
-                    { rate: 0.24, upTo: 197300 },
-                    { rate: 0.32, upTo: 250525 },
-                    { rate: 0.35, upTo: 626350 },
-                    { rate: 0.37, upTo: null },
-                ],
-                ltcgBrackets: [
-                    { rate: 0.00, upTo: 49000 },
-                    { rate: 0.15, upTo: 545000 },
-                    { rate: 0.20, upTo: null },
-                ],
-                stateRate: 0.044,
-                standardDeduction: 29200,
-                ssProvisionalIncomeThresholds: { low: 32000, high: 44000 },
-                initialMagi: 200000,
-            },
+            // The Tax/TaxCalculator entry itself is deliberately absent
+            // here -- applyDefaults() (src/biz/buildConfig.js, run on
+            // every configData main.js loads) injects it and fills in its
+            // bracket/threshold/initialMagi fields.
             {
                 name: 'Medicare',
                 balance: 0,
@@ -141,12 +124,14 @@ if (robustnessIndex !== -1) {
     }
 }
 const configPath = args.find((a, i) => !skipIndices.has(i));
-const configData = configPath ? JSON.parse(readFileSync(configPath, 'utf8')) : DEFAULT_CONFIG_DATA;
+const rawConfigData = configPath ? JSON.parse(readFileSync(configPath, 'utf8')) : DEFAULT_CONFIG_DATA;
+const configData = applyDefaults(rawConfigData);
 
 if (robustnessIndex !== -1) {
     runRobustness(configData, classes, robustnessTrials);
 } else if (debug) {
     runDebug(configData, classes);
 } else {
-    new Optimizer().runAll(configData, classes, OPTIMIZE_VARIABLES);
+    const results = new Optimizer().runAll(configData, classes, OPTIMIZE_VARIABLES);
+    console.log(new OptimizerReport().report(results));
 }
