@@ -2,6 +2,7 @@
 
 ## 2026-07-30
 
+* 21:38:30 **Update**: Committed as `2d0971f` and pushed `83f5d81..2d0971f` to origin/main. Confirmed the Pages build deployed it: the rendered markdown pages now 404, the noindex tag is live, and the app's own assets still serve.
 * 21:35:32 **Prompt**: "gckp"
 * 21:35:14 **Update**: Added an empty root `.nojekyll` so Pages stops converting the project's markdown into browsable HTML pages (and stops running Liquid over tracked files); confirmed it isn't caught by any gitignore rule. Takes effect on the next push.
 * 21:34:40 **Prompt**: "so .nojekyll is necessary?" followed by "add .nojekyll"
