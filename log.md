@@ -2,6 +2,11 @@
 
 ## 2026-07-30
 
+* 21:35:32 **Prompt**: "gckp"
+* 21:35:14 **Update**: Added an empty root `.nojekyll` so Pages stops converting the project's markdown into browsable HTML pages (and stops running Liquid over tracked files); confirmed it isn't caught by any gitignore rule. Takes effect on the next push.
+* 21:34:40 **Prompt**: "so .nojekyll is necessary?" followed by "add .nojekyll"
+* 21:29:40 **Update**: Added `<meta name="robots" content="noindex">` to index.html, with a comment noting why it's needed on top of robots.txt (robots.txt is only honored at a domain root, so it's inert when served under an existing custom domain's path). 207/207 tests pass.
+* 21:28:00 **Prompt**: "add the noindex meta tag"
 * 21:25:33 **Update**: Vendored Chart.js (MIT) into a new `src/ext/` and pointed index.html's script tag at it, dropping the CDN so the UI is fully self-contained; added a `Disallow: /` robots.txt ahead of enabling Pages. Verified every asset resolves over a local static server; 207/207 tests pass.
 * 21:24:04 **Prompt**: "save a copy in src/ext directory" followed by "we don't need the cdn" and "put a robots.txt disallow for now"
 * 21:22:00 **Answer**: (added retroactively, missed logging it in real time) Measured the vendored Chart.js UMD build's size on disk and gzipped, and noted it would become the largest file in an otherwise all-hand-written repo; offered version-pinning plus an integrity hash as the alternative to vendoring.
