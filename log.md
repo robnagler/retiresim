@@ -2,6 +2,17 @@
 
 ## 2026-07-31
 
+* 13:16:15 **Prompt**: "gckp"
+* 13:14:44 **Update**: Corrected the UI spec in CLAUDE.md, which is where the wrong name originated, and the buildConfig comment that quoted it. Both now record that the key names are knowingly stale pending the export-format versioning rather than simply unnoticed.
+* 13:05:50 **Prompt**: "fix the calude.md"
+* 12:30:54 **Update**: Corrected the form label from "Medicare Part G" to "Medigap Plan G" -- Medicare has Parts A through D, and Plan G is a private supplement -- which the field's own help text had already been describing correctly. Left the element id and config key alone, since renaming them changes the export format and belongs with the versioning work in #7.
+* 12:30:00 **Prompt**: "btw paul cool - I played the game but I died of dysentery. Gemini claims \"There is no official \"Medicare Part G.\" You are likely thinking of Medigap Plan G\""
+* 12:25:12 **Update**: Changed the dirty Export button from a filled teal blue to an outlined amber with a 2px border, so it reads as a state needing attention rather than as a second primary action competing with Optimize.
+* 12:24:00 **Prompt**: "change the export button to an amber with a thicker border when dirty"
+* 12:22:04 **Answer**: The error persisted because the copy cached before the no-store change is still treated as fresh -- that header only governs new responses -- so one hard reload is needed, which corrects my earlier advice that a normal reload would do. Also found the user's own server on port 8000 was rooted at their home directory rather than the project and is no longer responding at all.
+* 12:21:00 **Prompt**: "still getting app.js:21 Uncaught SyntaxError: The requested module './chart.js' does not provide an export named 'renderAccountsChart' (at app.js:21:10)"
+* 12:14:45 **Update**: Traced the missing-export error to browser caching, not the code -- the server was already sending all four exports. Replaced the plain `python3 -m http.server` with one that sends `Cache-Control: no-store`, since the stock one sends no cache headers at all and browsers then serve stale ES modules; recorded that in the standing server preference.
+* 12:12:00 **Prompt**: "import doesn't work any more; Uncaught SyntaxError: The requested module './chart.js' does not provide an export named 'renderAccountsChart' (at app.js:21:10)"
 * 12:08:11 **Update**: Built issue #6 on its own branch: a stacked per-account chart driven by a new `Bookkeeper.assetBalances()` that `netWorth()` now sums, so the bands always add up to the net-worth line, and an automatic robustness run on the optimizer's own winning plan via a new `winningConfigData()`, charted as a histogram with a plain-language summary. 230/230 tests pass, and an end-to-end check on invented data confirmed the stacks reconcile, the validated plan carries the optimizer's choices rather than the input's, and 200 trials take about 60ms.
 * 12:03:04 **Prompt**: "do 6"
 * 11:57:24 **Update**: Opened an issue per remaining phase -- #6 charts, #7 form restructure, #8 the deferred modeling work, #9 the wiki -- and recorded the phase-to-issue mapping in memory. Both open PRs were merged in the meantime, so main is now synced locally.

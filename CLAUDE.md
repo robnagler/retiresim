@@ -53,7 +53,7 @@ Build the project slowly one module at a time.
       - Birth year [select: <this year - 75>-<this year>]
       - Salary: [number: blank]
       - Social Security at 67: [number: blank]
-      - Medicare Part G: [number: default to same value as PartB]
+      - Medigap Plan G: [number: default to same value as Part B] (this brief originally said "Medicare Part G", which does not exist -- Medicare has Parts A through D, and Plan G is a Medigap supplement sold by private insurers. The wrong name reached the form label before being caught; the element id and cfg key still read `medicarePartG`/`partGMonthly`, deliberately, since renaming them changes the export format and belongs with the versioning work in the form-restructure issue)
       - Mortgage Balance: [number: blank] Rate: [number: blank] End ---Year: [select: <this year>-<this year + 30>]
       - Taxable Balance: [number: blank]
       - Traditional IRA: [number: blank]
