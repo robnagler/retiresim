@@ -127,8 +127,9 @@
     }
     button.needs-export:hover { background: #fef3c7; }
     .button-row { display: flex; gap: 0.75rem; align-items: center; }
-    .top-buttons { justify-content: center; margin-bottom: 1.5rem; }
-    .top-buttons + .hint { text-align: center; margin-bottom: 2rem; }
+    .top-buttons { margin-bottom: 0; }
+    .top-buttons button { margin-top: 0; margin-bottom: 0.5rem; }
+    .top-buttons + .hint { margin: 0 0 1.5rem; }
     #results {
       background: #f4f4f4;
       padding: 1rem 1.5rem;
@@ -222,16 +223,6 @@
     <p><strong>Not financial advice.</strong> The results are only as good as your assumptions, especially the investment return.</p>
   </div>
   <form id="planForm">
-    <div class="button-row top-buttons">
-      <button type="submit">Optimize</button>
-      <button type="button" id="exportButton" class="secondary">Export</button>
-      <button type="button" id="importButton" class="secondary">Import</button>
-      <input type="file" id="importFile" accept="application/json" style="display: none;">
-    </div>
-    <!-- The browser's own leave-the-page dialog cannot be given custom
-         wording, so the explanation lives here instead. -->
-    <p class="hint">Export saves a copy of these settings so you can re-import it later. Reloading the page starts over.</p>
-
     <div class="layout">
     <div class="form-column">
     <fieldset>
@@ -328,11 +319,20 @@
     </div>
 
     <div class="results-column">
-    <div id="results"></div>
-    <div class="chart-container" id="chartContainer">
-      <canvas id="netWorthChart"></canvas>
-    </div>
-    <div id="robustness"></div>
+      <div class="button-row top-buttons">
+        <button type="submit">Optimize</button>
+        <button type="button" id="exportButton" class="secondary">Export</button>
+        <button type="button" id="importButton" class="secondary">Import</button>
+        <input type="file" id="importFile" accept="application/json" style="display: none;">
+      </div>
+      <!-- The browser's own leave-the-page dialog cannot be given custom
+           wording, so the explanation lives here instead. -->
+      <p class="hint">Export saves a copy of these settings so you can re-import it later. Reloading the page starts over.</p>
+      <div id="results"></div>
+      <div class="chart-container" id="chartContainer">
+        <canvas id="netWorthChart"></canvas>
+      </div>
+      <div id="robustness"></div>
       <div class="chart-container" id="robustnessChartContainer">
         <canvas id="robustnessChart"></canvas>
       </div>
