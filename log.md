@@ -2,6 +2,8 @@
 
 ## 2026-07-31
 
+* 17:26:22 **Update**: The failure sentence now reports ages rather than calendar years, taking the birth year from the Medicare entry, which every built config carries since Medicare needs one to know when premiums start.
+* 17:26:00 **Prompt**: "for the ran out years, print the age, not the years in the range"
 * 17:25:21 **Update**: Moved monthly spending back into personal decisions, leaving basic facts as birth year and salary, with the two columns now reading retirement year, life expectancy and expenses on the left, and spending, Social Security and Medigap on the right.
 * 17:24:00 **Prompt**: "move monthly spending to the personal decisions. so the columns are: [retirement year, life expectancy, add expense] [monthly spending, social, medigap]"
 * 17:19:31 **Update**: Widened "ran out" to mean finishing with three months of spending or less, and merged those trials into that one bucket rather than a separate near-broke bar. The prose beside the chart counts survivors the same way and says what the threshold means, so the headline and the bar cannot disagree; the failure-year sentence still covers only the plans that actually emptied mid-horizon, which is a different thing.

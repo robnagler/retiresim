@@ -504,6 +504,13 @@ function survivedPercent(survived, total) {
     return `${percent.toFixed(0)}%`;
 }
 
+// Every config carries a birth year on its Medicare entry, which
+// buildConfigData always builds -- Medicare needs one to know when
+// premiums start, so there is no plan without it.
+function birthYearOf(configData) {
+    return configData.Cash.spendingOrder.find((e) => e.name === 'Medicare').birthYear;
+}
+
 // Three months of the plan's own spending, rather than a fixed figure
 // that would be meaningless for one household and half a year's living for
 // another.
@@ -539,13 +546,17 @@ function renderRobustness(configData, results) {
     p(`Typical ending net worth ${CURRENCY.format(percentile(0.5))}, ranging from ${CURRENCY.format(percentile(0.1))} in the worst tenth to ${CURRENCY.format(percentile(0.9))} in the best tenth.`);
     // Only the trials that actually hit a shortfall have a year to report;
     // one that merely finished near empty never failed at any point.
-    const failed = trials.filter((t) => t.failedYear !== null).map((t) => t.failedYear);
+    //
+    // Reported as an age rather than a calendar year: "at 83" is a fact
+    // about the reader, which a year only becomes after they work out the
+    // arithmetic themselves.
+    const failed = trials.filter((t) => t.failedYear !== null).map((t) => t.failedYear - birthYearOf(configData));
     if (failed.length) {
         const first = Math.min(...failed);
         const last = Math.max(...failed);
         p(first === last
-            ? `The plans that emptied before the end did so in ${first}.`
-            : `The plans that emptied before the end did so between ${first} and ${last}.`);
+            ? `The plans that emptied before the end did so at age ${first}.`
+            : `The plans that emptied before the end did so between ages ${first} and ${last}.`);
     }
     return trials;
 }
