@@ -2,6 +2,8 @@
 
 ## 2026-07-31
 
+* 17:19:31 **Update**: Widened "ran out" to mean finishing with three months of spending or less, and merged those trials into that one bucket rather than a separate near-broke bar. The prose beside the chart counts survivors the same way and says what the threshold means, so the headline and the bar cannot disagree; the failure-year sentence still covers only the plans that actually emptied mid-horizon, which is a different thing.
+* 17:15:00 **Prompt**: "one or two months isn't very interesting. a half year is somethign interesting (arbitrary). if we end with less than equal to three months, that's basically ran out. let's just call taht 'ran out'. this is an estimate will lots of error bars. then there's a bucket under 50K or whatever."
 * 17:10:50 **Answer/Update**: Confirmed a trial just above the floor lands in the next rounded bucket, and found a real fault while checking: a trial only slightly above the floor produced a bucket labelled below the floor, sitting beside the under-floor bucket with an overlapping range and a contradictory label. The first boundary is now clamped to the floor.
 * 17:08:00 **Prompt**: "so would it show under 25k and 50k if there was a trial at 24k?"
 * 17:06:39 **Update**: Everything below a month's spending now shares one bucket instead of spreading over three or four bars that say the same thing. The threshold comes from the plan's own spending rather than being a fixed figure, and the bucket stays separate from the failures, since those trials did last the whole way and merging them would put a number on that bar disagreeing with the failure count stated beside the chart.

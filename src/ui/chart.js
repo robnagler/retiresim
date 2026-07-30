@@ -102,25 +102,13 @@ export function renderNetWorthChart(canvas, series, ChartCtor = globalThis.Chart
 // can hold in their head.
 const STEPS = [1, 2, 5];
 
-// The bucket for trials that ran out. It is labelled rather than priced
-// because it is not a dollar range: those trials all ended at exactly
-// zero, and calling it "$0" would read as a range that happens to start
-// there.
+// The bucket for trials that ran out, which means finishing at or below
+// the caller's floor rather than at exactly zero. A plan ending a
+// thirty-year horizon with a couple of months' spending left has not
+// meaningfully survived it, and against a model carrying this much
+// uncertainty the distinction between that and zero is noise. Labelled
+// rather than priced, since it is a verdict and not a dollar range.
 const RAN_OUT_LABEL = 'Ran out';
-
-// Trials that finished with less than this are grouped into one bucket
-// rather than spread across several. Ending a thirty-year horizon with a
-// month's spending left is not a different outcome from ending with two
-// months' -- both are broke -- but at 1-2-5 spacing they take three or
-// four bars of axis to say so, crowding out the range where the answers
-// actually differ.
-//
-// They are kept out of the "Ran out" bucket even so. Those trials did last
-// the whole way, and folding them in would put a number on that bar which
-// disagrees with the failure count stated in words beside the chart.
-function underLabel(floor) {
-    return `Under ${CURRENCY.format(floor)}`;
-}
 
 // Every 1-2-5 boundary from the one at or below low up to high.
 function niceBounds(low, high) {
@@ -144,13 +132,9 @@ function niceBounds(low, high) {
 // staying a plain category axis -- which is what lets the failures have a
 // bucket at all, since zero cannot be placed on a logarithmic scale.
 export function netWorthBins(results, floor = 0) {
-    const ranOut = results.filter((r) => r.netWorth <= 0).length;
+    const ranOut = results.filter((r) => r.netWorth <= floor).length;
     const first = ranOut ? [{ label: RAN_OUT_LABEL, count: ranOut }] : [];
-    const under = results.filter((r) => r.netWorth > 0 && r.netWorth < floor).length;
-    if (under) {
-        first.push({ label: underLabel(floor), count: under });
-    }
-    const values = results.map((r) => r.netWorth).filter((value) => value >= floor && value > 0);
+    const values = results.map((r) => r.netWorth).filter((value) => value > floor && value > 0);
     if (!values.length) {
         return first;
     }

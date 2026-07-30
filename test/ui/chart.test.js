@@ -134,29 +134,23 @@ test('netWorthBins is only the failure bucket when every trial ran out', () => {
     assert.deepEqual(netWorthBins([{ netWorth: 0 }, { netWorth: 0 }]), [{ label: 'Ran out', count: 2 }]);
 });
 
-test('netWorthBins groups everything below the floor into one bucket, since those outcomes do not differ in any way that matters', () => {
-    const results = [0, 2000, 6000, 9000, 100000, 900000].map((netWorth) => ({ netWorth }));
+test('netWorthBins counts a trial that finished at or below the floor as having run out, not as a bucket of its own', () => {
+    const results = [0, 2000, 30000, 100000, 900000].map((netWorth) => ({ netWorth }));
 
-    const bins = netWorthBins(results, 10000);
+    const bins = netWorthBins(results, 39000);
 
-    assert.deepEqual(bins.slice(0, 2), [{ label: 'Ran out', count: 1 }, { label: 'Under $10K', count: 3 }]);
-    assert.equal(bins.reduce((sum, bin) => sum + bin.count, 0), 6);
+    assert.deepEqual(bins[0], { label: 'Ran out', count: 3 });
+    assert.equal(bins.reduce((sum, bin) => sum + bin.count, 0), 5);
 });
 
-test('netWorthBins keeps the near-broke bucket separate from the failures, whose count is stated in words beside the chart', () => {
-    const bins = netWorthBins([{ netWorth: 0 }, { netWorth: 500 }], 10000);
-
-    assert.deepEqual(bins, [{ label: 'Ran out', count: 1 }, { label: 'Under $10K', count: 1 }]);
-});
-
-test('netWorthBins never labels a bucket below the floor, which would overlap the under-floor bucket beside it', () => {
+test('netWorthBins never labels a bucket below the floor, which would claim a range the ran-out bucket already covers', () => {
     const bins = netWorthBins([{ netWorth: 0 }, { netWorth: 5000 }, { netWorth: 15000 }], 13000);
 
-    assert.deepEqual(bins.slice(0, 3).map((bin) => bin.label), ['Ran out', 'Under $13K', '$13K']);
-    assert.equal(bins[2].count, 1);
+    assert.deepEqual(bins.map((bin) => bin.label), ['Ran out', '$13K']);
+    assert.equal(bins[1].count, 1);
 });
 
-test('netWorthBins has no under-floor bucket when every trial cleared it', () => {
+test('netWorthBins has no ran-out bucket when every trial cleared the floor', () => {
     assert.equal(netWorthBins([{ netWorth: 400000 }, { netWorth: 900000 }], 10000)[0].label, '$200K');
 });
 

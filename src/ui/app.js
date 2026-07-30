@@ -483,6 +483,8 @@ function drawChart(containerId, canvasId, series, render) {
 // is the same default the command line uses, and takes well under a second,
 // so there is no case for making the user ask for it separately.
 const ROBUSTNESS_TRIALS = 200;
+const MONTHS_PER_YEAR = 12;
+const RAN_OUT_MONTHS = 3;
 
 // The optimizer answers "what is the best plan under one assumed return
 // every year," which is never what happens. Running the winner straight
@@ -502,13 +504,25 @@ function survivedPercent(survived, total) {
     return `${percent.toFixed(0)}%`;
 }
 
+// Three months of the plan's own spending, rather than a fixed figure
+// that would be meaningless for one household and half a year's living for
+// another.
+function ranOutFloor(configData) {
+    return (configData.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance / MONTHS_PER_YEAR) * RAN_OUT_MONTHS;
+}
+
 function renderRobustness(configData, results) {
     const container = document.getElementById('robustness');
     container.innerHTML = '';
     const winning = new Optimizer().winningConfigData(configData, results, OPTIMIZE_VARIABLES);
     const trials = new RobustnessValidator().run(winning, classes, ROBUSTNESS_TRIALS);
-    const insolvent = trials.filter((t) => t.failedYear !== null);
-    const survived = trials.length - insolvent.length;
+    // Finishing the horizon with three months of spending left is not
+    // surviving it in any sense worth reporting differently from failing,
+    // and against a model with this much uncertainty in it the gap between
+    // that and zero is noise. The same threshold decides the chart's first
+    // bucket, so the count below and the bar agree.
+    const floor = ranOutFloor(configData);
+    const lasted = trials.filter((t) => t.netWorth > floor);
     const sorted = trials.map((t) => t.netWorth).sort((a, b) => a - b);
     const percentile = (p) => sorted[Math.floor(p * (sorted.length - 1))];
 
@@ -517,18 +531,21 @@ function renderRobustness(configData, results) {
         el.textContent = text;
         container.appendChild(el);
     };
-    p(`Tested against ${trials.length} sampled market histories: the money lasted in ${survived} of them (${survivedPercent(survived, trials.length)}).`);
+    p(`Tested against ${trials.length} sampled market histories: the money lasted in ${lasted.length} of them (${survivedPercent(lasted.length, trials.length)}).`);
+    p(`Running out here means finishing with less than three months of spending left, since a plan that ends that close to empty has not really survived.`);
     // Median rather than mean: the spread is heavily right-skewed, since a
     // few lucky histories compound to outsized totals while every insolvent
     // one sits at exactly zero.
     p(`Typical ending net worth ${CURRENCY.format(percentile(0.5))}, ranging from ${CURRENCY.format(percentile(0.1))} in the worst tenth to ${CURRENCY.format(percentile(0.9))} in the best tenth.`);
-    if (insolvent.length) {
-        const years = insolvent.map((t) => t.failedYear);
-        const first = Math.min(...years);
-        const last = Math.max(...years);
+    // Only the trials that actually hit a shortfall have a year to report;
+    // one that merely finished near empty never failed at any point.
+    const failed = trials.filter((t) => t.failedYear !== null).map((t) => t.failedYear);
+    if (failed.length) {
+        const first = Math.min(...failed);
+        const last = Math.max(...failed);
         p(first === last
-            ? `When it ran out, that happened in ${first}.`
-            : `When it ran out, that happened between ${first} and ${last}.`);
+            ? `The plans that emptied before the end did so in ${first}.`
+            : `The plans that emptied before the end did so between ${first} and ${last}.`);
     }
     return trials;
 }
@@ -555,14 +572,9 @@ function renderResults(configData, results) {
     if (trials === null) {
         document.getElementById('robustness').innerHTML = '';
     }
-    // Below a month's spending the trials stop differing in any way that
-    // matters, so they share one bucket rather than several (see
-    // netWorthBins). Taken from the plan itself, so it scales with the
-    // household rather than being a fixed figure that is meaningless for
-    // one person and half their savings for another.
-    const monthlySpending = configData.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance / 12;
+    const floor = ranOutFloor(configData);
     drawChart('robustnessChartContainer', 'robustnessChart', trials,
-        (canvas, series) => renderRobustnessChart(canvas, series, monthlySpending));
+        (canvas, series) => renderRobustnessChart(canvas, series, floor));
 }
 
 // How far down and right of the [?] the popover's top-left corner sits,
