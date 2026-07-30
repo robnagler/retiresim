@@ -131,13 +131,21 @@ export function netWorthBins(results, binCount = DEFAULT_BINS) {
 export function renderRobustnessChart(canvas, results, ChartCtor = globalThis.Chart) {
     const bins = netWorthBins(results);
     return new ChartCtor(canvas, {
-        type: 'bar',
+        // A line over the bins rather than bars: it reads as the shape of
+        // the distribution, which is the question -- how tightly the
+        // outcomes cluster and how long the tail is -- rather than as a
+        // count of trials in each bucket, which no one needs exactly.
+        type: 'line',
         data: {
             labels: bins.map((bin) => bin.label),
             datasets: [{
                 label: 'Trials',
                 data: bins.map((bin) => bin.count),
-                backgroundColor: '#0369a1',
+                borderColor: '#0369a1',
+                backgroundColor: 'rgba(3, 105, 161, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
             }],
         },
         options: {

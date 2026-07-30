@@ -116,12 +116,12 @@ test('netWorthBins collapses to a single bin when every trial lands on the same 
     assert.deepEqual(bins, [{ label: '$500', count: 2 }]);
 });
 
-test('renderRobustnessChart builds a bar chart of the trial counts', () => {
+test('renderRobustnessChart draws the distribution as a line, so its shape reads rather than its bucket counts', () => {
     const results = [0, 100, 200, 300].map((netWorth, trial) => ({ trial, netWorth, failedYear: null }));
 
     const chart = renderRobustnessChart({}, results, FakeChart);
 
-    assert.equal(chart.config.type, 'bar');
+    assert.equal(chart.config.type, 'line');
     assert.equal(chart.config.data.datasets.length, 1);
     assert.equal(chart.config.data.datasets[0].data.reduce((a, b) => a + b, 0), results.length);
 });
