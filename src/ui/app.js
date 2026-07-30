@@ -123,6 +123,11 @@ function readForm() {
     };
 }
 
+// Holds the currently-drawn chart, if any, so a second Optimize click
+// destroys it before drawing a new one -- Chart.js throws if a chart is
+// created on a canvas that already has one attached.
+let currentChart = null;
+
 function renderResults(results) {
     const resultsDiv = document.getElementById('results');
     resultsDiv.innerHTML = '';
@@ -130,16 +135,20 @@ function renderResults(results) {
     pre.textContent = new OptimizerReport().report(results);
     resultsDiv.appendChild(pre);
 
+    currentChart?.destroy();
+    currentChart = null;
+
     // The last variable's winning candidate is the final plan -- its
     // year-by-year net worth is what the graph shows. Optimizer.js
     // returns null/null for a winner that ran out of money, in which
     // case there's nothing meaningful to graph.
     const finalPlan = results[results.length - 1];
-    const canvas = document.getElementById('netWorthChart');
+    const chartContainer = document.getElementById('chartContainer');
     if (finalPlan.netWorthByYear) {
-        renderNetWorthChart(canvas, finalPlan.netWorthByYear);
+        chartContainer.style.display = '';
+        currentChart = renderNetWorthChart(document.getElementById('netWorthChart'), finalPlan.netWorthByYear);
     } else {
-        canvas.style.display = 'none';
+        chartContainer.style.display = 'none';
     }
 }
 

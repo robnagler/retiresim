@@ -2,6 +2,18 @@
 
 ## 2026-07-30
 
+* 20:08:00 **Prompt**: "fix" (package.json's name field) followed by "gkcp"
+* 20:07:00 **Update**: Updated package.json's name field to match; confirmed no other tracked file besides log.md's own historical entries still says the old project name.
+* 20:05:00 **Prompt**: "do the actual folder rename"
+* 20:05:00 **Update**: Renamed the local project folder to match the new repo name -- this session's tooling survived it cleanly (the harness adjusted the working directory automatically), which was better than expected going in. Also pointed the git remote at the renamed repo's URL instead of relying on GitHub's redirect indefinitely. Full test suite still passes from the new location.
+* 20:02:00 **Prompt**: "Did you update GitHub repo? It's been renamed and now it's public" followed by "The Medicare numbers are okay. They really aren't a secret."
+* 20:02:00 **Update**: Confirmed I hadn't touched GitHub at all -- the user had renamed and re-publicized the repo themselves. Flagged that a real personal figure committed earlier this session had specifically been justified by "the repo is private," which no longer held; user confirmed that specific figure isn't actually sensitive. Updated the carried-over memory to record the repo's current public status so a future session doesn't wrongly assume privacy.
+* 19:58:00 **Prompt**: "i want to rename the repo. how will that work with this session. what should be saved in the .claude or claude.md or ?" followed by "i want to rename local folder. how will you carry memory over?" and "retiresim" and "yes"
+* 19:58:00 **Update**: Explained that a GitHub-only rename doesn't affect this session at all (memory/settings are keyed by local directory path, not repo name), then carried the project's memory over to the new path-derived location ahead of the actual folder rename, cleaning up old-name references in the copied files while preserving the one genuinely historical reference (the real repo path at the time of an earlier incident) rather than silently rewriting it.
+* 19:55:00 **Prompt**: "looks good. now do the chart"
+* 19:55:00 **Update**: Polished the net-worth chart -- title, axis labels, compact currency-formatted y-axis ticks, a properly-sized container (needed for Chart.js's responsive mode), a filled/styled line, and destroying any previous chart instance before drawing a new one so clicking Optimize more than once doesn't throw. Added a test for the new currency formatting. 204/204 tests pass.
+* 19:52:35 **Update**: Committed as `8e90b95` and pushed `1400f66..8e90b95` to origin/main.
+* 19:52:00 **Prompt**: "gckp"
 * 19:51:00 **Prompt**: "default life expect to 90"
 * 19:51:00 **Update**: Added a default pre-selected Life Expectancy option (90), same pattern as the earlier rate-select defaults.
 * 19:47:00 **Prompt**: "ther's a screen schot in ~/d/. it just doesn't look good the way you did it... there's an alignment problem with missing descriptions. new screenshot available"

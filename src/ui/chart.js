@@ -11,6 +11,16 @@
 // the same "fake collaborator, not the real dependency" pattern already
 // used elsewhere in this project (e.g. test/support/FakeBookkeeper.js).
 
+// Compact currency, e.g. $1.2M -- a full $1,234,567.89 would crowd the
+// y-axis over a multi-decade horizon where the range easily spans
+// $0 to $10M+.
+const CURRENCY = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+});
+
 // series is Optimizer.runAll()'s netWorthByYear: an array of
 // {year, netWorth} objects, already ordered by year.
 export function renderNetWorthChart(canvas, series, ChartCtor = globalThis.Chart) {
@@ -18,7 +28,27 @@ export function renderNetWorthChart(canvas, series, ChartCtor = globalThis.Chart
         type: 'line',
         data: {
             labels: series.map((point) => point.year),
-            datasets: [{ label: 'Net Worth', data: series.map((point) => point.netWorth) }],
+            datasets: [{
+                label: 'Net Worth',
+                data: series.map((point) => point.netWorth),
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                fill: true,
+                tension: 0.2,
+                pointRadius: 0,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: { display: true, text: 'Net Worth Over Time' },
+                legend: { display: false },
+            },
+            scales: {
+                x: { title: { display: true, text: 'Year' } },
+                y: { title: { display: true, text: 'Net Worth' }, ticks: { callback: (value) => CURRENCY.format(value) } },
+            },
         },
     });
 }

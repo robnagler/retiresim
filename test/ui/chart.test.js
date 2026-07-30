@@ -38,3 +38,11 @@ test('renderNetWorthChart handles an empty series without throwing', () => {
     assert.deepEqual(chart.config.data.labels, []);
     assert.deepEqual(chart.config.data.datasets[0].data, []);
 });
+
+test('renderNetWorthChart formats the y-axis as compact currency', () => {
+    const chart = renderNetWorthChart({}, [], FakeChart);
+
+    const format = chart.config.options.scales.y.ticks.callback;
+    assert.equal(format(1234567), '$1.2M');
+    assert.equal(format(0), '$0');
+});

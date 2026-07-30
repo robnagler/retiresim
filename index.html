@@ -65,7 +65,7 @@
       overflow-x: auto;
       border-radius: 8px;
     }
-    canvas { max-width: 100%; }
+    .chart-container { position: relative; height: 24rem; max-width: 100%; margin-top: 1rem; }
     @media (max-width: 36rem) {
       .fields, .two-col { grid-template-columns: 1fr; }
     }
@@ -186,7 +186,9 @@
   </form>
 
   <div id="results"></div>
-  <canvas id="netWorthChart"></canvas>
+  <div class="chart-container" id="chartContainer">
+    <canvas id="netWorthChart"></canvas>
+  </div>
 
   <script type="module" src="src/ui/app.js"></script>
 </body>
