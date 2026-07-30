@@ -17,13 +17,11 @@
       color: #1a1a1a;
     }
     h1 { font-size: 1.75rem; margin-bottom: 1.5rem; }
-    fieldset {
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      padding: 0.5rem 1.75rem 1.75rem;
-      margin: 0 0 1.5rem;
-    }
-    legend { font-size: 1.15rem; font-weight: 600; padding: 0 0.5rem; }
+    /* Sections are separated by their heading and spacing rather than by
+       a border -- only the account boxes are boxes, so the word means one
+       thing on the page. */
+    fieldset { border: none; padding: 0; margin: 0 0 2rem; }
+    legend { font-size: 1.15rem; font-weight: 600; padding: 0; margin-bottom: 0.75rem; }
     .fields {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -129,6 +127,8 @@
     }
     button.needs-export:hover { background: #fef3c7; }
     .button-row { display: flex; gap: 0.75rem; align-items: center; }
+    .top-buttons { justify-content: center; margin-bottom: 1.5rem; }
+    .top-buttons + .hint { text-align: center; margin-bottom: 2rem; }
     #results {
       background: #f4f4f4;
       padding: 1rem 1.5rem;
@@ -148,11 +148,11 @@
        the results column keeps up with the page as the form is scrolled,
        since a change made near the bottom of a long form should not mean
        scrolling back to see what it did. */
-    .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2rem; align-items: start; }
+    .layout { display: grid; grid-template-columns: 34rem minmax(0, 1fr); gap: 2.5rem; align-items: start; }
     .results-column { position: sticky; top: 1rem; }
     .results-column:has(#results:empty) { position: static; }
     /* An account, drawn as a box that opens its own editing dialog. */
-    .boxes { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.75rem; }
+    .boxes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
     .box {
       display: flex;
       flex-direction: column;
@@ -221,8 +221,19 @@
     <p>Export saves a copy of the settings below so you can re-import it. The program runs entirely in this browser window. It doesn't send anything to a server.</p>
     <p><strong>Not financial advice.</strong> The results are only as good as your assumptions, especially the investment return.</p>
   </div>
-  <div class="layout">
   <form id="planForm">
+    <div class="button-row top-buttons">
+      <button type="submit">Optimize</button>
+      <button type="button" id="exportButton" class="secondary">Export</button>
+      <button type="button" id="importButton" class="secondary">Import</button>
+      <input type="file" id="importFile" accept="application/json" style="display: none;">
+    </div>
+    <!-- The browser's own leave-the-page dialog cannot be given custom
+         wording, so the explanation lives here instead. -->
+    <p class="hint">Export saves a copy of these settings so you can re-import it later. Reloading the page starts over.</p>
+
+    <div class="layout">
+    <div class="form-column">
     <fieldset>
       <legend>Basic facts</legend>
       <div class="fields">
@@ -246,47 +257,53 @@
 
     <fieldset>
       <legend>Personal decisions</legend>
-      <div class="fields">
-        <div class="field">
-          <label for="retirementYear">Retirement year</label>
-          <select id="retirementYear" required></select>
+      <div class="two-col">
+        <div class="fields-stack">
+          <div class="field">
+            <label for="monthlySalary">Monthly salary</label>
+            <input type="number" id="monthlySalary" min="0">
+            <div class="hint">&nbsp;</div>
+          </div>
+          <div class="field">
+            <label for="monthlySpending">Monthly spending</label>
+            <input type="number" id="monthlySpending" min="0" required>
+            <div class="hint">excluding mortgage and Medicare</div>
+          </div>
+          <div class="subsection">
+            <span class="sublabel">One-time expenses</span>
+            <button type="button" class="help" data-help-for="lumpSumHelp" aria-label="More about one-time expenses">?</button>
+            <div popover="manual" id="lumpSumHelp">A large expense in a single year rather than every year -- a new roof, a car, a wedding. Spending it changes which accounts the plan draws from that year, which is the point of entering it separately.</div>
+            <div id="lumpSumRows"></div>
+            <button type="button" id="addLumpSumButton" class="secondary">Add expense</button>
+          </div>
         </div>
-        <div class="field">
-          <label for="lifeExpectancy">Life expectancy</label>
-          <select id="lifeExpectancy" required></select>
+        <div class="fields-stack">
+          <div class="field">
+            <label for="retirementYear">Retirement year</label>
+            <select id="retirementYear" required></select>
+            <div class="hint">&nbsp;</div>
+          </div>
+          <div class="field">
+            <label for="lifeExpectancy">Life expectancy</label>
+            <select id="lifeExpectancy" required></select>
+            <div class="hint">&nbsp;</div>
+          </div>
+          <div class="field">
+            <label for="socialSecurityAt67">Monthly Social Security at 67</label>
+            <input type="number" id="socialSecurityAt67" min="0" required>
+            <div class="hint">value at full retirement</div>
+          </div>
+          <div class="field">
+            <!-- "Medigap Plan G", not "Medicare Part G": Medicare has Parts
+                 A through D, while Plan G is a Medigap supplement sold by
+                 private insurers. The element id and the config key still
+                 say medicarePartG, since renaming them changes the export
+                 format. -->
+            <label for="medicarePartG">Monthly Medigap Plan G</label>
+            <input type="number" id="medicarePartG" min="0">
+            <div class="hint">defaults to the same as Part B if left blank</div>
+          </div>
         </div>
-        <div class="field">
-          <label for="monthlySpending">Monthly spending</label>
-          <input type="number" id="monthlySpending" min="0" required>
-          <div class="hint">excluding mortgage and Medicare</div>
-        </div>
-        <div class="field">
-          <label for="monthlySalary">Monthly salary</label>
-          <input type="number" id="monthlySalary" min="0">
-          <div class="hint">&nbsp;</div>
-        </div>
-        <div class="field">
-          <label for="socialSecurityAt67">Monthly Social Security at 67</label>
-          <input type="number" id="socialSecurityAt67" min="0" required>
-          <div class="hint">value at full retirement</div>
-        </div>
-        <div class="field">
-          <!-- "Medigap Plan G", not "Medicare Part G": Medicare has Parts
-               A through D, while Plan G is a Medigap supplement sold by
-               private insurers. The element id and the config key still
-               say medicarePartG, since renaming them changes the export
-               format. -->
-          <label for="medicarePartG">Monthly Medigap Plan G</label>
-          <input type="number" id="medicarePartG" min="0">
-          <div class="hint">defaults to the same as Part B if left blank</div>
-        </div>
-      </div>
-      <div class="subsection">
-        <span class="sublabel">One-time expenses</span>
-        <button type="button" class="help" data-help-for="lumpSumHelp" aria-label="More about one-time expenses">?</button>
-        <div popover="manual" id="lumpSumHelp">A large expense in a single year rather than every year -- a new roof, a car, a wedding. Spending it changes which accounts the plan draws from that year, which is the point of entering it separately.</div>
-        <div id="lumpSumRows"></div>
-        <button type="button" id="addLumpSumButton" class="secondary">Add expense</button>
       </div>
     </fieldset>
 
@@ -308,28 +325,20 @@
       </div>
     </fieldset>
 
-    <div class="button-row">
-      <button type="submit">Optimize</button>
-      <button type="button" id="exportButton" class="secondary">Export</button>
-      <button type="button" id="importButton" class="secondary">Import</button>
-      <input type="file" id="importFile" accept="application/json" style="display: none;">
     </div>
-    <!-- The browser's own leave-the-page dialog cannot be given custom
-         wording, so the explanation lives here instead. -->
-    <p class="hint">Export saves a copy of these settings so you can re-import it later. Reloading the page starts over.</p>
-  </form>
 
-  <div class="results-column">
+    <div class="results-column">
     <div id="results"></div>
     <div class="chart-container" id="chartContainer">
       <canvas id="netWorthChart"></canvas>
     </div>
     <div id="robustness"></div>
-    <div class="chart-container" id="robustnessChartContainer">
-      <canvas id="robustnessChart"></canvas>
+      <div class="chart-container" id="robustnessChartContainer">
+        <canvas id="robustnessChart"></canvas>
+      </div>
     </div>
-  </div>
-  </div>
+    </div>
+  </form>
 
   <!-- One dialog reused for whichever account box was clicked; app.js
        fills it from accountTypes.js rather than the page carrying a copy

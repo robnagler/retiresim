@@ -206,7 +206,11 @@ function renderAccountBoxes() {
         };
         line(account.name, 'box-name');
         line(account.balance === undefined ? 'no balance' : CURRENCY_BOX.format(account.balance), 'box-balance');
-        line(ACCOUNT_TYPES[account.type].label, 'box-type');
+        // Only worth a line when it says something the name does not: a
+        // box named for its own type would otherwise repeat itself.
+        if (account.name !== ACCOUNT_TYPES[account.type].label) {
+            line(ACCOUNT_TYPES[account.type].label, 'box-type');
+        }
         box.addEventListener('click', () => openAccountDialog(index));
         container.appendChild(box);
     });
