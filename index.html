@@ -17,11 +17,13 @@
       color: #1a1a1a;
     }
     h1 { font-size: 1.75rem; margin-bottom: 1.5rem; }
-    /* Sections are separated by their heading and spacing rather than by
-       a border -- only the account boxes are boxes, so the word means one
-       thing on the page. */
-    fieldset { border: none; padding: 0; margin: 0 0 2rem; }
-    legend { font-size: 1.15rem; font-weight: 600; padding: 0; margin-bottom: 0.75rem; }
+    fieldset {
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 0.5rem 1.75rem 1.75rem;
+      margin: 0 0 1.5rem;
+    }
+    legend { font-size: 1.15rem; font-weight: 600; padding: 0 0.5rem; }
     .fields {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -49,7 +51,7 @@
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
     }
     .hint { color: #888; font-size: 0.8em; margin-top: 0.35rem; }
-    .intro { color: #444; margin: -0.75rem 0 1.5rem; }
+    .intro { color: #444; margin: -0.75rem 0 1.5rem; max-width: 34rem; }
     /* A plain ASCII "?" drawn into a circle with CSS rather than a Unicode
        circled-question-mark character: the only real candidates are emoji
        (U+2753) or an information glyph (U+24D8), which render in a
@@ -149,7 +151,7 @@
        the results column keeps up with the page as the form is scrolled,
        since a change made near the bottom of a long form should not mean
        scrolling back to see what it did. */
-    .layout { display: grid; grid-template-columns: 34rem minmax(0, 1fr); gap: 2.5rem; align-items: start; }
+    .layout { display: grid; grid-template-columns: 34rem minmax(0, 1fr); gap: 4rem; align-items: start; }
     .results-column { position: sticky; top: 1rem; }
     .results-column:has(#results:empty) { position: static; }
     /* An account, drawn as a box that opens its own editing dialog. */
