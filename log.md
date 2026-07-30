@@ -2,6 +2,9 @@
 
 ## 2026-07-31
 
+* 14:46:23 **Update**: Built issue #12 -- exports are now named with a local-time timestamp from a small tested module, so each one is its own file and a directory of them sorts by name into sorted by age. Noticed while checking it that node in this shell resolves the timezone an hour off, because the inherited TZ value is a path rather than an IANA name that node can parse; browsers read the system zone directly and are unaffected. 237/237 tests pass.
+* 14:45:03 **Prompt**: "#12"
+* 14:43:28 **Update**: Committed as `5d89857` and opened PR #13 for issue #11; CI passed.
 * 14:41:34 **Prompt**: "pr"
 * 14:39:51 **Update**: Opened issue #12 for timestamped export filenames in local time, replacing the fixed name the browser currently disambiguates with its own numbering.
 * 14:39:00 **Prompt**: "add an issue for the download. It should be a unique file each time possibly beginning with the date and time retirement-plan-20260730T143800.json in local time."
