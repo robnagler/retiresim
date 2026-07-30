@@ -2,6 +2,11 @@
 
 ## 2026-07-31
 
+* 17:49:49 **Update**: Wrote the wiki for issue #9 -- eight pages covering the simulated year and its reconciliation, the accounts, taxes and Medicare, what the optimizer searches and what it can miss, how to read the robustness check, the assumptions stated plainly, the reference data, and a plans page. Moved the reference tables out of the README rather than duplicating them, and repointed every mention of them.
+* 17:41:29 **Update**: Opened issue #16 on not showing Cash as its own band, since it is swept into the taxable account and the band says almost nothing -- noting that simply omitting it would break the stack summing to net worth, so folding it into the account it is swept into is the likelier answer.
+* 17:38:00 **Prompt**: "9. create an issue that you probably shouldn't show cash. we sweep it"
+* 17:37:32 **Update**: Synced main after the form restructure merged and deleted the branch.
+* 17:37:00 **Prompt**: "i merged. next?"
 * 17:32:58 **Update**: The strategy summary's failure line reports an age too -- it was the one place still printing a calendar year -- and no longer says "yearly spending", which stopped being the name of that field when the form went monthly.
 * 17:32:00 **Prompt**: "\"This plan runs out of money in 2034. Try lowering yearly spending or adjusting other assumptions.\" that still has 2034"
 * 17:31:31 **Update**: Lined the one-time expenses block up with the fields beside it. It carried its own top margin on top of the column's gap, and its add row carried another, so it sat most of a row below the field it should have matched.
