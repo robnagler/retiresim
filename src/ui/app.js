@@ -19,6 +19,7 @@ import { SocialSecurity } from '../biz/SocialSecurity.js';
 import { Cash } from '../biz/Cash.js';
 import { RobustnessValidator } from '../biz/RobustnessValidator.js';
 import { renderNetWorthChart, renderRobustnessChart } from './chart.js';
+import { exportFileName } from './fileName.js';
 import { FIELD_HELP } from './help.js';
 
 const classes = {
@@ -253,12 +254,17 @@ function populateForm(input) {
 // Triggers a browser download of the current form's fields as JSON --
 // "the fields only" per CLAUDE.md's UI spec, i.e. readForm()'s raw input
 // shape, not buildConfigData()'s expanded simulation config.
+//
+// The name carries a timestamp (see fileName.js) so each export is its own
+// file. Without one every export is retirement-plan.json and the browser
+// disambiguates them as "(1)", "(2)", numbered by the order they were
+// saved and saying nothing about which is which.
 function exportFields() {
     const blob = new Blob([JSON.stringify(readForm(), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'retirement-plan.json';
+    link.download = exportFileName(new Date());
     link.click();
     URL.revokeObjectURL(url);
 }
