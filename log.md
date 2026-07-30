@@ -2,6 +2,7 @@
 
 ## 2026-07-30
 
+* 21:49:59 **Update**: Committed as `479e0ba` and pushed to origin/main; the Pages site rebuilt on that commit, so the deployed UI picks up the age-65 gate.
 * 21:49:13 **Prompt**: "gckp"
 * 21:48:51 **Update**: Gated Medicare on age 65 -- `startYear` derived from a now-required `cfg.birthYear`, `owed` set to 0 before it, with the premium/IRMAA-threshold growth deliberately left running through the ineligible years so the first eligible year's cost is the inflated one. Wrote the failing test first per the bug-fix rule; a missing `birthYear` now throws rather than silently disabling the gate. 213/213 tests pass, all CLI modes clean, and an end-to-end check on invented data confirms zero premiums before 65 and the first charge in the eligibility year itself.
 * 21:43:30 **Prompt**: "let's make it so it kicks in at 65. otherwise, the person just rolls it into spending."
