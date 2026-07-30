@@ -1,15 +1,70 @@
-### Financial tools
+# Retirement Simulator
 
-#### Assumptions
+A year-by-year retirement financial simulator and optimizer: model your
+accounts, income, and spending, then search for the withdrawal strategy
+and Social Security claiming age that leave you with the most net worth
+without running out of money.
+
+Financial correctness takes priority over optimization -- every simulated
+year has to reconcile exactly before any optimizer result is trusted.
+
+Plain JavaScript, no build step, no bundler. Runs as a CLI (Node) or as a
+static HTML/JS page in a browser.
+
+## Running it
+
+**Tests** (run these first -- everything below assumes they pass):
+
+```
+node --test
+```
+or
+```
+bash test.sh
+```
+
+**Command line**, from the repo root:
+
+```
+node src/cli/main.js                      # illustrative example scenario
+node src/cli/main.js config/cfg.json       # your real config (see below)
+node src/cli/main.js --debug [config.json] # one scenario, full year-by-year detail, no optimizing
+node src/cli/main.js --robustness [N] [config.json]  # stress-test against N random historical-return sequences
+```
+
+With no `--debug`/`--robustness` flag, `main.js` always runs the optimizer
+and prints a candidate/net-worth table per search variable.
+
+**Browser UI**, from the repo root:
+
+```
+python -m http.server
+```
+
+then open `http://localhost:8000/index.html`. Fill in the form and click
+Optimize. Export/Import buttons save and reload just the form's fields as
+JSON.
+
+**Your real data**: create `config/cfg.json` (gitignored, never
+committed) with your actual balances, income, and spending -- see any
+`src/biz/*.js` class for the fields it reads, or just use the browser UI,
+which builds this shape for you automatically.
+
+## How it's organized
+
+- `src/biz/` -- the simulation/domain logic (accounts, taxes, the
+  optimizer itself). Pure, no console output, no DOM.
+- `src/cli/` -- the command-line entry point and its console reporting.
+- `src/ui/` -- the browser form, chart, and config-building glue.
+- `test/` -- one test file per `src/` module, mirroring that same layout.
+
+`CLAUDE.md` has the full architecture writeup and the history behind most
+non-obvious design decisions -- written densely, as project-context
+reference material rather than a narrative to read start to finish.
+
+## Assumptions
 
 Modeling decisions and scope limits that are deliberate, not bugs:
-
-* Income never exceeds spending in this analysis. `Cash.produce()` only
-  covers a shortfall by drawing down `withdrawalOrder` accounts; it has
-  no logic to sweep a surplus into an asset account. Idle cash simply
-  carries over to the next year. Reinvesting a surplus would require
-  deciding an allocation across Roth vs Traditional IRA vs taxable,
-  which is out of scope for the current scenario.
 
 * `NonSpousalInheritedIra`'s 2020-and-later branch (the SECURE Act's
   10-year rule) withdraws a level, straight-line amount each year
@@ -23,7 +78,7 @@ Modeling decisions and scope limits that are deliberate, not bugs:
   Choosing between withdrawal strategies is an optimization question,
   deferred to the future Optimizer module rather than modeled now.
 
-#### Reference data
+## Reference data
 
 Historical Social Security COLA by year (SSA, 1996-2025) -- background for
 the `cola` value set on `config/cfg.json`'s `SocialSecurity` entry:
@@ -101,7 +156,7 @@ Not comparable at all: the RMD life-expectancy tables and the 72/73/75 RMD
 start-age rule (actuarial/legal, not dollar-denominated) and `Mortgage`'s
 own `rate` (a fixed loan term, unrelated to `Economy`).
 
-#### License
+## License
 
 License: https://www.apache.org/licenses/LICENSE-2.0.html
 

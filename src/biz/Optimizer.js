@@ -3,6 +3,7 @@ import { Config } from './Config.js';
 import { Bookkeeper } from './Bookkeeper.js';
 import { Simulator } from './Simulator.js';
 import { InsufficientFundsError } from './InsufficientFundsError.js';
+import { claimAgeCandidates } from './SocialSecurity.js';
 
 // All 6 orderings of the 3 withdrawal tax categories (see Cash.js's
 // categoryOf()) -- written out literally rather than computed, since the
@@ -94,6 +95,42 @@ export const OPTIMIZE_VARIABLES = [
             data.Cash.incomeCeilingBracket = candidate.incomeCeilingBracket;
         },
     },
+    {
+        label: 'Social Security claim age',
+        // Revives claim age as an optimized variable (removed earlier in
+        // the project's history because claiming age is a personal/health
+        // decision, not something that should get automatically net-
+        // worth-optimized purely on preference). This is a narrower case:
+        // delaying to 70 maximizes lifetime benefit, but only when the
+        // household can actually afford to bridge the gap years without
+        // it -- someone with little other savings may be forced to claim
+        // sooner out of necessity. run()'s own InsufficientFundsError
+        // handling (score 0 for a candidate that runs out of money)
+        // already implements exactly that: among feasible ages, a later
+        // claim age generally scores higher (bigger permanent benefit),
+        // so evaluating every candidate and taking the max naturally
+        // "tries 70 and backs off" to the latest age that actually works,
+        // with no separate search loop needed. Evaluated *after*
+        // withdrawal order specifically -- see runAll()'s doc comment for
+        // the documented bug that ordering avoids (a stale/unoptimized
+        // withdrawal order upstream can make delaying look infeasible
+        // when a better order would have made it work).
+        candidates: (configData) => {
+            const ss = (configData.Cash.incomeOrder ?? []).find((e) => e.name === 'SocialSecurity');
+            // No Social Security configured at all -- nothing to search;
+            // a single undefined candidate is a no-op apply() below.
+            if (!ss) {
+                return [undefined];
+            }
+            return claimAgeCandidates({ birthYear: ss.birthYear, asOfYear: configData.Simulator.startYear });
+        },
+        apply: (data, candidate) => {
+            if (candidate === undefined) {
+                return;
+            }
+            data.Cash.incomeOrder.find((e) => e.name === 'SocialSecurity').claimAge = candidate;
+        },
+    },
 ];
 
 // Owns the full candidate-evaluation pipeline (Config -> Bookkeeper ->
@@ -139,11 +176,17 @@ export class Optimizer extends Base {
     // far cheaper than evaluating every combination and a real improvement
     // over evaluating each variable in isolation against configData's own
     // literal values, which ignored every other variable's optimum entirely.
-    // `OPTIMIZE_VARIABLES` currently holds just one entry (withdrawal
-    // category order + ceilings -- SS claim age was removed, see CLAUDE.md's
-    // Optimize Variables), so this machinery's multi-variable ordering
-    // concerns don't currently bite in practice, but stay in place for
-    // whenever a second variable is added back.
+    // `OPTIMIZE_VARIABLES` holds withdrawal category order + ceilings
+    // first, then Social Security claim age -- deliberately in that
+    // order, not the reverse. A real bug from this project's history
+    // (see CLAUDE.md's Optimize Variables) happened when claim age was
+    // evaluated *first*: every claim-age candidate was scored against
+    // whatever withdrawal order/ceilings happened to already be sitting
+    // in the config, unoptimized, which could make delaying claim age
+    // look infeasible even when a better withdrawal order would have
+    // made it work. Evaluating withdrawal order first means claim age is
+    // always judged against the best-known withdrawal strategy, not a
+    // stale or default one.
     runAll(configData, classes, variables = OPTIMIZE_VARIABLES) {
         const base = structuredClone(configData);
         const results = [];

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Optimizer } from '../../src/biz/Optimizer.js';
+import { Optimizer, OPTIMIZE_VARIABLES } from '../../src/biz/Optimizer.js';
 import { Config } from '../../src/biz/Config.js';
 import { Bookkeeper } from '../../src/biz/Bookkeeper.js';
 import { Simulator } from '../../src/biz/Simulator.js';
@@ -10,6 +10,7 @@ import { RothIra } from '../../src/biz/RothIra.js';
 import { LivingExpense } from '../../src/biz/LivingExpense.js';
 import { TaxCalculator } from '../../src/biz/TaxCalculator.js';
 import { Salary } from '../../src/biz/Salary.js';
+import { SocialSecurity } from '../../src/biz/SocialSecurity.js';
 import { Cash } from '../../src/biz/Cash.js';
 import { testConfigData, taxSpender } from '../support/testConfig.js';
 
@@ -168,4 +169,59 @@ test('runAll catches InsufficientFundsError per-candidate, keeps the grid runnin
     // The winner (500) didn't fail, so its detail is populated.
     assert.match(endingBalances, /TaxableAccount/);
     assert.deepEqual(netWorthByYear, [{ year: 2026, netWorth: 500 }]);
+});
+
+const claimAgeVariable = OPTIMIZE_VARIABLES.find((v) => v.label === 'Social Security claim age');
+
+test('Social Security claim age variable\'s candidates() offers ages from the person\'s current age up to 70, and a single no-op candidate when Social Security isn\'t configured', () => {
+    const withSS = testConfigData({
+        Simulator: { startYear: 2026, endYear: 2026 },
+        incomeOrder: [{ name: 'SocialSecurity', balance: 0, birthYear: 1961, claimAge: 67, fraMonthlyBenefit: 3000 }],
+    });
+    const withoutSS = testConfigData({ Simulator: { startYear: 2026, endYear: 2026 } });
+
+    assert.deepEqual(claimAgeVariable.candidates(withSS), [65, 66, 67, 68, 69, 70]);
+    assert.deepEqual(claimAgeVariable.candidates(withoutSS), [undefined]);
+});
+
+test('Social Security claim age variable\'s apply() sets claimAge on the SocialSecurity entry, and no-ops for the undefined (no SS) candidate', () => {
+    const data = testConfigData({
+        incomeOrder: [{ name: 'SocialSecurity', balance: 0, birthYear: 1961, claimAge: 67, fraMonthlyBenefit: 3000 }],
+    });
+
+    claimAgeVariable.apply(data, 70);
+
+    assert.equal(data.Cash.incomeOrder[0].claimAge, 70);
+    assert.doesNotThrow(() => claimAgeVariable.apply(testConfigData(), undefined));
+});
+
+// Integration test: proves runAll() genuinely "tries 70 and backs off" when
+// savings can't bridge the gap before claiming starts, per the user's own
+// framing (not just that InsufficientFundsError is caught in the abstract,
+// like the generic test above). TaxableAccount only has enough for a
+// fraction of one year's LivingExpense -- claiming any later than the
+// earliest actionable age (65 here, since birthYear puts them already at
+// 65 in the simulation's start year) leaves at least one year with no
+// income and insufficient savings to bridge it, so 65 is the only
+// feasible candidate and must win, even though every later age would
+// otherwise pay a strictly larger permanent monthly benefit.
+test('runAll wired to a real Config/Bookkeeper/Simulator backs Social Security claim age off to the earliest feasible age when savings can\'t bridge the gap', () => {
+    const baseData = testConfigData({
+        Simulator: { startYear: 2026, endYear: 2030 },
+        withdrawalOrder: [{ name: 'TaxableAccount', balance: 15000, basis: 15000 }],
+        incomeOrder: [{ name: 'SocialSecurity', balance: 0, birthYear: 1961, claimAge: 67, fraMonthlyBenefit: 3000 }],
+        spendingOrder: [{ name: 'LivingExpense', balance: 20000 }],
+    });
+    const classes = { TaxableAccount, LivingExpense, SocialSecurity, Cash };
+
+    const results = new Optimizer().runAll(baseData, classes, [claimAgeVariable]);
+
+    const { netWorth, failedYears } = results[0];
+    assert.equal(netWorth.best, 65);
+    assert.equal(failedYears.has(65), false);
+    // Every later candidate hits the shortfall the very first year --
+    // the account can't cover even one full year's gap.
+    for (const age of [66, 67, 68, 69, 70]) {
+        assert.equal(failedYears.get(age), 2026);
+    }
 });

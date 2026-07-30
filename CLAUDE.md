@@ -78,7 +78,7 @@ Orchestration (this diverged from the original `Household.js`/`Ledger.js` split 
 * `Bookkeeper.js` -- builds accounts from config, owns the journal (`JournalEntry`/`Posting`), drives `runYear()` across all accounts, runs the reconciliation check (`_reconcile()`), and reports a year's transactions/balances (`reportTransactions()`, `reportYear()`)
 * `Cash.js` -- the year's cash orchestrator: `runYear()` first grows the idle balance at half of `bookkeeper.economy.interestRate` (not the full rate -- idle spending cash sits somewhere lower-yield than invested accounts), then pays each spender -- either through the shared Cash pool (`spend()`) or, when a spender's `cfg.payFrom` names an account, as much as possible straight from that account instead (`payDirect()`), bypassing Cash's own balance and `produce()`'s category capping for that portion -- generic infrastructure, not wired to anything in the example configs today (no spender sets `payFrom` by default; `HsaAccount` spends itself down through its own `earn()`-driven drawdown instead, see below, not via a spender routing through it) -- `payDirect()` is a tax-efficiency preference, not a hard requirement: it pays `min(amount, source.balance)` and returns whatever's left uncovered, which `runYear()` then routes through the normal `spend()`/`produce()` path like any other expense, instead of throwing when the named account alone can't cover it. `produce()` then covers any remaining shortfall by withdrawing from accounts in `withdrawalOrder` -- `produce()` runs before spenders' `prepareNextYear()` so a shortfall-covering withdrawal's realized gains/income are taxed the same year they're realized, not dropped. Every `withdrawalOrder` account falls into one of three tax categories (`categoryOf()`): `ltcg` (`TaxableAccount`), `income` (`TraditionalIra`/`NonSpousalInheritedIra`), or `taxFree` (everything else -- `RothIra`/`HsaAccount`, never capped). `produce()` caps withdrawals from the `ltcg`/`income` categories at `cfg.ltcgCeilingBracket`/`cfg.incomeCeilingBracket` when set (`categoryRoom()` -- these are **indices** into `bookkeeper.taxCalculator`'s live `ltcgBrackets`/`federalBrackets` arrays, not static dollar amounts, resolved fresh each year so the applied ceiling grows automatically as those bracket tables inflate via `TaxCalculator.prepareNextYear()`, instead of meaning less and less over a 30+ year simulation; for `ltcg` this also converts the realized-gain room back into a withdrawal-amount room via the account's basis fraction, since a withdrawal isn't 1:1 gain the way an IRA withdrawal is 1:1 ordinary income), falling through to the next account for the remainder. `cfg.categoryOrder` (an array of the three category names) walks accounts category-by-category instead of `withdrawalOrder`'s literal sequence when set -- the within-category sub-order still follows each account's position in `withdrawalOrder`. `produce()`'s withdrawal walk (`withdrawFrom()`) always skips a real `HsaAccount` instance regardless of its position in `categoryOrder`/`withdrawalOrder` -- an HSA is only real, tax-free money for qualified medical expenses, never a general funding source for mortgage/living-expense/tax shortfalls the way `RothIra` is, so `produce()` can never silently drain it; only `payDirect()` (a spender's `payFrom`, unused by default) or `HsaAccount`'s own scheduled drawdown (`earn()`, see below) ever reduce its balance. `produce()` runs the capped walk first, and only if a shortfall remains, a second uncapped pass over the same order before finally throwing -- ceilings are a tax-efficiency preference, not a hard limit, so a shortfall that only exists because a capped account's own ceiling fell just short of the amount it still had available no longer produces an artificial `InsufficientFundsError`. Unset `categoryOrder`/ceiling brackets/`payFrom` fall back to the original behavior with no cap, so every pre-category config/test is unaffected. `produce()` still throws `InsufficientFundsError` (`src/InsufficientFundsError.js`, carries `year`) when accounts can't cover the amount even uncapped (with the HSA exclusion in place, that's a real household shortfall, not the HSA's own balance being short), caught and scored per-candidate by the optimizer instead of crashing the whole grid. Whatever's left in `Cash` after `produce()` (a no-op when the balance is already positive) is swept into `TaxableAccount` (`sweepSurplus()`) rather than left to idle at Cash's below-market half-`interestRate` forever -- a plain `deposit()`, so `basis` increases by the same amount as `balance` (fresh principal, not a prior gain) and no tax event is posted. No-ops without throwing when no `TaxableAccount` is configured, unlike `bookkeeper`/`taxCalculator` elsewhere -- a household legitimately might not have one
 * `Simulator.js` -- thin year-by-year loop calling `bookkeeper.runYear(year)`, with an optional per-year callback (`run(onYear)`)
-* `Optimizer.js` -- owns all of the optimization stuff, including running the simulator (`OPTIMIZE_VARIABLES`, the generic `run(candidates, evaluate)` brute-force search, `buildPipeline()` (`Config` -> `Bookkeeper`, `Simulator` run left to the caller), `runAll(configData, classes, variables)` (evaluates every `OPTIMIZE_VARIABLES` entry via `Config` -> `Bookkeeper` -> `Simulator` -> `Bookkeeper.netWorth()`, catching `InsufficientFundsError` per-candidate -- scored 0, displayed as `0 (YYYY)`, the rest of that variable's candidates and every other variable still run), and the console reporting. `runAll()` is a greedy/coordinate-ascent search, not a joint search over the full cross product of every variable: it keeps a running `base` config, evaluates each variable's grid against `base` (carrying forward every earlier variable's winner), then folds that variable's own winner into `base` before the next one runs. This can miss the true joint optimum and is sensitive to `OPTIMIZE_VARIABLES`' order -- a real instance of this bit once: with SS claim age still in the list and evaluated *first*, every claim-age candidate got evaluated against whatever `categoryOrder` happened to be sitting in `cfg.json` at the time (stale, from an earlier calibration), and at a high enough `LivingExpense` that stale ordering made *every* claim age look insolvent, even though a different, better `categoryOrder` (found only by the second variable's own search, starting from that already-bad claim-age choice) would have survived -- see the removed claim-age narrative in the Optimize Variables section below. `OPTIMIZE_VARIABLES` currently holds just one entry, so this ordering risk doesn't currently bite in practice, but the mechanism stays in place for whenever a second variable is added back. (`printNetWorthTable()`/`formatScore()`: collapses to one flagged line when every candidate ties, only one candidate is legal, or every candidate ran out of money, instead of printing a table that looks like a real tradeoff was searched when none was found.) A candidate with a `columns` object (e.g. the withdrawal category-order variable's `categoryOrderCandidate()`) gets a real multi-column table (`printColumnTable()`, one column per `columns` key plus Net Worth, widths computed per column) instead of the single-column fallback (`printSimpleTable()`, currently unused in practice with only one variable left, but still directly tested and available for a future plain-value variable).
+* `Optimizer.js` (`src/biz/`) -- owns all of the optimization stuff, including running the simulator, but deliberately IO-less: `runAll()` *returns* data (an array, one entry per `OPTIMIZE_VARIABLES` variable: `{label, netWorth: {best, score, all}, failedYears, endingBalances, netWorthByYear}`) instead of printing, so both the CLI and the browser UI can consume the same result. `OPTIMIZE_VARIABLES` currently holds two entries, in this specific order: withdrawal category order + ceilings, then Social Security claim age (see Optimize Variables below for both). The generic `run(candidates, evaluate)` brute-force search and `buildPipeline()` (`Config` -> `Bookkeeper`, `Simulator` run left to the caller) are unchanged from their original design. `runAll()` is a greedy/coordinate-ascent search, not a joint search over the full cross product of every variable: it keeps a running `base` config, evaluates each variable's grid against `base` (carrying forward every earlier variable's winner), then folds that variable's own winner into `base` before the next one runs, and additionally re-runs the winning candidate once more (`bestCandidateDetail()`) to capture its ending balances and year-by-year net-worth series. This can miss the true joint optimum and is sensitive to `OPTIMIZE_VARIABLES`' order -- a real instance of this bit once: with SS claim age evaluated *first* in an earlier version of this list, every claim-age candidate got evaluated against whatever `categoryOrder` happened to be sitting in `cfg.json` at the time (stale, from an earlier calibration), and at a high enough `LivingExpense` that stale ordering made *every* claim age look insolvent, even though a different, better `categoryOrder` (found only by the second variable's own search, starting from that already-bad claim-age choice) would have survived -- see the Optimize Variables section below for the fuller narrative (claim age was removed over this bug, then revived later with withdrawal order deliberately ordered first specifically to avoid it recurring). `src/cli/OptimizerReport.js` owns the CLI's console-printing half (`formatScore()`, `netWorthTableLines()`/`simpleTableLines()`/`columnTableLines()`, `report()` joining a full run's tables + ending balances into one string `main.js` prints) -- same string-building-not-printing split `RobustnessValidator.js` already had. `netWorthTableLines()` collapses to one flagged line when every candidate ties, only one candidate is legal, or every candidate ran out of money, instead of printing a table that looks like a real tradeoff was searched when none was found. A candidate with a `columns` object (e.g. the withdrawal category-order variable's `categoryOrderCandidate()`) gets a real multi-column table (`columnTableLines()`, one column per `columns` key plus Net Worth, widths computed per column) instead of the single-column fallback (`simpleTableLines()`, used by the claim-age variable's plain-number candidates).
 * `RobustnessValidator.js` -- deliberately a separate step run *after* the optimizer, not part of it: `run(configData, classes, trials = 200)` takes `configData` exactly as given, same "no candidate substitution" contract as `--debug` (whatever `categoryOrder`/ceilings/`claimAge` are already sitting in `cfg.json` -- presumably the optimizer's own winning values, copied in by hand, see the `Cash.categoryOrder`/etc `cfg.json` note), and stress-tests *that one plan* against `trials` different sampled historical-return sequences (`HistoricalReturns.js`) instead of searching for a better one -- it answers "how fragile is the plan we already picked," not "what's the best plan." Builds one `Bookkeeper`/`Simulator` per trial, calls `bookkeeper.economy.setHistoricalReturns(buildReturnSequence({..., trial}))` before running it, and catches `InsufficientFundsError` per trial the same way `Optimizer.runAll()` catches it per-candidate, so one bad trial doesn't abort the batch. `report()` prints the insolvency rate (count and %, plus the failure-year range with its mean and population standard deviation -- range alone doesn't say whether failures cluster tightly around one point in the horizon or spread evenly across it) and a net-worth distribution (min/p10/median/p90/max) instead of a single Net Worth number -- an average alone would hide exactly what this exists to surface, how often the plan fails outright and how wide the spread is. Net worth uses percentiles (heavily right-skewed -- a few lucky trials compound to outsized values while insolvent trials cluster at exactly 0, so the median is more representative than the mean); failure years use mean/sigma instead (a smaller, roughly symmetric sub-sample, where mean+sigma is the standard compact "center + spread" summary).
 * `main.js` -- thin dispatcher: builds `classes`/loads `configData` (`node src/main.js [--debug | --robustness [N]] [path/to/config.json]`, otherwise runs an illustrative built-in scenario), then dispatches to one of three modes: `--robustness` runs `RobustnessValidator` (`N` trials, default 200) and prints its report; else `--debug` skips the optimizer entirely and runs one `Config` -> `Bookkeeper` -> `Simulator` pass using the input cfg values exactly as given (no candidate substitution), printing the full per-year `reportYear()` report; else (the default) calls `new Optimizer().runAll(configData, classes, OPTIMIZE_VARIABLES)`, printing a candidate/net-worth table per variable. `--debug` is for inspecting one scenario's accounting in detail, not the optimizer's winning candidates; `--robustness` is for stress-testing one scenario (typically the optimizer's winning plan, already copied into `cfg.json`) against random market crashes, not for picking a plan at all
 
@@ -183,50 +183,59 @@ exactly as built, the user just sets it by hand in `config/cfg.json`
 rather than having it auto-searched.
 
 **Social Security claiming age** -- **done, then removed from
-`OPTIMIZE_VARIABLES` by user request**: claiming age is a personal/health
-decision (life expectancy, not just net worth), not something that should
-get automatically net-worth-optimized the way a tax-efficiency choice
-like withdrawal order is. `SocialSecurity.claimAge` still works exactly
-as built below -- the user just sets it by hand in `config/cfg.json`
-(currently 67) rather than having it auto-searched, same pattern already
-used for `Salary.endYear`/`Mortgage.sellYear`. Removing it also happened
-to fix a real bug: with claim age evaluated *first* in the greedy chain,
-every claim-age candidate was scored against whatever `categoryOrder` the
-*next* variable hadn't optimized yet (whatever was already sitting,
-possibly stale, in `cfg.json`) -- at a high enough `LivingExpense` that
-stale ordering alone made every claim age look insolvent, even though a
-better ordering (found only by the second variable's own search,
-starting from that already-bad claim-age choice) would have survived.
-With only one variable left in `OPTIMIZE_VARIABLES`, that variable's own
-`apply()` always sets its own fields fresh regardless of what was in
-`cfg.json` beforehand, so this can no longer happen. `test/Optimizer.test.js`'s
-claim-age integration test was removed along with it -- `Optimizer.run()`
-itself (the generic search primitive the removed test exercised) still has
-full coverage via the Salary end-year and withdrawal category-order
-integration tests, which don't depend on claim age's own presence in
-`OPTIMIZE_VARIABLES` at all. `SocialSecurity.js` still takes
-`birthYear`/`claimAge`/`fraMonthlyBenefit`, deriving `startYear`
-(`birthYear + claimAge`) and `monthlyAmount` (`fraMonthlyBenefit` adjusted
-~8%/year for claiming before/after age 67) in the constructor, replacing
-the old independently-entered `monthlyAmount`/`startYear` fields.
-`claimAge` outside 62-70 throws. `SocialSecurity.claimAgeCandidates({
-birthYear, asOfYear })` clamps the low end up to `asOfYear - birthYear` --
-claim ages already passed as of `Simulator.startYear` aren't real,
-actionable choices, so they're excluded rather than offered as candidates
-(clamps the high end at 70 too, so someone already past 70 still gets one
-candidate: claim now) -- `claimAgeCandidates()` is no longer called by
-`Optimizer.js` since the removal above, but stays exported and tested
-directly in `test/SocialSecurity.test.js` as a general-purpose utility
-(e.g. still useful for a UI that wants to offer a dropdown of valid claim
-ages). At the time it was still wired into `main.js`'s `OPTIMIZE_VARIABLES`
-list alongside Salary end year via the same `Optimizer`/`netWorth()`
-recipe as Step 3, a 2-year `Simulator` window couldn't show
-delayed-claiming's payoff (it plays out over decades), so
-`config/cfg.json`'s `Simulator.endYear` was extended from 2027 to 2051
-(birthYear + age 90, matching the Current Objective's horizon) -- on that
-realistic horizon the real config's optimum is claim age 69, not an
-endpoint, a genuine tradeoff rather than "claim as early/late as
-possible."
+`OPTIMIZE_VARIABLES` by user request, then revived on a narrower
+rationale once the UI's Facts/Predictions form existed.** First pass:
+claiming age is a personal/health decision (life expectancy, not just net
+worth), not something that should get automatically net-worth-optimized
+the way a tax-efficiency choice like withdrawal order is. Removing it
+also happened to fix a real bug: with claim age evaluated *first* in the
+greedy chain, every claim-age candidate was scored against whatever
+`categoryOrder` the *next* variable hadn't optimized yet (whatever was
+already sitting, possibly stale, in `cfg.json`) -- at a high enough
+`LivingExpense` that stale ordering alone made every claim age look
+insolvent, even though a better ordering (found only by the second
+variable's own search, starting from that already-bad claim-age choice)
+would have survived.
+
+**Revived** once the UI's simplified form fixed `claimAge` at 67 with no
+way for a user to express a preference at all (see `buildConfig.js`'s
+Files to add bullet), surfacing a real, narrower case the "personal
+choice" framing didn't cover: delaying to 70 maximizes lifetime benefit,
+but only if the household can actually afford to bridge the gap years
+without it -- someone with little other savings may be forced to claim
+sooner out of necessity, not preference. `OPTIMIZE_VARIABLES` gained a
+second entry, `candidates()` calling `claimAgeCandidates()` (see below)
+and `apply()` setting `claimAge` on the `SocialSecurity` entry.
+`Optimizer.run()`'s existing `InsufficientFundsError` -> score-0 handling
+already implements "try 70 and back off" with no separate search loop:
+among *feasible* candidates a later claim age generally scores higher
+(bigger permanent benefit), so evaluating every candidate and taking the
+max naturally lands on the latest age that doesn't cause a shortfall.
+Deliberately ordered *second* in `OPTIMIZE_VARIABLES`, after withdrawal
+order, not first -- exactly to avoid the stale-ordering bug from the
+first pass above: claim age is now always judged against the
+already-optimized withdrawal strategy, not a stale or default one.
+Confirmed against a hand-computable integration test (thin savings force
+the earliest actionable age; ample savings pick 70) and against two
+illustrative scenarios run through the real `buildConfigData()` ->
+`Optimizer.runAll()` pipeline. `src/ui/app.js`'s strategy description
+reports the chosen claim age as a plain fact ("chosen to maximize
+lifetime benefit without running out of money before then"), not as a
+numbered step in the withdrawal-order list -- it's a separate decision,
+not part of that sequence.
+
+`SocialSecurity.js` takes `birthYear`/`claimAge`/`fraMonthlyBenefit`,
+deriving `startYear` (`birthYear + claimAge`) and `monthlyAmount`
+(`fraMonthlyBenefit` adjusted ~8%/year for claiming before/after age 67)
+in the constructor, replacing the old independently-entered
+`monthlyAmount`/`startYear` fields. `claimAge` outside 62-70 throws.
+`SocialSecurity.claimAgeCandidates({ birthYear, asOfYear })` clamps the
+low end up to `asOfYear - birthYear` -- claim ages already passed as of
+`Simulator.startYear` aren't real, actionable choices, so they're
+excluded rather than offered as candidates (clamps the high end at 70
+too, so someone already past 70 still gets one candidate: claim now).
+Originally built for a UI dropdown that never used it directly, then
+picked back up by `Optimizer.js`'s revived claim-age variable instead.
 
 **`main.js` runs every variable by default, no flag needed** -- **done**.
 `node src/main.js [config.json]` loops `OPTIMIZE_VARIABLES` and prints a

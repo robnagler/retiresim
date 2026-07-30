@@ -1,8 +1,8 @@
 // DOM glue only, no independent logic of its own -- reads the form,
-// calls buildConfigData()/Optimizer.runAll()/OptimizerReport.report()/
-// renderNetWorthChart(), same "thin dispatcher" precedent as
-// src/cli/main.js. No test file, for the same reason main.js has none:
-// all the real logic lives in the tested modules this file just calls.
+// calls buildConfigData()/Optimizer.runAll()/renderNetWorthChart(), same
+// "thin dispatcher" precedent as src/cli/main.js. No test file, for the
+// same reason main.js has none: all the real logic lives in the tested
+// modules this file just calls.
 import { buildConfigData } from '../biz/buildConfig.js';
 import { Optimizer, OPTIMIZE_VARIABLES } from '../biz/Optimizer.js';
 import { TaxableAccount } from '../biz/TaxableAccount.js';
@@ -17,13 +17,93 @@ import { Medicare } from '../biz/Medicare.js';
 import { Salary } from '../biz/Salary.js';
 import { SocialSecurity } from '../biz/SocialSecurity.js';
 import { Cash } from '../biz/Cash.js';
-import { OptimizerReport } from '../cli/OptimizerReport.js';
 import { renderNetWorthChart } from './chart.js';
 
 const classes = {
     TaxableAccount, TraditionalIra, NonSpousalInheritedIra, RothIra, HsaAccount,
     Mortgage, LivingExpense, TaxCalculator, Medicare, Salary, SocialSecurity, Cash,
 };
+
+const CURRENCY = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+// Strips the bracket-index suffix candidate.columns' cap strings carry
+// (e.g. "49,000[0]") -- meaningful in the CLI table, where it cross-
+// references cfg.json's ltcgCeilingBracket/incomeCeilingBracket fields,
+// but meaningless jargon in a plain-language sentence. "none" (no cap)
+// becomes null (no cap line for that step) rather than a formatted string.
+function formatCap(cap) {
+    return cap === 'none' ? null : `$${cap.replace(/\[\d+\]$/, '')}`;
+}
+
+// Cash.js's categoryOf() identifiers, translated to the account type each
+// one is mostly drawn from -- a generalization (categoryOf() also puts
+// NonSpousalInheritedIra under 'income' and HsaAccount under 'taxFree',
+// but HsaAccount is never actually part of produce()'s withdrawal walk --
+// see CLAUDE.md's Cash.js note -- so 'taxFree' means RothIra in practice
+// for this list).
+const CATEGORY_ACCOUNT_NAME = { ltcg: 'Taxable Account', income: 'Traditional IRA', taxFree: 'Roth IRA' };
+
+function categoryCap(candidate, category) {
+    if (category === 'ltcg') {
+        return formatCap(candidate.columns['ltcg cap']);
+    }
+    if (category === 'income') {
+        return formatCap(candidate.columns['income cap']);
+    }
+    return null;
+}
+
+// Builds the plain-language strategy summary directly as DOM nodes
+// (headline, a note on the chosen Social Security claim age, an ordered
+// withdrawal-sequence list) -- replaces the raw CLI-style candidate/
+// ending-balances table, fine on a terminal, not on a web page.
+//
+// Net worth/failure come from the *last* OPTIMIZE_VARIABLES result --
+// since runAll() folds each variable's winner into the next one's
+// evaluation, only the last variable's own re-run reflects every
+// variable's choice combined (the final plan) -- same choice
+// renderResults() already makes for the chart. The withdrawal-order and
+// claim-age details themselves are looked up by label instead, since
+// with two variables now in OPTIMIZE_VARIABLES neither is reliably
+// "last" -- see Optimizer.js's runAll() doc comment for why withdrawal
+// order specifically runs first.
+function renderStrategy(container, results) {
+    container.innerHTML = '';
+    const finalPlan = results[results.length - 1];
+    const finalCandidate = finalPlan.netWorth.best;
+    const failedYear = finalPlan.failedYears.get(finalCandidate);
+
+    const p = (text) => {
+        const el = document.createElement('p');
+        el.textContent = text;
+        container.appendChild(el);
+    };
+
+    if (failedYear !== undefined) {
+        p(`This plan runs out of money in ${failedYear}. Try lowering yearly spending or adjusting other assumptions.`);
+        return;
+    }
+
+    p(`Simulation results: net worth ${CURRENCY.format(finalPlan.netWorth.score)} at life expectancy.`);
+
+    const claimAge = results.find((r) => r.label === 'Social Security claim age').netWorth.best;
+    if (claimAge !== undefined) {
+        p(`Social Security starts at age ${claimAge} -- chosen to maximize lifetime benefit without running out of money before then.`);
+    }
+
+    const withdrawalCandidate = results.find((r) => r.label === 'Withdrawal category order + ceilings').netWorth.best;
+    if (withdrawalCandidate.categoryOrder) {
+        p('Account withdrawal sequence for this strategy to work:');
+        const list = document.createElement('ol');
+        for (const category of withdrawalCandidate.categoryOrder) {
+            const cap = categoryCap(withdrawalCandidate, category);
+            const item = document.createElement('li');
+            item.textContent = `${CATEGORY_ACCOUNT_NAME[category] ?? category}${cap ? ` up to ${cap} per year` : ''}`;
+            list.appendChild(item);
+        }
+        container.appendChild(list);
+    }
+}
 
 // defaultValue is compared with a tolerance rather than exact float
 // equality, since it's computed the same way (fractions of a percent
@@ -191,11 +271,7 @@ async function importFields(file) {
 let currentChart = null;
 
 function renderResults(results) {
-    const resultsDiv = document.getElementById('results');
-    resultsDiv.innerHTML = '';
-    const pre = document.createElement('pre');
-    pre.textContent = new OptimizerReport().report(results);
-    resultsDiv.appendChild(pre);
+    renderStrategy(document.getElementById('results'), results);
 
     currentChart?.destroy();
     currentChart = null;
