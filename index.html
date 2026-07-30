@@ -177,7 +177,14 @@
     .add-row { display: flex; gap: 0.75rem; align-items: center; margin-top: 1rem; }
     .add-row select { padding: 0.5rem 0.6rem; border: 1px solid #bbb; border-radius: 6px; font-size: 1rem; background: #fff; }
     .add-row button, .subsection button { margin: 0; }
-    .subsection { margin-top: 1.5rem; }
+    /* Spaced like a field rather than as a section of its own: it sits in
+       a column beside real fields, and its own margin on top of the
+       stack's gap pushed it half a row below the field it should line up
+       with. The label-to-content gap matches .field's exactly. */
+    .subsection { margin-top: 0; }
+    .subsection .boxes { margin-top: 0.4rem; }
+    .subsection .add-row { margin-top: 0.4rem; }
+    .subsection .boxes:not(:empty) + .add-row { margin-top: 0.75rem; }
     .sublabel { font-size: 0.9rem; font-weight: 500; }
     button.danger { background: #fff; color: #b91c1c; border: 1px solid #b91c1c; }
     button.danger:hover { background: #fef2f2; }

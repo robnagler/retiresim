@@ -2,6 +2,8 @@
 
 ## 2026-07-31
 
+* 17:31:31 **Update**: Lined the one-time expenses block up with the fields beside it. It carried its own top margin on top of the column's gap, and its add row carried another, so it sat most of a row below the field it should have matched.
+* 17:30:34 **Prompt**: "the one-time expenses don't line up well see screenshot"
 * 17:28:33 **Update**: When every trial emptied, the sentence now says so outright rather than leaving the reader to notice the count above covered the whole batch. Used "by age" rather than "before age", since the last plan ran out during that year rather than ahead of it.
 * 17:28:00 **Prompt**: "All plans ran out before age 83"
 * 17:26:22 **Update**: The failure sentence now reports ages rather than calendar years, taking the birth year from the Medicare entry, which every built config carries since Medicare needs one to know when premiums start.
