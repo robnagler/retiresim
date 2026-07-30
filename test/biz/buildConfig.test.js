@@ -146,25 +146,83 @@ test('optional accounts and income sources are included only when a value is sup
         ...MINIMAL_INPUT,
         monthlySalary: 10000,
         socialSecurityAt67: 3000,
-        mortgageBalance: 300000,
-        mortgageRate: 0.05,
-        mortgageEndYear: 2045,
-        taxableBalance: 500000,
-        traditionalIraBalance: 400000,
-        rothIraBalance: 100000,
-        inheritedIraBalance: 50000,
-        inheritedIraYear: 2015,
-        hsaBalance: 40000,
+        accounts: [
+            { type: 'TaxableAccount', name: 'Taxable', balance: 500000 },
+            { type: 'TraditionalIra', name: 'Traditional', balance: 400000 },
+            { type: 'RothIra', name: 'Roth', balance: 100000 },
+            { type: 'NonSpousalInheritedIra', name: 'Inherited', balance: 50000, inheritedYear: 2015 },
+            { type: 'HsaAccount', name: 'HSA', balance: 40000 },
+            { type: 'Mortgage', name: 'House', balance: 300000, rate: 0.05, endYear: 2045 },
+        ],
     });
     const withdrawalNames = filled.Cash.withdrawalOrder.map((e) => e.name);
-    assert.deepEqual(withdrawalNames, ['TaxableAccount', 'TraditionalIra', 'RothIra', 'NonSpousalInheritedIra', 'HsaAccount']);
+    assert.deepEqual(withdrawalNames, ['Taxable', 'Traditional', 'Roth', 'Inherited', 'HSA']);
     const incomeNames = filled.Cash.incomeOrder.map((e) => e.name);
     assert.deepEqual(incomeNames, ['Salary', 'SocialSecurity']);
-    assert.ok(filled.Cash.spendingOrder.find((e) => e.name === 'Mortgage'));
+    assert.ok(filled.Cash.spendingOrder.find((e) => e.name === 'House'));
+});
+
+test('an account keeps the name the user gave it, with the type carried separately as the class', () => {
+    const data = buildConfigData({
+        ...MINIMAL_INPUT,
+        accounts: [{ type: 'TaxableAccount', name: 'Vanguard brokerage', balance: 1000 }],
+    });
+
+    const entry = data.Cash.withdrawalOrder[0];
+    assert.equal(entry.name, 'Vanguard brokerage');
+    assert.equal(entry.class, 'TaxableAccount');
+});
+
+test('two accounts of the same type both appear, which the single-field form could never express', () => {
+    const data = buildConfigData({
+        ...MINIMAL_INPUT,
+        accounts: [
+            { type: 'TaxableAccount', name: 'Brokerage', balance: 500000 },
+            { type: 'TaxableAccount', name: 'Savings', balance: 100000 },
+        ],
+    });
+
+    assert.deepEqual(data.Cash.withdrawalOrder.map((e) => e.balance), [500000, 100000]);
+    assert.deepEqual(data.Cash.withdrawalOrder.map((e) => e.class), ['TaxableAccount', 'TaxableAccount']);
+});
+
+test('a duplicate account name throws, since Bookkeeper keys accounts by name and the second would shadow the first', () => {
+    assert.throws(() => buildConfigData({
+        ...MINIMAL_INPUT,
+        accounts: [
+            { type: 'TaxableAccount', name: 'Brokerage', balance: 1 },
+            { type: 'RothIra', name: 'Brokerage', balance: 2 },
+        ],
+    }), /name=Brokerage/);
+});
+
+test('an account with no balance is skipped, so an empty box is not a zero-balance account', () => {
+    const data = buildConfigData({
+        ...MINIMAL_INPUT,
+        accounts: [{ type: 'TaxableAccount', name: 'Empty' }, { type: 'RothIra', name: 'Roth', balance: 10 }],
+    });
+
+    assert.deepEqual(data.Cash.withdrawalOrder.map((e) => e.name), ['Roth']);
+});
+
+test('lump sums collapse into one LumpSum entry, with two in the same year added together', () => {
+    const data = buildConfigData({
+        ...MINIMAL_INPUT,
+        lumpSums: [{ year: 2030, amount: 40000 }, { year: 2035, amount: 20000 }, { year: 2030, amount: 10000 }],
+    });
+
+    assert.deepEqual(data.Cash.spendingOrder.find((e) => e.name === 'LumpSum').amounts, { 2030: 50000, 2035: 20000 });
+});
+
+test('no LumpSum entry at all when none were entered, rather than one with an empty map', () => {
+    assert.equal(buildConfigData(MINIMAL_INPUT).Cash.spendingOrder.find((e) => e.name === 'LumpSum'), undefined);
 });
 
 test('Mortgage balance is stored negative (a liability), and rate/endYear pass through', () => {
-    const data = buildConfigData({ ...MINIMAL_INPUT, mortgageBalance: 300000, mortgageRate: 0.05, mortgageEndYear: 2045 });
+    const data = buildConfigData({
+        ...MINIMAL_INPUT,
+        accounts: [{ type: 'Mortgage', name: 'Mortgage', balance: 300000, rate: 0.05, endYear: 2045 }],
+    });
 
     const mortgage = data.Cash.spendingOrder.find((e) => e.name === 'Mortgage');
     assert.equal(mortgage.balance, -300000);
@@ -173,7 +231,10 @@ test('Mortgage balance is stored negative (a liability), and rate/endYear pass t
 });
 
 test('TaxableAccount defaults basis to the full entered balance -- no unrealized gain assumed', () => {
-    const data = buildConfigData({ ...MINIMAL_INPUT, taxableBalance: 500000 });
+    const data = buildConfigData({
+        ...MINIMAL_INPUT,
+        accounts: [{ type: 'TaxableAccount', name: 'TaxableAccount', balance: 500000 }],
+    });
 
     const taxable = data.Cash.withdrawalOrder.find((e) => e.name === 'TaxableAccount');
     assert.equal(taxable.balance, 500000);
@@ -210,7 +271,12 @@ test('Social Security claimAge is fixed at 67, and fraMonthlyBenefit passes thro
 });
 
 test('HsaAccount.zeroBalanceYear defaults to birthYear + lifeExpectancy', () => {
-    const data = buildConfigData({ ...MINIMAL_INPUT, birthYear: 1960, lifeExpectancy: 90, hsaBalance: 40000 });
+    const data = buildConfigData({
+        ...MINIMAL_INPUT,
+        birthYear: 1960,
+        lifeExpectancy: 90,
+        accounts: [{ type: 'HsaAccount', name: 'HsaAccount', balance: 40000 }],
+    });
 
     const hsa = data.Cash.withdrawalOrder.find((e) => e.name === 'HsaAccount');
     assert.equal(hsa.zeroBalanceYear, 1960 + 90);

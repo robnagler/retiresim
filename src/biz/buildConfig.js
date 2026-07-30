@@ -101,6 +101,41 @@ function currentYear() {
     return new Date().getFullYear();
 }
 
+// The per-type fields each account needs beyond name and balance. Mortgage
+// is absent because it is a spender, handled separately below.
+const ACCOUNT_FIELDS = {
+    // The form doesn't collect basis separately -- assuming the whole
+    // entered balance is basis (no unrealized gain yet) is the
+    // conservative, simple default: early withdrawals realize no gain until
+    // the account grows past this starting value.
+    TaxableAccount: (account) => ({ basis: account.balance }),
+    TraditionalIra: (account, { birthYear }) => ({ birthYear }),
+    RothIra: () => ({ withdraw: 0 }),
+    NonSpousalInheritedIra: (account, { birthYear }) => ({ birthYear, inheritedYear: account.inheritedYear }),
+    // Spend the HSA down over life, matching CLAUDE.md's "medical expenses
+    // over life" framing -- the same horizon as the simulation itself.
+    HsaAccount: (account, { endYear }) => ({ zeroBalanceYear: endYear }),
+};
+
+function accountName(account) {
+    return account.name ?? account.type;
+}
+
+// Bookkeeper keys its accounts by name, so two accounts sharing one would
+// have the second silently shadow the first -- a wrong simulation rather
+// than an error. The form numbers duplicates as it creates them; this is
+// the check that a hand-edited import cannot get past.
+function checkAccountNames(accounts) {
+    const seen = new Set();
+    for (const account of accounts) {
+        const name = accountName(account);
+        if (seen.has(name)) {
+            throw new Error(`name=${name} used by more than one account`);
+        }
+        seen.add(name);
+    }
+}
+
 // Amounts that are flows rather than balances arrive monthly, which is how
 // a salary, a benefit and a premium are all quoted in real life. The keys
 // say so (monthlySalary, monthlySpending) rather than leaving it to a form
@@ -117,15 +152,8 @@ export function buildConfigData(input) {
         monthlySalary,
         socialSecurityAt67,
         medicarePartG,
-        mortgageBalance,
-        mortgageRate,
-        mortgageEndYear,
-        taxableBalance,
-        traditionalIraBalance,
-        rothIraBalance,
-        inheritedIraBalance,
-        inheritedIraYear,
-        hsaBalance,
+        accounts = [],
+        lumpSums = [],
         lifeExpectancy,
         retirementYear,
         monthlySpending,
@@ -134,28 +162,27 @@ export function buildConfigData(input) {
         investmentReturn,
     } = input;
     const endYear = birthYear + lifeExpectancy;
+    checkAccountNames(accounts);
 
+    // Every entry carries an explicit class rather than relying on
+    // Bookkeeper's name-prefix fallback, so a name is free text the user
+    // chose ("Vanguard brokerage") rather than something that has to start
+    // with a class name and avoid a dash.
     const withdrawalOrder = [];
-    if (taxableBalance) {
-        // The form doesn't collect basis separately -- assuming the whole
-        // entered balance is basis (no unrealized gain yet) is the
-        // conservative, simple default: early withdrawals realize no gain
-        // until the account grows past this starting value.
-        withdrawalOrder.push({ name: 'TaxableAccount', balance: taxableBalance, basis: taxableBalance });
-    }
-    if (traditionalIraBalance) {
-        withdrawalOrder.push({ name: 'TraditionalIra', balance: traditionalIraBalance, birthYear });
-    }
-    if (rothIraBalance) {
-        withdrawalOrder.push({ name: 'RothIra', balance: rothIraBalance, withdraw: 0 });
-    }
-    if (inheritedIraBalance) {
-        withdrawalOrder.push({ name: 'NonSpousalInheritedIra', balance: inheritedIraBalance, birthYear, inheritedYear: inheritedIraYear });
-    }
-    if (hsaBalance) {
-        // Spend HSA down over life, matching CLAUDE.md's "medical expenses
-        // over life" framing -- same horizon as the simulation itself.
-        withdrawalOrder.push({ name: 'HsaAccount', balance: hsaBalance, zeroBalanceYear: endYear });
+    const spendingOrder = [];
+    for (const account of accounts) {
+        if (!account.balance) {
+            continue;
+        }
+        const entry = { class: account.type, name: accountName(account), balance: account.balance };
+        if (account.type === 'Mortgage') {
+            // A liability, stored negative, and a spender rather than a
+            // source to withdraw from -- but still a box in the form, since
+            // "a balance you open to edit" is what that means to a user.
+            spendingOrder.push({ ...entry, balance: -account.balance, rate: account.rate, endYear: account.endYear });
+            continue;
+        }
+        withdrawalOrder.push({ ...entry, ...ACCOUNT_FIELDS[account.type](account, { birthYear, endYear }) });
     }
 
     const incomeOrder = [];
@@ -173,10 +200,20 @@ export function buildConfigData(input) {
         incomeOrder.push({ name: 'SocialSecurity', balance: 0, birthYear, claimAge: 67, fraMonthlyBenefit: socialSecurityAt67 });
     }
 
-    const spendingOrder = [];
-    if (mortgageBalance) {
-        // Mortgage.balance is a liability, stored negative.
-        spendingOrder.push({ name: 'Mortgage', balance: -mortgageBalance, rate: mortgageRate, endYear: mortgageEndYear });
+    // One LumpSum entry holds every one-time expense, since its cfg is
+    // already a year -> amount map; the form collects them as a list of
+    // {year, amount} rows because that is what a repeatable form row is.
+    // Two rows on the same year add together rather than one replacing the
+    // other, which is what entering two separate expenses in one year
+    // means.
+    const amounts = {};
+    for (const { year, amount } of lumpSums) {
+        if (year && amount) {
+            amounts[year] = (amounts[year] ?? 0) + amount;
+        }
+    }
+    if (Object.keys(amounts).length) {
+        spendingOrder.push({ name: 'LumpSum', balance: 0, amounts });
     }
     // LivingExpense.balance is the year's spending, so the monthly figure
     // is annualized here -- the one place the conversion still happens,
