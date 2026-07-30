@@ -20,10 +20,12 @@ accounts grow, the mortgage amortizes, required minimum distributions come
 out on schedule, Social Security starts when claimed, and each year's
 federal, Colorado, capital gains, and Social Security taxes are computed
 along with Medicare premiums and their income-based surcharge. On top of
-that simulation it searches for the plan that ends with the most money --
+that simulation it searches for a plan whose money lasts the whole way --
 which accounts to draw down in which order, how much to take from each
 before the tax cost outweighs the benefit, and how long to delay Social
-Security. Finally, it can stress-test the winning plan against sampled
+Security. A plan that runs out at any point is discarded outright, however
+good it looks up to that year; among the plans that survive, it prefers the
+one with the most left over. Finally, it can stress-test the winning plan against sampled
 real market history to show how often it survives.
 
 **What it does not do.** It is not financial advice, it models a single
