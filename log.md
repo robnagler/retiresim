@@ -2,6 +2,8 @@
 
 ## 2026-07-31
 
+* 16:57:04 **Update**: Snapped the bucket boundaries to 1, 2 and 5 within each power of ten, so the axis reads $100K, $200K, $500K, $1M rather than $119.6K, $190.2K, $302.3K. The screenshot also showed two smaller faults, both fixed: 199 of 200 surviving was being reported as 100% right beside a sentence saying one ran out, and a single failure year read "between 2041 and 2041".
+* 16:55:37 **Prompt**: "anyway to round out the buckets. i saved a image"
 * 16:53:53 **Update**: Back to a binned bar chart, keeping the log spacing but as labels on a plain category axis rather than a logarithmic scale -- which is what allows the trials that ran out to have a bucket of their own at the left, since zero cannot sit on a log scale at all. That bucket is labelled rather than priced, so it does not read as a range starting at zero, and it is absent entirely when nothing failed.
 * 16:52:00 **Prompt**: "go back to binned with log scale. put the 0s in the first bucket"
 * 16:49:55 **Update**: Put ending net worth on a logarithmic axis and spaced the bins by orders of magnitude to match, since equal dollar widths pile nearly everything into the first bucket. Trials that ran out are now left off the curve rather than binned: zero has no place on a log axis, and putting them in the lowest positive bin would read as surviving barely, which is the opposite of what happened. Their count is already stated in words beside the chart.

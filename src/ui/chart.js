@@ -95,7 +95,12 @@ export function renderNetWorthChart(canvas, series, ChartCtor = globalThis.Chart
     });
 }
 
-const DEFAULT_BINS = 12;
+// Bucket boundaries step 1, 2, 5 within each power of ten, the same
+// sequence axis ticks conventionally use. Dividing the log range into a
+// fixed number of equal parts is arithmetically tidier but labels the axis
+// $119.6K, $190.2K, $302.3K -- precise boundaries nobody chose and nobody
+// can hold in their head.
+const STEPS = [1, 2, 5];
 
 // The bucket for trials that ran out. It is labelled rather than priced
 // because it is not a dollar range: those trials all ended at exactly
@@ -103,37 +108,40 @@ const DEFAULT_BINS = 12;
 // there.
 const RAN_OUT_LABEL = 'Ran out';
 
+// Every 1-2-5 boundary from the one at or below low up to high.
+function niceBounds(low, high) {
+    const all = [];
+    for (let decade = Math.floor(Math.log10(low)); decade <= Math.ceil(Math.log10(high)); decade++) {
+        for (const step of STEPS) {
+            all.push(step * 10 ** decade);
+        }
+    }
+    const start = all.filter((bound) => bound <= low).pop() ?? all[0];
+    return all.filter((bound) => bound >= start && bound <= high);
+}
+
 // Buckets the trials' ending net worth for the histogram: {label, count}
 // per bin, lowest first, the failures first and then the survivors.
 //
-// The surviving bins are equal width in log space rather than in dollars.
-// Outcomes span orders of magnitude, so equal dollar widths put nearly
+// The surviving bins step by orders of magnitude rather than by equal
+// dollar amounts. Outcomes span several, so equal dollar widths put nearly
 // every trial in the first bucket and leave the rest of the axis empty.
 // The labels carry that spacing, so the axis reads logarithmically while
 // staying a plain category axis -- which is what lets the failures have a
 // bucket at all, since zero cannot be placed on a logarithmic scale.
-export function netWorthBins(results, binCount = DEFAULT_BINS) {
+export function netWorthBins(results) {
     const ranOut = results.filter((r) => r.netWorth <= 0).length;
     const first = ranOut ? [{ label: RAN_OUT_LABEL, count: ranOut }] : [];
     const values = results.map((r) => r.netWorth).filter((value) => value > 0);
     if (!values.length) {
         return first;
     }
-    const low = Math.min(...values);
-    const high = Math.max(...values);
-    if (low === high) {
-        return [...first, { label: CURRENCY.format(low), count: values.length }];
-    }
-    const logLow = Math.log10(low);
-    const width = (Math.log10(high) - logLow) / binCount;
-    const bins = Array.from({ length: binCount }, (unused, i) => ({
-        label: CURRENCY.format(10 ** (logLow + i * width)),
-        count: 0,
-    }));
+    const bounds = niceBounds(Math.min(...values), Math.max(...values));
+    const bins = bounds.map((bound) => ({ label: CURRENCY.format(bound), count: 0 }));
     for (const value of values) {
-        // The maximum would land one past the end by the same arithmetic
-        // every other value uses, so it goes in the top bin instead.
-        bins[Math.min(binCount - 1, Math.floor((Math.log10(value) - logLow) / width))].count += 1;
+        // The last boundary at or below the value: findLast rather than a
+        // computed index, since the boundaries are not evenly spaced.
+        bins[bounds.findLastIndex((bound) => bound <= value)].count += 1;
     }
     return [...first, ...bins];
 }

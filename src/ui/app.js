@@ -490,6 +490,18 @@ const ROBUSTNESS_TRIALS = 200;
 // leaves open -- how often this plan survives real market history -- and
 // doing it automatically means the plan being stress-tested is always the
 // plan just chosen, rather than whatever was last copied somewhere by hand.
+// Rounded to a whole percent, except that it never rounds up to 100% while
+// any trial failed: 199 of 200 surviving is 99.5%, and reporting it as 100%
+// beside a sentence saying one ran out is the sort of contradiction that
+// makes a reader distrust the rest of the page.
+function survivedPercent(survived, total) {
+    const percent = (100 * survived) / total;
+    if (survived < total && percent > 99) {
+        return `${percent.toFixed(1)}%`;
+    }
+    return `${percent.toFixed(0)}%`;
+}
+
 function renderRobustness(configData, results) {
     const container = document.getElementById('robustness');
     container.innerHTML = '';
@@ -505,14 +517,18 @@ function renderRobustness(configData, results) {
         el.textContent = text;
         container.appendChild(el);
     };
-    p(`Tested against ${trials.length} sampled market histories: the money lasted in ${survived} of them (${((100 * survived) / trials.length).toFixed(0)}%).`);
+    p(`Tested against ${trials.length} sampled market histories: the money lasted in ${survived} of them (${survivedPercent(survived, trials.length)}).`);
     // Median rather than mean: the spread is heavily right-skewed, since a
     // few lucky histories compound to outsized totals while every insolvent
     // one sits at exactly zero.
     p(`Typical ending net worth ${CURRENCY.format(percentile(0.5))}, ranging from ${CURRENCY.format(percentile(0.1))} in the worst tenth to ${CURRENCY.format(percentile(0.9))} in the best tenth.`);
     if (insolvent.length) {
         const years = insolvent.map((t) => t.failedYear);
-        p(`When it ran out, that happened between ${Math.min(...years)} and ${Math.max(...years)}.`);
+        const first = Math.min(...years);
+        const last = Math.max(...years);
+        p(first === last
+            ? `When it ran out, that happened in ${first}.`
+            : `When it ran out, that happened between ${first} and ${last}.`);
     }
     return trials;
 }

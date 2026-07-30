@@ -90,32 +90,36 @@ test('renderNetWorthChart formats the y-axis as compact currency', () => {
 });
 
 test('netWorthBins counts every trial, the ones that ran out first and then the survivors', () => {
-    const results = [0, 100, 1000, 10000, 100000].map((netWorth) => ({ netWorth }));
-
-    const bins = netWorthBins(results, 4);
+    const bins = netWorthBins([0, 100, 1000, 10000, 100000].map((netWorth) => ({ netWorth })));
 
     assert.equal(bins.reduce((sum, bin) => sum + bin.count, 0), 5);
     assert.equal(bins[0].label, 'Ran out');
     assert.equal(bins[0].count, 1);
 });
 
-test('netWorthBins spaces the surviving bins by orders of magnitude, since equal dollar widths would pile up in the first', () => {
-    const bins = netWorthBins([{ netWorth: 100 }, { netWorth: 100000 }], 3);
+test('netWorthBins steps buckets by 1, 2 and 5 within each power of ten, so the labels are numbers someone would have chosen', () => {
+    const bins = netWorthBins([100000, 20000000].map((netWorth) => ({ netWorth })));
 
-    // 100 to 100,000 is three decades, so one bin per decade, and no
-    // "Ran out" bucket since nothing ran out.
-    assert.deepEqual(bins.map((bin) => bin.label), ['$100', '$1K', '$10K']);
+    assert.deepEqual(bins.map((bin) => bin.label), [
+        '$100K', '$200K', '$500K', '$1M', '$2M', '$5M', '$10M', '$20M',
+    ]);
 });
 
-test('netWorthBins puts the highest value in the top bin rather than one past the end', () => {
-    const bins = netWorthBins([{ netWorth: 100 }, { netWorth: 100000 }], 4);
+test('netWorthBins starts at the boundary at or below the smallest value, so nothing falls off the left', () => {
+    const bins = netWorthBins([150000, 900000].map((netWorth) => ({ netWorth })));
 
-    assert.equal(bins[0].count, 1);
-    assert.equal(bins[bins.length - 1].count, 1);
+    assert.equal(bins[0].label, '$100K');
+    assert.equal(bins.reduce((sum, bin) => sum + bin.count, 0), 2);
+});
+
+test('netWorthBins puts each value in the last bucket at or below it', () => {
+    const bins = netWorthBins([100, 250, 700].map((netWorth) => ({ netWorth })));
+
+    assert.deepEqual(bins.map((bin) => [bin.label, bin.count]), [['$100', 1], ['$200', 1], ['$500', 1]]);
 });
 
 test('netWorthBins gives the failures their own labelled bucket rather than a dollar range starting at zero', () => {
-    const bins = netWorthBins([{ netWorth: 0 }, { netWorth: 0 }, { netWorth: 400 }], 4);
+    const bins = netWorthBins([{ netWorth: 0 }, { netWorth: 0 }, { netWorth: 400 }]);
 
     assert.equal(bins[0].label, 'Ran out');
     assert.equal(bins[0].count, 2);
@@ -123,15 +127,17 @@ test('netWorthBins gives the failures their own labelled bucket rather than a do
 });
 
 test('netWorthBins has no failure bucket when nothing failed, so an empty one never implies otherwise', () => {
-    assert.equal(netWorthBins([{ netWorth: 400 }, { netWorth: 500 }], 4)[0].label, '$400');
+    assert.equal(netWorthBins([{ netWorth: 400 }, { netWorth: 500 }])[0].label, '$200');
 });
 
 test('netWorthBins is only the failure bucket when every trial ran out', () => {
-    assert.deepEqual(netWorthBins([{ netWorth: 0 }, { netWorth: 0 }], 4), [{ label: 'Ran out', count: 2 }]);
+    assert.deepEqual(netWorthBins([{ netWorth: 0 }, { netWorth: 0 }]), [{ label: 'Ran out', count: 2 }]);
 });
 
-test('netWorthBins collapses the survivors to a single bin when they all land on the same value, instead of dividing by zero', () => {
-    assert.deepEqual(netWorthBins([{ netWorth: 500 }, { netWorth: 500 }], 4), [{ label: '$500', count: 2 }]);
+test('netWorthBins puts every trial in one bucket when they all land on the same value', () => {
+    const bins = netWorthBins([{ netWorth: 500 }, { netWorth: 500 }]);
+
+    assert.equal(bins.reduce((sum, bin) => sum + bin.count, 0), 2);
 });
 
 test('renderRobustnessChart builds a bar per bin, counting every trial including the ones that ran out', () => {
