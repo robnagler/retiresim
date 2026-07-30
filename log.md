@@ -2,6 +2,23 @@
 
 ## 2026-07-31
 
+* 16:20:04 **Answer**: (added retroactively, missed logging it in real time) Acknowledged that the instruction to stop logging covered only the other repository's thread, and that every simulator change since should have been recorded; backfilled the run of entries below and resumed.
+* 16:20:00 **Prompt**: "you should be logging all this stuff, because it is about the simulator"
+* 16:19:39 **Update**: (added retroactively) Put the section boxes back, held the intro line to the form column's width so it wraps on the left, and widened the gap between the columns.
+* 16:19:00 **Prompt**: (added retroactively) "wrap the the text 'Finds which' so that it fits on the left. put a bit more space between left and right. put the boxes back. that added nice detail"
+* 16:10:00 **Update**: (added retroactively) Moved the buttons to head the results column rather than spanning the page, matching the sketch of where they belong. An earlier attempt in the same turn removed them from the page entirely, since the replacement text did not match the indentation, which the id check caught before it reached the browser.
+* 16:08:43 **Prompt**: (added retroactively) "the buttons are in the wrong place. see new screenshot." with a sketch of the wanted layout
+* 16:05:22 **Update**: (added retroactively) Split personal decisions into the two columns asked for, moved the buttons up, dropped the section boxes, and fixed the resize complaint: the form column was elastic and the account boxes auto-filled, so both reflowed on any width change. The form column is now fixed and only the results column absorbs the extra width.
+* 16:03:47 **Prompt**: (added retroactively) "personal decisions should be monthly salary, spending monthly, add expense. right should be retirement year, life expectency, monthly social, and medicap. move the optimzie export and import to the top center..." with two screenshots
+* 15:56:00 **Update**: (added retroactively) Opened PR #15 for issue #7; CI green.
+* 15:55:28 **Update**: (added retroactively) Built issue #7 -- the form is now four sections with the results beside it, accounts are boxes opening a native dialog and addable from a menu so more than one of a kind finally works, one-time expenses are enterable at last, and the exported file carries a version that import checks. One table drives the type menu, the dialog fields and their help, with a test that it stays in step with what the config builder can build. 249/249 tests pass.
+* 15:52:00 **Answer**: (added retroactively) On a colleague's suggestion of a per-year transaction list: the CLI already prints one, and the real gap is that a downloaded file cannot be fed to it, since export writes the form's own shape rather than an expanded config. Separated that small fix from the larger job of showing the same thing in the browser.
+* 15:52:00 **Prompt**: (added retroactively) A colleague's suggestion of a year-by-year transaction list with a running balance, and the note that importing a downloaded file into the CLI does not work
+* 15:42:43 **Prompt**: (added retroactively) "7"
+* 15:41:00 **Update**: (added retroactively) Dropped the branch started for issue #2 without writing anything to it.
+* 15:41:00 **Prompt**: (added retroactively) "not 2"
+* 15:40:48 **Update**: (added retroactively) Synced main and deleted the two merged branches, both squash-merged again, after confirming their content was in main.
+* 15:40:00 **Prompt**: (added retroactively) "both are merged"
 * 14:46:23 **Update**: Built issue #12 -- exports are now named with a local-time timestamp from a small tested module, so each one is its own file and a directory of them sorts by name into sorted by age. Noticed while checking it that node in this shell resolves the timezone an hour off, because the inherited TZ value is a path rather than an IANA name that node can parse; browsers read the system zone directly and are unaffected. 237/237 tests pass.
 * 14:45:03 **Prompt**: "#12"
 * 14:43:28 **Update**: Committed as `5d89857` and opened PR #13 for issue #11; CI passed.
