@@ -555,7 +555,14 @@ function renderResults(configData, results) {
     if (trials === null) {
         document.getElementById('robustness').innerHTML = '';
     }
-    drawChart('robustnessChartContainer', 'robustnessChart', trials, renderRobustnessChart);
+    // Below a month's spending the trials stop differing in any way that
+    // matters, so they share one bucket rather than several (see
+    // netWorthBins). Taken from the plan itself, so it scales with the
+    // household rather than being a fixed figure that is meaningless for
+    // one person and half their savings for another.
+    const monthlySpending = configData.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance / 12;
+    drawChart('robustnessChartContainer', 'robustnessChart', trials,
+        (canvas, series) => renderRobustnessChart(canvas, series, monthlySpending));
 }
 
 // How far down and right of the [?] the popover's top-left corner sits,

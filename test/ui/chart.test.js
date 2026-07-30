@@ -134,6 +134,25 @@ test('netWorthBins is only the failure bucket when every trial ran out', () => {
     assert.deepEqual(netWorthBins([{ netWorth: 0 }, { netWorth: 0 }]), [{ label: 'Ran out', count: 2 }]);
 });
 
+test('netWorthBins groups everything below the floor into one bucket, since those outcomes do not differ in any way that matters', () => {
+    const results = [0, 2000, 6000, 9000, 100000, 900000].map((netWorth) => ({ netWorth }));
+
+    const bins = netWorthBins(results, 10000);
+
+    assert.deepEqual(bins.slice(0, 2), [{ label: 'Ran out', count: 1 }, { label: 'Under $10K', count: 3 }]);
+    assert.equal(bins.reduce((sum, bin) => sum + bin.count, 0), 6);
+});
+
+test('netWorthBins keeps the near-broke bucket separate from the failures, whose count is stated in words beside the chart', () => {
+    const bins = netWorthBins([{ netWorth: 0 }, { netWorth: 500 }], 10000);
+
+    assert.deepEqual(bins, [{ label: 'Ran out', count: 1 }, { label: 'Under $10K', count: 1 }]);
+});
+
+test('netWorthBins has no under-floor bucket when every trial cleared it', () => {
+    assert.equal(netWorthBins([{ netWorth: 400000 }, { netWorth: 900000 }], 10000)[0].label, '$200K');
+});
+
 test('netWorthBins puts every trial in one bucket when they all land on the same value', () => {
     const bins = netWorthBins([{ netWorth: 500 }, { netWorth: 500 }]);
 
@@ -143,7 +162,7 @@ test('netWorthBins puts every trial in one bucket when they all land on the same
 test('renderRobustnessChart builds a bar per bin, counting every trial including the ones that ran out', () => {
     const results = [0, 100, 200, 300].map((netWorth, trial) => ({ trial, netWorth, failedYear: netWorth === 0 ? 2040 : null }));
 
-    const chart = renderRobustnessChart({}, results, FakeChart);
+    const chart = renderRobustnessChart({}, results, 0, FakeChart);
 
     assert.equal(chart.config.type, 'bar');
     assert.equal(chart.config.data.datasets.length, 1);

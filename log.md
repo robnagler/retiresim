@@ -2,6 +2,8 @@
 
 ## 2026-07-31
 
+* 17:06:39 **Update**: Everything below a month's spending now shares one bucket instead of spreading over three or four bars that say the same thing. The threshold comes from the plan's own spending rather than being a fixed figure, and the bucket stays separate from the failures, since those trials did last the whole way and merging them would put a number on that bar disagreeing with the failure count stated beside the chart.
+* 17:00:00 **Prompt**: "the 2k, 5k, 10k are legit but they are immaterial. i think 10k (or monthly spending) is probably like 'ran out'. from a ui point of view it takes up too much space ven though it is correct."
 * 16:57:04 **Update**: Snapped the bucket boundaries to 1, 2 and 5 within each power of ten, so the axis reads $100K, $200K, $500K, $1M rather than $119.6K, $190.2K, $302.3K. The screenshot also showed two smaller faults, both fixed: 199 of 200 surviving was being reported as 100% right beside a sentence saying one ran out, and a single failure year read "between 2041 and 2041".
 * 16:55:37 **Prompt**: "anyway to round out the buckets. i saved a image"
 * 16:53:53 **Update**: Back to a binned bar chart, keeping the log spacing but as labels on a plain category axis rather than a logarithmic scale -- which is what allows the trials that ran out to have a bucket of their own at the left, since zero cannot sit on a log scale at all. That bucket is labelled rather than priced, so it does not read as a range starting at zero, and it is absent entirely when nothing failed.
