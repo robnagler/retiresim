@@ -56,6 +56,8 @@ which builds this shape for you automatically.
   optimizer itself). Pure, no console output, no DOM.
 - `src/cli/` -- the command-line entry point and its console reporting.
 - `src/ui/` -- the browser form, chart, and config-building glue.
+- `src/ext/` -- vendored third-party code, the only such code in the repo:
+  Chart.js (MIT), so the UI loads no CDN and works offline.
 - `test/` -- one test file per `src/` module, mirroring that same layout.
 
 `CLAUDE.md` has the full architecture writeup and the history behind most

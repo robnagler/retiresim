@@ -1,11 +1,12 @@
-// Thin wrapper around the CDN-loaded Chart.js (see index.html's
-// <script> tag) so app.js and the rest of the codebase never talk to the
-// third-party library directly -- keeps its API surface contained to
-// this one file, same spirit as every other module wrapping one
-// responsibility.
+// Thin wrapper around Chart.js, vendored at src/ext/chart.umd.js and
+// loaded by index.html's <script> tag (no CDN -- the page has to work as
+// a fully self-contained static site), so app.js and the rest of the
+// codebase never talk to the third-party library directly -- keeps its
+// API surface contained to this one file, same spirit as every other
+// module wrapping one responsibility.
 //
 // ChartCtor defaults to globalThis.Chart (Chart.js sets window.Chart when
-// loaded via its CDN script tag; globalThis.Chart resolves the same thing
+// loaded via that script tag; globalThis.Chart resolves the same thing
 // in a browser but is also safe to reference under plain node --test,
 // where it's simply undefined) -- tests pass a fake constructor instead,
 // the same "fake collaborator, not the real dependency" pattern already

@@ -2,6 +2,16 @@
 
 ## 2026-07-30
 
+* 21:25:33 **Update**: Vendored Chart.js (MIT) into a new `src/ext/` and pointed index.html's script tag at it, dropping the CDN so the UI is fully self-contained; added a `Disallow: /` robots.txt ahead of enabling Pages. Verified every asset resolves over a local static server; 207/207 tests pass.
+* 21:24:04 **Prompt**: "save a copy in src/ext directory" followed by "we don't need the cdn" and "put a robots.txt disallow for now"
+* 21:22:00 **Answer**: (added retroactively, missed logging it in real time) Measured the vendored Chart.js UMD build's size on disk and gzipped, and noted it would become the largest file in an otherwise all-hand-written repo; offered version-pinning plus an integrity hash as the alternative to vendoring.
+* 21:22:00 **Prompt**: (added retroactively, missed logging it in real time) "how big is the copy?"
+* 21:19:00 **Answer**: (added retroactively, missed logging it in real time) Walked through enabling GitHub Pages from the main branch root -- the site already needs no build step and uses only relative paths -- and flagged three decisions first: Jekyll rendering root markdown as browsable pages, search-engine indexing, and the real config staying untracked so the deployed form always starts empty.
+* 21:19:00 **Prompt**: (added retroactively, missed logging it in real time) "How can I publish this as a GitHub page?"
+* 21:15:00 **Answer**: (added retroactively, missed logging it in real time) Summarized project status: engine and reconciliation done, optimizer running two variables, robustness validator and UI both working, only log.md uncommitted, full test suite passing.
+* 21:15:00 **Prompt**: (added retroactively, missed logging it in real time) "where are we?"
+* 20:57:03 **Update**: Committed as `5c53444` and pushed `cdef8aa..5c53444` to origin/main.
+* 20:57:00 **Prompt**: "gckp"
 * 20:56:00 **Prompt**: "fix the readme first"
 * 20:56:00 **Update**: Rewrote README.md as the actual human-readable entry point -- title, description, a Running It section with real commands for tests/CLI/UI (none of this existed before), and a short pointer to CLAUDE.md for the denser architecture/history material. Also removed a stale Assumptions bullet claiming cash surplus is never swept into an asset account, which stopped being true once Cash.sweepSurplus() was added earlier in the project.
 * 20:52:00 **Prompt**: "is that documentation for you or me? it's not readable by a human" followed by "perhaps we need a wiki"
