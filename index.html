@@ -51,6 +51,56 @@
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
     }
     .hint { color: #888; font-size: 0.8em; margin-top: 0.35rem; }
+    .intro { color: #444; margin: -0.75rem 0 1.5rem; }
+    /* A plain ASCII "?" drawn into a circle with CSS rather than a Unicode
+       circled-question-mark character: the only real candidates are emoji
+       (U+2753) or an information glyph (U+24D8), which render in a
+       different font at a different size and are missing outright in some
+       system fonts. This looks identical everywhere and stays a real
+       button, so it is keyboard-focusable and screen-reader labeled. */
+    .help {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.05rem;
+      height: 1.05rem;
+      padding: 0;
+      margin: 0 0 0 0.35rem;
+      border: 1px solid #bbb;
+      border-radius: 50%;
+      background: #fff;
+      color: #666;
+      font-size: 0.72rem;
+      font-weight: 700;
+      line-height: 1;
+      cursor: help;
+      vertical-align: middle;
+    }
+    .help:hover, .help:focus-visible { border-color: #2563eb; color: #2563eb; }
+    /* [popover] elements sit in the browser's top layer, so this positions
+       itself over the page without any z-index wrangling. The UA default
+       centers them in the viewport (inset: 0 plus margin: auto), which puts
+       a field's help nowhere near the [?] that opened it -- these two
+       declarations hand placement to app.js's placePopover() instead. */
+    [popover] {
+      position: fixed;
+      inset: auto;
+      margin: 0;
+      max-width: 22rem;
+      /* Keeps a long one (the intro) from being taller than the window,
+         which would leave nowhere on screen to place it near its [?]. */
+      max-height: 60vh;
+      overflow-y: auto;
+      padding: 0.75rem 0.9rem;
+      border: 1px solid #bbb;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+      font-size: 0.85rem;
+      line-height: 1.45;
+      color: #333;
+    }
+    [popover] p { margin: 0 0 0.6rem; }
+    [popover] p:last-child { margin-bottom: 0; }
     button {
       font-size: 1rem;
       font-weight: 500;
@@ -65,6 +115,19 @@
     button:hover { background: #1d4ed8; }
     button.secondary { background: #fff; color: #2563eb; border: 1px solid #2563eb; }
     button.secondary:hover { background: #eff6ff; }
+    /* Set on Export by app.js whenever the form has changes that are not
+       in a file yet, since that is the only moment the button matters.
+       A deliberately different blue from Optimize's #2563eb -- this one
+       leans teal -- so the two filled buttons never read as the same
+       control. Dark enough that white label text still clears the 4.5:1
+       contrast minimum, which a brighter sky blue does not. */
+    button.needs-export {
+      background: #0369a1;
+      color: #fff;
+      border-color: #0369a1;
+      box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.2);
+    }
+    button.needs-export:hover { background: #075985; }
     .button-row { display: flex; gap: 0.75rem; align-items: center; }
     #results {
       background: #f4f4f4;
@@ -86,6 +149,18 @@
 </head>
 <body>
   <h1>Retirement Simulator</h1>
+  <!-- The one-liner is always visible; the fuller explanation sits behind
+       the [?]. Both live in the markup rather than being generated, so the
+       page still explains itself if the module scripts fail to load. -->
+  <p class="intro">
+    Finds which accounts to spend from, and when to claim Social Security, so your money lasts through retirement.
+    <button type="button" class="help" data-help-for="introHelp" aria-label="More about this simulator">?</button>
+  </p>
+  <div popover="manual" id="introHelp">
+    <p>Enter what you have and what you expect. Your finances are simulated year by year, including taxes and Medicare, to find a plan that does not run out -- and, among those, the one that leaves the most.</p>
+    <p>Export saves a copy of the settings below so you can re-import it. The program runs entirely in this browser window. It doesn't send anything to a server.</p>
+    <p><strong>Not financial advice.</strong> The results are only as good as your assumptions, especially the investment return.</p>
+  </div>
   <form id="planForm">
     <fieldset>
       <legend>Facts</legend>
@@ -200,6 +275,9 @@
       <button type="button" id="importButton" class="secondary">Import</button>
       <input type="file" id="importFile" accept="application/json" style="display: none;">
     </div>
+    <!-- The browser's own leave-the-page dialog cannot be given custom
+         wording, so the explanation lives here instead. -->
+    <p class="hint">Export saves a copy of these settings so you can re-import it later. Reloading the page starts over.</p>
   </form>
 
   <div id="results"></div>

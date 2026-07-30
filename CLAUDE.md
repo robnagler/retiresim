@@ -1,5 +1,24 @@
 # Financial Planner Project Brief
 
+## TODO
+- graph the accounts accounts over time
+- do a tax optimization in the given year to see which accounts do
+- better this is a special important when a lump sum is used
+- Consider a roth conversion: spread over years, all at once.
+- Should i put the graph on right?
+- Explain at top
+- Log.md is fine
+- Dirty don't leave page prompt user to export
+- Robustness graph distribution after optmized (automatically)
+- Adding accounts dynamically. Basic Facts, Account Balances, Personal Decisions, Future Economy
+- The accounts are names in boxes: Non-Spousal Inherited IRA, then click on one to open it to a form
+- should we use bootstrap?
+- Order of withdrawal is fixed by algorithm or is it dynamic in a year?
+- Move Economy in one column and personal stuff on the left.
+- Change Readme to introduce the project
+- The wiki should be about details
+
+
 ## Goal
 
 Develop a Javascript financial planning simulator and optimizer that produces
