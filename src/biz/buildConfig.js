@@ -44,6 +44,8 @@ const LTCG_BRACKETS = [
 // instead of propagating that staleness.
 const STANDARD_DEDUCTION = 15750;
 
+const MONTHS_PER_YEAR = 12;
+
 // Social Security taxability thresholds -- never inflation-indexed in
 // real law since enacted in the 1980s/90s, so these stay fixed (see
 // CLAUDE.md's TaxCalculator.js note).
@@ -91,7 +93,7 @@ export function applyDefaults(configData) {
     tax.ssProvisionalIncomeThresholds ??= SS_PROVISIONAL_INCOME_THRESHOLDS;
     tax.stateRate ??= COLORADO_STATE_RATE;
     const salary = (data.Cash.incomeOrder ?? []).find((e) => e.name === 'Salary');
-    tax.initialMagi ??= salary ? salary.monthlyAmount * 12 : 0;
+    tax.initialMagi ??= salary ? salary.monthlyAmount * MONTHS_PER_YEAR : 0;
     return data;
 }
 
@@ -99,10 +101,20 @@ function currentYear() {
     return new Date().getFullYear();
 }
 
+// Amounts that are flows rather than balances arrive monthly, which is how
+// a salary, a benefit and a premium are all quoted in real life. The keys
+// say so (monthlySalary, monthlySpending) rather than leaving it to a form
+// label, since the whole failure this prevents is a figure entered under
+// the wrong convention: an annual number read as monthly is wrong by
+// twelve with nothing to flag it. Renaming rather than reinterpreting also
+// means a file exported before this change leaves the field blank on
+// import, which is visible, instead of silently meaning twelve times as
+// much. socialSecurityAt67 and medicarePartG were already monthly and keep
+// their names for now -- see the note on MEDICARE_PART_B_MONTHLY above.
 export function buildConfigData(input) {
     const {
         birthYear,
-        salary,
+        monthlySalary,
         socialSecurityAt67,
         medicarePartG,
         mortgageBalance,
@@ -116,7 +128,7 @@ export function buildConfigData(input) {
         hsaBalance,
         lifeExpectancy,
         retirementYear,
-        yearlySpending,
+        monthlySpending,
         inflation,
         interestRate,
         investmentReturn,
@@ -147,10 +159,10 @@ export function buildConfigData(input) {
     }
 
     const incomeOrder = [];
-    if (salary) {
-        // "Salary" is entered as an annual figure; Salary.js's cfg wants
-        // a monthly amount.
-        incomeOrder.push({ name: 'Salary', balance: 0, monthlyAmount: salary / 12, endYear: retirementYear });
+    if (monthlySalary) {
+        // Passes straight through: Salary.js's cfg has always wanted a
+        // monthly amount, and the form is now entered that way too.
+        incomeOrder.push({ name: 'Salary', balance: 0, monthlyAmount: monthlySalary, endYear: retirementYear });
     }
     if (socialSecurityAt67) {
         // "Social Security at 67" is explicitly the benefit at full
@@ -166,7 +178,10 @@ export function buildConfigData(input) {
         // Mortgage.balance is a liability, stored negative.
         spendingOrder.push({ name: 'Mortgage', balance: -mortgageBalance, rate: mortgageRate, endYear: mortgageEndYear });
     }
-    spendingOrder.push({ name: 'LivingExpense', balance: yearlySpending ?? 0 });
+    // LivingExpense.balance is the year's spending, so the monthly figure
+    // is annualized here -- the one place the conversion still happens,
+    // rather than in the form the way the annual salary field used to.
+    spendingOrder.push({ name: 'LivingExpense', balance: (monthlySpending ?? 0) * MONTHS_PER_YEAR });
     // The Tax/TaxCalculator entry itself is deliberately absent here --
     // applyDefaults() (below) injects it and fills in its bracket/
     // threshold/initialMagi fields.

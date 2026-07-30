@@ -2,6 +2,12 @@
 
 ## 2026-07-31
 
+* 14:41:34 **Prompt**: "pr"
+* 14:39:51 **Update**: Opened issue #12 for timestamped export filenames in local time, replacing the fixed name the browser currently disambiguates with its own numbering.
+* 14:39:00 **Prompt**: "add an issue for the download. It should be a unique file each time possibly beginning with the date and time retirement-plan-20260730T143800.json in local time."
+* 14:29:55 **Update**: Deleted the three merged branches locally (all squash-merged, so `--force` was needed even though nothing was unmerged) and built issue #11 on a new branch: salary and spending are entered monthly under renamed keys, the two fields that were already monthly say so in their labels, and `buildConfig` annualizes spending in the one place that conversion still belongs. 233/233 tests pass and all CLI modes still run.
+* 14:20:30 **Prompt**: "merged delete branch locally and then move on to 11"
+* 14:15:11 **Update**: Committed as `9754e97` and pushed; CI green, so PR #10 now carries the charts, the UI corrections, and the chart merge across three commits.
 * 14:13:25 **Prompt**: "gckp"
 * 13:40:02 **Update**: Narrowed issue #2 to the 401k financials and split the monthly-amounts work into its own issue #11. Merged the two charts into one: the accounts are exactly what net worth sums, so stacking them makes the top of the stack the net-worth curve, with the total in the tooltip rather than as a dataset that a stacked axis would double. 231/231 tests pass.
 * 13:38:11 **Prompt**: "split the monthly amounts out into a separate issue. #2 shouldjust be working financials. also for the charts. i think net worth over time can have accounts underneath the curve since they add up to total worth"

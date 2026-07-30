@@ -201,7 +201,7 @@ function readForm() {
     const mortgageRatePercent = numOrUndefined('mortgageRate');
     return {
         birthYear: selectNumber('birthYear'),
-        salary: numOrUndefined('salary'),
+        monthlySalary: numOrUndefined('monthlySalary'),
         socialSecurityAt67: numOrUndefined('socialSecurityAt67'),
         medicarePartG: numOrUndefined('medicarePartG'),
         mortgageBalance: numOrUndefined('mortgageBalance'),
@@ -215,7 +215,7 @@ function readForm() {
         hsaBalance: numOrUndefined('hsaBalance'),
         lifeExpectancy: selectNumber('lifeExpectancy'),
         retirementYear: selectNumber('retirementYear'),
-        yearlySpending: numOrUndefined('yearlySpending'),
+        monthlySpending: numOrUndefined('monthlySpending'),
         inflation: selectNumber('inflation'),
         interestRate: selectNumber('interestRate'),
         investmentReturn: selectNumber('investmentReturn'),
@@ -228,7 +228,7 @@ function readForm() {
 // as whatever the form happened to already show.
 function populateForm(input) {
     setValue('birthYear', input.birthYear);
-    setValue('salary', input.salary);
+    setValue('monthlySalary', input.monthlySalary);
     setValue('socialSecurityAt67', input.socialSecurityAt67);
     setValue('medicarePartG', input.medicarePartG);
     setValue('mortgageBalance', input.mortgageBalance);
@@ -242,7 +242,7 @@ function populateForm(input) {
     setValue('hsaBalance', input.hsaBalance);
     setValue('lifeExpectancy', input.lifeExpectancy);
     setValue('retirementYear', input.retirementYear);
-    setValue('yearlySpending', input.yearlySpending);
+    setValue('monthlySpending', input.monthlySpending);
     setValue('inflation', input.inflation);
     setValue('interestRate', input.interestRate);
     setValue('investmentReturn', input.investmentReturn);
