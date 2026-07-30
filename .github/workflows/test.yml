@@ -1,0 +1,21 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      # npm test rather than test.sh: test.sh trims its output down to the
+      # pass and fail counts, which is what you want on a terminal and
+      # useless in a CI log, where the failure detail is the only thing
+      # worth reading. There is nothing to install first -- the project has
+      # no dependencies and no build step.
+      - run: npm test
