@@ -46,6 +46,37 @@ test('every type the form offers is one buildConfigData can actually build', () 
     }
 });
 
+// The same parity check with every optional field left blank, which is
+// what the form actually submits most of the time -- the populated case
+// above passes a value for every key any type might want, so it would go
+// on passing if an optional field's default were the thing that broke.
+// Optional means blank stands for a real answer, so a blank one still has
+// to build an account rather than a NaN-shaped hole.
+test('every type still builds when its optional fields are left blank', () => {
+    for (const type of Object.keys(ACCOUNT_TYPES)) {
+        const required = {};
+        for (const field of ACCOUNT_TYPES[type].fields) {
+            if (!field.optional) {
+                required[field.key] = field.kind === 'percent' ? 0.05 : 2045;
+            }
+        }
+        const data = buildConfigData({
+            ...MINIMAL_INPUT,
+            accounts: [{ type, name: 'Test', balance: 1000, ...required }],
+        });
+
+        const entry = [...data.Cash.withdrawalOrder, ...data.Cash.spendingOrder].find((e) => e.name === 'Test');
+        assert.ok(entry, `${type} builds an entry`);
+        // Undefined as well as NaN: a default that stopped being applied
+        // leaves the key present and undefined, which reads as a filled-in
+        // field everywhere downstream and is the likelier way to break this.
+        for (const [key, value] of Object.entries(entry)) {
+            assert.ok(value !== undefined, `${type}.${key} is set`);
+            assert.ok(!Number.isNaN(value), `${type}.${key} is not NaN`);
+        }
+    }
+});
+
 test('defaultAccountName uses the plain label when it is free', () => {
     assert.equal(defaultAccountName('RothIra', []), 'Roth IRA');
 });
