@@ -133,7 +133,7 @@ test('netWorth sums Taxable + Traditional/Inherited IRA + Roth/HSA + Cash balanc
     assert.equal(bookkeeper.netWorth(), 1000 + 2000 + 3000 + 4000 + 5000 + 700);
 });
 
-test('assetBalances breaks netWorth down by account, listing exactly the accounts it counts and summing to it', () => {
+test('assetBalances folds Cash into the account sweepSurplus moves it to, without changing the total', () => {
     const config = testConfig({
         balance: 700,
         withdrawalOrder: [
@@ -157,13 +157,34 @@ test('assetBalances breaks netWorth down by account, listing exactly the account
     const balances = bookkeeper.assetBalances();
 
     assert.deepEqual(balances, {
-        TaxableAccount: 1000,
+        TaxableAccount: 1000 + 700,
         TraditionalIra: 2000,
         RothIra: 3000,
         NonSpousalInheritedIra: 4000,
         HsaAccount: 5000,
-        Cash: 700,
     });
+    assert.equal(Object.values(balances).reduce((a, b) => a + b, 0), bookkeeper.netWorth());
+});
+
+// The fold has to be all-or-nothing per configuration rather than per
+// year: a band that appears in the years Cash happens to hold something
+// and vanishes in the rest is harder to read than one that is always
+// there, so a household with nowhere to sweep to keeps its Cash entry
+// every year, at whatever it holds -- including nothing.
+test('assetBalances keeps Cash as its own entry when there is no TaxableAccount to sweep it into', () => {
+    const config = testConfig({
+        balance: 700,
+        withdrawalOrder: [{ name: 'RothIra', balance: 3000, withdraw: 0 }],
+        spendingOrder: [{ name: 'LivingExpense', balance: 700 }, taxSpender({ balance: -50 })],
+    });
+    const bookkeeper = new Bookkeeper({
+        config,
+        classes: { RothIra, LivingExpense, TaxCalculator, Cash },
+    });
+
+    const balances = bookkeeper.assetBalances();
+
+    assert.deepEqual(balances, { RothIra: 3000, Cash: 700 });
     assert.equal(Object.values(balances).reduce((a, b) => a + b, 0), bookkeeper.netWorth());
 });
 

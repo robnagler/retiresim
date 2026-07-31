@@ -103,7 +103,8 @@ Build the project slowly one module at a time.
 - Optimal amounts with the spending strategies explained
 - Graph: networth over time for optimal
 - Button: Export that saves a json file of the fields only, named with a
-  local-time timestamp (`retirement-plan-20260730T143800.json`) so each save
+  local-time timestamp (`retiresim-20260730T143800.json`, named for the
+  program that wrote it rather than the generic `retirement-plan`) so each save
   is its own file rather than one the browser numbers "(1)", "(2)"
 - Button: Import that imports a json file. The exported object carries a
   `version` (`app.js`'s `INPUT_VERSION`), and Import refuses a file whose
