@@ -2,6 +2,9 @@
 
 ## 2026-07-31
 
+* 14:12:30 **Update**: Moved the "Not financial advice" line out of the intro popover and onto the page in bold, directly above the Optimize button. It belongs where someone is about to act on a number rather than behind a [?] they have to go looking in, and the popover was the only place it appeared.
+* 14:12:00 **Prompt**: "add the disclaimer in bold above the optimize button"
+
 * 13:58:20 **Update**: Fixed issue #27 on the same branch as its benchmark. `categoryRoom()` now measures capital-gains room down from the bracket top past this year's taxable ordinary income instead of up from zero, taking that floor from `TaxCalculator` rather than deriving it a second time -- two derivations of one figure being how they came to disagree. `TaxCalculator` gained `taxableOrdinary()` and `yearInputs()`, and `prepareNextYear()` now reads its four postings through the latter. Also corrected the capital-gains boundaries, which were rounded up while the ordinary ones were exact; that matters more than a 1% error usually would, since the ceiling candidates are those boundaries. Worth 145,729 on the benchmark, and it changes which withdrawal order wins. Three unit tests cover room shrinking as ordinary income fills the band, no room at all once ordinary income clears it, and the uncapped fallback still covering a shortfall rather than throwing. The benchmark's expected values were updated with the old ones kept in the comment.
 * 13:40:00 **Prompt**: "just fix it in 29"
 * 13:35:00 **Answer**: Reported that #27 was not fixed and PR #29 was still open -- the benchmark measures the bug and deliberately asserts today's numbers so it stays green until the fix lands.

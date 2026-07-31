@@ -132,6 +132,7 @@
     .top-buttons { margin-bottom: 0; }
     .top-buttons button { margin-top: 0; margin-bottom: 0.5rem; }
     .top-buttons + .hint { margin: 0 0 1.5rem; }
+    .disclaimer { margin: 0 0 0.5rem; font-size: 0.9em; color: #333; }
     #results {
       background: #f4f4f4;
       padding: 1rem 1.5rem;
@@ -220,7 +221,6 @@
   <div popover="manual" id="introHelp">
     <p>Enter what you have and what you expect. Your finances are simulated year by year, including taxes and Medicare, to find a plan that does not run out -- and, among those, the one that leaves the most.</p>
     <p>Export saves a copy of the settings below so you can re-import it. The program runs entirely in this browser window. It doesn't send anything to a server.</p>
-    <p><strong>Not financial advice.</strong> The results are only as good as your assumptions, especially the investment return.</p>
   </div>
   <form id="planForm">
     <div class="layout">
@@ -322,6 +322,10 @@
     </div>
 
     <div class="results-column">
+      <!-- Above the button rather than behind the [?] with the rest of the
+           intro: it belongs where someone is about to act on a number, not
+           where they went looking for an explanation. -->
+      <p class="disclaimer"><strong>Not financial advice.</strong> The results are only as good as your assumptions, especially the investment return.</p>
       <div class="button-row top-buttons">
         <button type="submit">Optimize</button>
         <button type="button" id="exportButton" class="secondary">Export</button>
