@@ -53,6 +53,65 @@ test('the year a pre-2020 IRA was inherited, before its first distribution year,
     assert.equal(bookkeeper.balanceChange('OrdinaryIncome', 2009), 0);
 });
 
+// The straight-line schedule empties the account exactly on the deadline,
+// so every year after it is a year with nothing left to distribute. Simply
+// throwing past the deadline made an emptied account fail in the year after
+// it did everything right, which any horizon reaching eleven years past an
+// inheritance hits -- and the failure named the balance as the problem
+// while reporting that balance as zero.
+test('earn is done, not in error, in the years after the deadline once the balance has reached zero', () => {
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 25000, inheritedYear: 2021 }],
+        spendingOrder: [taxSpender()],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, TaxCalculator, Cash } });
+    // deadline = 2031; run every year through it, emptying the account.
+    for (let year = 2026; year <= 2031; year++) {
+        bookkeeper.runYear(year);
+    }
+    assert.equal(bookkeeper.accounts[0].balance, 0);
+
+    bookkeeper.runYear(2032);
+
+    assert.equal(bookkeeper.accounts[0].balance, 0);
+});
+
+// Emptied is judged to the half cent the ledger already reconciles to, not
+// to exactly zero -- a residue that small is rounding, not money somebody
+// failed to distribute, and a negative one is not undistributed money at
+// all.
+test('a balance left within the reconciliation tolerance past the deadline counts as emptied, in either direction', () => {
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 25000, inheritedYear: 2021 }],
+        spendingOrder: [taxSpender()],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, TaxCalculator, Cash } });
+    const account = bookkeeper.accounts[0];
+    for (let year = 2026; year <= 2031; year++) {
+        bookkeeper.runYear(year);
+    }
+
+    account.balance = 0.004;
+    assert.doesNotThrow(() => account.earn(2032, bookkeeper));
+    account.balance = -0.004;
+    assert.doesNotThrow(() => account.earn(2032, bookkeeper));
+    account.balance = 0.02;
+    assert.throws(() => account.earn(2032, bookkeeper), /not fully distributed/);
+});
+
+// Money still sitting there past the deadline is a different matter: the
+// law required it out, so this is a real modeling error rather than a
+// finished account.
+test('earn throws past the deadline when a balance is somehow left', () => {
+    const config = testConfig({
+        withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 25000, inheritedYear: 2020 }],
+        spendingOrder: [taxSpender()],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { NonSpousalInheritedIra, TaxCalculator, Cash } });
+
+    assert.throws(() => bookkeeper.runYear(2031), /not fully distributed by deadline=2030/);
+});
+
 test('earn throws when the year is before the account was inherited', () => {
     const config = testConfig({
         withdrawalOrder: [{ name: 'NonSpousalInheritedIra', balance: 100000, inheritedYear: 2009, birthYear: 1970 }],

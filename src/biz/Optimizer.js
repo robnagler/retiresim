@@ -1,7 +1,6 @@
 import { Base } from './Base.js';
-import { Config } from './Config.js';
-import { Bookkeeper } from './Bookkeeper.js';
 import { Simulator } from './Simulator.js';
+import { buildPipeline, candidateConfigData } from './pipeline.js';
 import { InsufficientFundsError } from './InsufficientFundsError.js';
 import { claimAgeCandidates } from './SocialSecurity.js';
 
@@ -133,17 +132,18 @@ export const OPTIMIZE_VARIABLES = [
     },
 ];
 
-// Owns the full candidate-evaluation pipeline (Config -> Bookkeeper ->
-// Simulator -> netWorth()), per CLAUDE.md's TODO: "optimizer should
-// contain all the optimization stuff including running the simulator."
+// Owns the search: which candidates to try, how to score them, and which
+// one won, per CLAUDE.md's TODO ("optimizer should contain all the
+// optimization stuff including running the simulator"). Building a plan
+// into a running simulation is pipeline.js's job, shared with the
+// robustness validator and the CLI rather than owned here.
+//
 // Deliberately IO-less -- runAll() returns data, it never touches
-// console.log itself. src/cli/OptimizerReport.js owns turning that data
-// into the CLI's printed tables (same split RobustnessValidator.js
-// already has between report() building a string and main.js printing
-// it); src/ui/app.js (once built) will render the same data into the DOM
-// instead. main.js only builds classes/configData and decides whether to
-// call runAll() or (in --debug) skip the optimizer entirely for a single
-// raw run.
+// console.log itself. src/cli/OptimizerReport.js turns that data into the
+// CLI's printed tables (the same split RobustnessValidator.js has between
+// report() building a string and main.js printing it), and src/ui/app.js
+// renders the same data into the DOM. Both callers run the identical
+// search and differ only in what they do with the answer.
 export class Optimizer extends Base {
     // candidates: any non-empty array. evaluate(candidate) -> number,
     // higher is better.
@@ -153,69 +153,106 @@ export class Optimizer extends Base {
         return { best: best.candidate, score: best.score, all };
     }
 
-    // Builds one candidate's Config/Bookkeeper without running the
-    // Simulator, so callers can choose whether to run it silently (for
-    // scoring) or with a per-year report callback.
-    buildPipeline(configData, classes, variable, candidate) {
-        const data = structuredClone(configData);
-        variable.apply(data, candidate);
-        const config = new Config(data);
-        const bookkeeper = new Bookkeeper({ config, classes });
-        return { config, bookkeeper };
+    // Evaluates every combination of every variable's candidates and
+    // returns one result per variable, each reporting that variable's own
+    // candidates against the best each can reach.
+    //
+    // This was a greedy/coordinate-ascent search: each variable evaluated
+    // against a running base carrying forward the previous winners, then
+    // its own winner folded in. Cheap, and correct whenever each variable's
+    // grid holds at least one workable candidate -- but that is exactly
+    // what cannot be assumed. Run against a real plan whose withdrawal
+    // strategy only works at a claim age of 70, every withdrawal candidate
+    // failed when measured at the baseline 67, which made the first
+    // variable's winner an arbitrary pick among equally-dead candidates,
+    // and the claim-age search that followed was then judged against that
+    // arbitrary strategy and failed everywhere too. The plan was solvent
+    // the whole time; nothing in the chain could see it.
+    //
+    // That is the same fault CLAUDE.md records from the other direction,
+    // when claim age was searched first and every age looked insolvent
+    // against a stale withdrawal order. Reordering the variables only
+    // moved which one got judged unfairly. Searching the combinations
+    // removes the question of order entirely -- there is no "first"
+    // variable to be measured against an unsearched second one.
+    //
+    // The cost is the product of the grid sizes rather than their sum:
+    // 756 simulations rather than 132 as the variables stand, which runs
+    // in about a second. A third variable would multiply that again, and
+    // at that point this needs to become something cleverer than
+    // exhaustive -- but a wrong answer arrived at quickly is not the
+    // cheaper option.
+    //
+    // Each variable's table reports, for each of its candidates, the best
+    // any combination containing it achieved. So a claim age's number is
+    // what that claim age is worth given the best withdrawal strategy to
+    // go with it, which is the question someone reading the table is
+    // actually asking.
+    runAll(configData, classes, variables = OPTIMIZE_VARIABLES) {
+        const grids = variables.map((variable) => variable.candidates(configData));
+        const combinations = grids.reduce(
+            (acc, grid) => acc.flatMap((combo) => grid.map((candidate) => [...combo, candidate])),
+            [[]],
+        );
+        // Keyed by combination: which ran out of money and in what year, so
+        // the rest of the grid keeps running instead of the whole search
+        // aborting on the first plan that fails.
+        const failedYears = new Map();
+        const evaluate = (combination) => {
+            const data = combination.reduce(
+                (acc, candidate, i) => candidateConfigData(acc, variables[i], candidate),
+                configData,
+            );
+            const { config, bookkeeper } = buildPipeline(data, classes);
+            try {
+                new Simulator({ bookkeeper, config }).run();
+                return bookkeeper.netWorth();
+            } catch (err) {
+                if (!(err instanceof InsufficientFundsError)) {
+                    throw err;
+                }
+                failedYears.set(combination, err.year);
+                return 0;
+            }
+        };
+        const winner = this.run(combinations, evaluate);
+        const detail = this.bestCombinationDetail(configData, classes, variables, winner.best, failedYears);
+        return variables.map((variable, i) => ({
+            label: variable.label,
+            netWorth: this.marginal(winner, i, grids[i]),
+            failedYears: this.marginalFailures(winner, i, grids[i], failedYears),
+            ...detail,
+        }));
     }
 
-    // Runs every variables entry in sequence, returning one result per
-    // variable -- a greedy/coordinate-ascent search, not a joint search
-    // over the full cross product of every variable (which grows
-    // combinatorially as more variables are added). Each variable's grid is
-    // evaluated against a `base` config carrying forward the winning
-    // candidate of every variable already run, and its own winner is then
-    // folded into `base` before the next variable runs. This can miss the
-    // true joint optimum (coordinate ascent doesn't guarantee it, and a
-    // different variable order can land on a different combination), but is
-    // far cheaper than evaluating every combination and a real improvement
-    // over evaluating each variable in isolation against configData's own
-    // literal values, which ignored every other variable's optimum entirely.
-    // `OPTIMIZE_VARIABLES` holds withdrawal category order + ceilings
-    // first, then Social Security claim age -- deliberately in that
-    // order, not the reverse. A real bug from this project's history
-    // (see CLAUDE.md's Optimize Variables) happened when claim age was
-    // evaluated *first*: every claim-age candidate was scored against
-    // whatever withdrawal order/ceilings happened to already be sitting
-    // in the config, unoptimized, which could make delaying claim age
-    // look infeasible even when a better withdrawal order would have
-    // made it work. Evaluating withdrawal order first means claim age is
-    // always judged against the best-known withdrawal strategy, not a
-    // stale or default one.
-    runAll(configData, classes, variables = OPTIMIZE_VARIABLES) {
-        const base = structuredClone(configData);
-        const results = [];
-        for (const variable of variables) {
-            const candidates = variable.candidates(base);
-            // Keyed by candidate: which ones hit InsufficientFundsError and
-            // in what year, so the rest of the grid keeps running instead
-            // of the whole process aborting on the first candidate that
-            // runs out of money.
-            const failedYears = new Map();
-            const evaluate = (candidate) => {
-                const { config, bookkeeper } = this.buildPipeline(base, classes, variable, candidate);
-                try {
-                    new Simulator({ bookkeeper, config }).run();
-                    return bookkeeper.netWorth();
-                } catch (err) {
-                    if (!(err instanceof InsufficientFundsError)) {
-                        throw err;
-                    }
-                    failedYears.set(candidate, err.year);
-                    return 0;
-                }
-            };
-            const netWorth = this.run(candidates, evaluate);
-            const detail = this.bestCandidateDetail(base, classes, variable, netWorth.best, failedYears);
-            results.push({ label: variable.label, netWorth, failedYears, ...detail });
-            variable.apply(base, netWorth.best);
+    // One variable's slice of the joint result: each of its candidates
+    // scored by the best combination containing it, and the winner taken
+    // from the globally best combination rather than from this slice, so
+    // the values reported across variables are one coherent plan rather
+    // than several unrelated maxima.
+    marginal(winner, i, grid) {
+        const all = grid.map((candidate) => ({
+            candidate,
+            score: Math.max(...winner.all.filter((r) => r.candidate[i] === candidate).map((r) => r.score)),
+        }));
+        return { best: winner.best[i], score: winner.score, all };
+    }
+
+    // A candidate counts as failed only when every combination containing
+    // it ran out of money -- one that works alongside some other choice
+    // has not failed, it was merely paired badly. The year reported is the
+    // latest any of them reached, the best that candidate could manage.
+    marginalFailures(winner, i, grid, failedYears) {
+        const rv = new Map();
+        for (const candidate of grid) {
+            const years = winner.all
+                .filter((r) => r.candidate[i] === candidate)
+                .map((r) => failedYears.get(r.candidate));
+            if (years.length && years.every((y) => y !== undefined)) {
+                rv.set(candidate, Math.max(...years));
+            }
         }
-        return results;
+        return rv;
     }
 
     // The configData every variable's winning candidate applied to it --
@@ -234,19 +271,25 @@ export class Optimizer extends Base {
         return rv;
     }
 
-    // Re-runs just the winning candidate (evaluate() didn't keep any
+    // Re-runs just the winning combination (evaluate() didn't keep any
     // Bookkeeper around -- rebuilding once here is far cheaper than holding
     // one per candidate in memory for the whole grid) to capture its ending
     // account balances (Bookkeeper.report()) and a year-by-year net-worth
     // series -- which account actually ended up holding the difference,
     // and how the winning strategy trends over time, are exactly what a
-    // single Net Worth score hides. null/null when the winner itself ran
-    // out of money -- there's nothing meaningful to show.
-    bestCandidateDetail(base, classes, variable, best, failedYears) {
+    // single Net Worth score hides. All null when the winner itself ran
+    // out of money -- there's nothing meaningful to show. One detail for
+    // the whole search, since there is one winning plan; every variable's
+    // result carries the same copy of it.
+    bestCombinationDetail(configData, classes, variables, best, failedYears) {
         if (failedYears.has(best)) {
             return { endingBalances: null, netWorthByYear: null, balancesByYear: null };
         }
-        const { config, bookkeeper } = this.buildPipeline(base, classes, variable, best);
+        const data = best.reduce(
+            (acc, candidate, i) => candidateConfigData(acc, variables[i], candidate),
+            configData,
+        );
+        const { config, bookkeeper } = buildPipeline(data, classes);
         const netWorthByYear = [];
         const balancesByYear = [];
         new Simulator({ bookkeeper, config }).run((year) => {

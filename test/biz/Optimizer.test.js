@@ -295,3 +295,84 @@ test('runAll wired to a real Config/Bookkeeper/Simulator backs Social Security c
         assert.equal(failedYears.get(age), 2026);
     }
 });
+
+// The failure that turned this from a greedy search into a joint one, in
+// miniature. Spending of 100 is affordable only alongside savings of 1500,
+// and nothing else works at all. Greedy could not find that: it scored
+// every spending candidate against the savings figure sitting in the base
+// config, where both failed, picked the first of two equally-dead
+// candidates, and then judged savings against that doomed spending -- so
+// it reported a plan that works as having no solution anywhere.
+//
+// A real config hit exactly this: a withdrawal strategy that only survives
+// at a Social Security claim age of 70, measured against the baseline 67.
+test('runAll finds a combination that works even when neither variable works at the other\'s starting value', () => {
+    const baseData = testConfigData({
+        Simulator: { startYear: 2026, endYear: 2035 },
+        withdrawalOrder: [{ name: 'TaxableAccount', balance: 100, basis: 100 }],
+        spendingOrder: [{ name: 'LivingExpense', balance: 200 }],
+    });
+    const spending = {
+        label: 'Spending',
+        // The doomed one first, so the tie among failures resolves to it --
+        // which is what greedy carried forward.
+        candidates: () => [200, 100],
+        apply: (data, candidate) => {
+            data.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance = candidate;
+        },
+    };
+    const savings = {
+        label: 'Savings',
+        candidates: () => [100, 1500],
+        apply: (data, candidate) => {
+            const account = data.Cash.withdrawalOrder.find((e) => e.name === 'TaxableAccount');
+            account.balance = candidate;
+            account.basis = candidate;
+        },
+    };
+
+    const results = new Optimizer().runAll(baseData, { TaxableAccount, LivingExpense, Cash }, [spending, savings]);
+
+    assert.equal(results[0].netWorth.best, 100);
+    assert.equal(results[1].netWorth.best, 1500);
+    // 10 years at 100 out of 1500, with no growth and no tax.
+    assert.equal(results[0].netWorth.score, 500);
+    assert.equal(results[1].netWorth.score, 500);
+    assert.ok(results[0].endingBalances);
+});
+
+// A candidate paired badly is not a candidate that failed -- saying
+// otherwise would report spending of 100 as impossible when it is the
+// winner, and the tables beside it exist to be read.
+test('runAll counts a candidate as having run out of money only when every combination containing it did', () => {
+    const baseData = testConfigData({
+        Simulator: { startYear: 2026, endYear: 2035 },
+        withdrawalOrder: [{ name: 'TaxableAccount', balance: 100, basis: 100 }],
+        spendingOrder: [{ name: 'LivingExpense', balance: 200 }],
+    });
+    const spending = {
+        label: 'Spending',
+        candidates: () => [200, 100],
+        apply: (data, candidate) => {
+            data.Cash.spendingOrder.find((e) => e.name === 'LivingExpense').balance = candidate;
+        },
+    };
+    const savings = {
+        label: 'Savings',
+        candidates: () => [100, 1500],
+        apply: (data, candidate) => {
+            const account = data.Cash.withdrawalOrder.find((e) => e.name === 'TaxableAccount');
+            account.balance = candidate;
+            account.basis = candidate;
+        },
+    };
+
+    const results = new Optimizer().runAll(baseData, { TaxableAccount, LivingExpense, Cash }, [spending, savings]);
+
+    // 200 fails at both savings levels; 100 works at one of them.
+    assert.ok(results[0].failedYears.has(200));
+    assert.ok(!results[0].failedYears.has(100));
+    // 100 in savings fails at both spending levels; 1500 works at one.
+    assert.ok(results[1].failedYears.has(100));
+    assert.ok(!results[1].failedYears.has(1500));
+});

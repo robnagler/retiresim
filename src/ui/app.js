@@ -3,31 +3,14 @@
 // "thin dispatcher" precedent as src/cli/main.js. No test file, for the
 // same reason main.js has none: all the real logic lives in the tested
 // modules this file just calls.
-import { buildConfigData } from '../biz/buildConfig.js';
+import { buildConfigData, INPUT_VERSION } from '../biz/buildConfig.js';
+import { CLASSES } from '../biz/classes.js';
 import { Optimizer, OPTIMIZE_VARIABLES } from '../biz/Optimizer.js';
-import { TaxableAccount } from '../biz/TaxableAccount.js';
-import { TraditionalIra } from '../biz/TraditionalIra.js';
-import { NonSpousalInheritedIra } from '../biz/NonSpousalInheritedIra.js';
-import { RothIra } from '../biz/RothIra.js';
-import { HsaAccount } from '../biz/HsaAccount.js';
-import { Mortgage } from '../biz/Mortgage.js';
-import { LivingExpense } from '../biz/LivingExpense.js';
-import { TaxCalculator } from '../biz/TaxCalculator.js';
-import { Medicare } from '../biz/Medicare.js';
-import { Salary } from '../biz/Salary.js';
-import { SocialSecurity } from '../biz/SocialSecurity.js';
-import { Cash } from '../biz/Cash.js';
-import { LumpSum } from '../biz/LumpSum.js';
 import { RobustnessValidator } from '../biz/RobustnessValidator.js';
 import { renderNetWorthChart, renderRobustnessChart } from './chart.js';
 import { exportFileName } from './fileName.js';
 import { ACCOUNT_COMMON_FIELDS, ACCOUNT_TYPES, EXPENSE_FIELDS, defaultAccountName } from './accountTypes.js';
 import { FIELD_HELP } from './help.js';
-
-const classes = {
-    TaxableAccount, TraditionalIra, NonSpousalInheritedIra, RothIra, HsaAccount,
-    Mortgage, LivingExpense, TaxCalculator, Medicare, Salary, SocialSecurity, Cash, LumpSum,
-};
 
 const CURRENCY = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
@@ -370,19 +353,22 @@ function addExpense() {
     openDialog('expenses', expenses.length - 1);
 }
 
-// Bumped whenever the shape below changes incompatibly. Import refuses a
-// file it does not recognise rather than filling the form from fields that
-// no longer mean what they did -- the failure the monthly rename avoided
-// only because the old keys happened not to match the new ones.
-export const INPUT_VERSION = 1;
 
 // A balance with no rate/year/etc alongside it produces a nonsensical
 // (NaN-driven) account -- financial correctness takes priority over a
 // convenient form, so this blocks submission instead of silently
 // computing garbage (CLAUDE.md's Goal states correctness comes first).
+//
+// A field marked optional is exempt: cost basis and a mortgage's sell year
+// each stand for a real answer ("assume I paid the whole balance", "I am
+// keeping it") rather than a missing one, so demanding them would force a
+// guess where blank already says something true.
 function validate(input) {
     for (const account of input.accounts) {
         for (const field of ACCOUNT_TYPES[account.type].fields) {
+            if (field.optional) {
+                continue;
+            }
             if (account.balance && account[field.key] === undefined) {
                 return `${account.name} needs ${field.label} filled in.`;
             }
@@ -522,7 +508,7 @@ function renderRobustness(configData, results) {
     const container = document.getElementById('robustness');
     container.innerHTML = '';
     const winning = new Optimizer().winningConfigData(configData, results, OPTIMIZE_VARIABLES);
-    const trials = new RobustnessValidator().run(winning, classes, ROBUSTNESS_TRIALS);
+    const trials = new RobustnessValidator().run(winning, CLASSES, ROBUSTNESS_TRIALS);
     // Finishing the horizon with three months of spending left is not
     // surviving it in any sense worth reporting differently from failing,
     // and against a model with this much uncertainty in it the gap between
@@ -852,7 +838,7 @@ document.getElementById('planForm').addEventListener('submit', (event) => {
         return;
     }
     const configData = buildConfigData(input);
-    const results = new Optimizer().runAll(configData, classes, OPTIMIZE_VARIABLES);
+    const results = new Optimizer().runAll(configData, CLASSES, OPTIMIZE_VARIABLES);
     renderResults(configData, results);
 });
 

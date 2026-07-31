@@ -1,139 +1,93 @@
 import { readFileSync } from 'node:fs';
-import { Bookkeeper } from '../biz/Bookkeeper.js';
 import { Simulator } from '../biz/Simulator.js';
-import { TaxableAccount } from '../biz/TaxableAccount.js';
-import { TraditionalIra } from '../biz/TraditionalIra.js';
-import { NonSpousalInheritedIra } from '../biz/NonSpousalInheritedIra.js';
-import { RothIra } from '../biz/RothIra.js';
-import { HsaAccount } from '../biz/HsaAccount.js';
-import { Mortgage } from '../biz/Mortgage.js';
-import { LivingExpense } from '../biz/LivingExpense.js';
-import { LumpSum } from '../biz/LumpSum.js';
-import { TaxCalculator } from '../biz/TaxCalculator.js';
-import { Medicare } from '../biz/Medicare.js';
-import { Salary } from '../biz/Salary.js';
-import { SocialSecurity } from '../biz/SocialSecurity.js';
-import { Pension } from '../biz/Pension.js';
-import { Cash } from '../biz/Cash.js';
-import { Config } from '../biz/Config.js';
+import { CLASSES } from '../biz/classes.js';
 import { Optimizer, OPTIMIZE_VARIABLES } from '../biz/Optimizer.js';
 import { RobustnessValidator } from '../biz/RobustnessValidator.js';
-import { applyDefaults } from '../biz/buildConfig.js';
+import { buildConfigData, INPUT_VERSION } from '../biz/buildConfig.js';
+import { buildPipeline } from '../biz/pipeline.js';
+import { InsufficientFundsError } from '../biz/InsufficientFundsError.js';
 import { OptimizerReport } from './OptimizerReport.js';
 
-const classes = {
-    TaxableAccount,
-    TraditionalIra,
-    NonSpousalInheritedIra,
-    RothIra,
-    HsaAccount,
-    Mortgage,
-    LivingExpense,
-    LumpSum,
-    TaxCalculator,
-    Medicare,
-    Salary,
-    SocialSecurity,
-    Pension,
-    Cash,
+// node src/cli/main.js [--debug] [path/to/plan.json]
+//
+// The file is one the browser's Export button wrote -- the form's own
+// fields, not the expanded simulation config -- so a plan can move between
+// the two without being retyped. With no argument, the illustrative
+// scenario below stands in. Every figure in it is invented.
+const DEFAULT_INPUT = {
+    version: INPUT_VERSION,
+    birthYear: 1955,
+    monthlySalary: 12500,
+    socialSecurityAt67: 2500,
+    medicarePartG: 203,
+    accounts: [
+        { type: 'TaxableAccount', name: 'Taxable account', balance: 500000, basis: 300000 },
+        { type: 'TraditionalIra', name: 'Traditional IRA', balance: 800000 },
+        { type: 'RothIra', name: 'Roth IRA', balance: 200000 },
+        { type: 'NonSpousalInheritedIra', name: 'Inherited IRA', balance: 100000, inheritedYear: 2022 },
+        { type: 'HsaAccount', name: 'HSA', balance: 40000 },
+        { type: 'Mortgage', name: 'Mortgage', balance: 200000, rate: 0.06, endYear: 2045 },
+    ],
+    lumpSums: [],
+    lifeExpectancy: 90,
+    retirementYear: 2035,
+    monthlySpending: 5000,
+    inflation: 0.025,
+    interestRate: 0.03,
+    investmentReturn: 0.06,
 };
 
-// node src/cli/main.js [path/to/config.json] -- with no argument, runs the
-// illustrative example scenario below.
-const DEFAULT_CONFIG_DATA = {
-    Simulator: { startYear: 2026, endYear: 2030 },
-    // Shared market/inflation assumptions -- consumed via bookkeeper.economy
-    // instead of each account/income/expense source carrying its own rate.
-    Economy: { inflationRate: 0.025, interestRate: 0.03, sp500Rate: 0.06 },
-    // --robustness (RobustnessValidator.js) does NOT read a MarketCrash
-    // cfg block -- historical S&P 500 return data lives in
-    // HistoricalReturns.js as a committed JavaScript constant, not
-    // cfg.json, since it's a fact about market history, not a per-user
-    // assumption.
-    Cash: {
-        balance: 0,
-        withdrawalOrder: [
-            { name: 'TaxableAccount', balance: 500000, basis: 300000 },
-            { name: 'TraditionalIra', balance: 800000, birthYear: 1955 },
-            { name: 'RothIra', balance: 200000, withdraw: 0 },
-            { name: 'NonSpousalInheritedIra', balance: 100000, inheritedYear: 2009, birthYear: 1955 },
-            { name: 'HsaAccount', balance: 40000, zeroBalanceYear: 2035 },
-        ],
-        incomeOrder: [
-            { name: 'Salary', balance: 0, monthlyAmount: 12500, endYear: 2035 },
-            { name: 'SocialSecurity', balance: 0, birthYear: 1955, claimAge: 67, fraMonthlyBenefit: 2500 },
-            { name: 'Pension', balance: 0, amount: 20000 },
-        ],
-        spendingOrder: [
-            { name: 'Mortgage', balance: -200000, rate: 0.06, endYear: 2045 },
-            { name: 'LivingExpense', balance: 60000 },
-            // The Tax/TaxCalculator entry itself is deliberately absent
-            // here -- applyDefaults() (src/biz/buildConfig.js, run on
-            // every configData main.js loads) injects it and fills in its
-            // bracket/threshold/initialMagi fields.
-            {
-                name: 'Medicare',
-                balance: 0,
-                // Premiums don't start until this birthYear's 65th year.
-                birthYear: 1955,
-                // partBMonthly/partDMonthly/partGMonthly are all monthly,
-                // unlike everything else in cfg -- Part B is billed monthly by
-                // CMS, Part D/Medigap Plan G monthly by private insurers.
-                partBMonthly: 203,
-                partDMonthly: 83,
-                partGMonthly: 203,
-            },
-        ],
-    },
-};
-
-// --debug bypasses the optimizer entirely and runs the input cfg values
-// exactly as given -- no candidate substitution -- printing the full
-// per-year report. Non-debug mode always runs Optimizer.runAll() instead.
-function runDebug(configData, classes) {
-    const config = new Config(structuredClone(configData));
-    const bookkeeper = new Bookkeeper({ config, classes });
-    new Simulator({ bookkeeper, config }).run((year) => {
-        console.log(bookkeeper.reportYear(year));
-        console.log('');
-    });
-}
-
-// --robustness [N]: also runs configData exactly as given, like --debug --
-// but as many trials (default 200), each with its own random market-crash
-// sequence, reporting the resulting insolvency rate and net-worth
-// distribution instead of one year-by-year report. A separate step after
-// the optimizer, not a replacement for it -- see RobustnessValidator.js.
-function runRobustness(configData, classes, trials) {
-    const validator = new RobustnessValidator();
-    console.log(validator.report(validator.run(configData, classes, trials)));
+// The winning plan, year by year. Runs on the configured rates rather than
+// a sampled sequence: this is the accounting of one plan, and printing a
+// trial's worth of sampled returns would be printing one arbitrary roll of
+// the dice next to a robustness summary that already covers all of them.
+function reportEachYear(configData) {
+    const { config, bookkeeper } = buildPipeline(configData, CLASSES);
+    try {
+        new Simulator({ bookkeeper, config }).run((year) => {
+            console.log(bookkeeper.reportYear(year));
+            console.log('');
+        });
+    } catch (err) {
+        if (!(err instanceof InsufficientFundsError)) {
+            throw err;
+        }
+        console.log(`Stopped: out of money in ${err.year}.`);
+    }
 }
 
 const args = process.argv.slice(2);
 const debug = args.includes('--debug');
-const robustnessIndex = args.indexOf('--robustness');
-const skipIndices = new Set();
-if (debug) {
-    skipIndices.add(args.indexOf('--debug'));
+const inputPath = args.find((a) => a !== '--debug');
+const input = inputPath ? JSON.parse(readFileSync(inputPath, 'utf8')) : DEFAULT_INPUT;
+// The same refusal src/ui/app.js's importFields() makes, for the same
+// reason -- the two read the same files, so a file one of them will not
+// touch is not one the other should quietly accept.
+if (input.version !== INPUT_VERSION) {
+    console.error(`This file was saved by a different version (${input.version ?? 'no version'}, expected ${INPUT_VERSION}) and cannot be read.`);
+    process.exit(1);
 }
-let robustnessTrials;
-if (robustnessIndex !== -1) {
-    skipIndices.add(robustnessIndex);
-    const next = args[robustnessIndex + 1];
-    if (next !== undefined && /^\d+$/.test(next)) {
-        robustnessTrials = Number(next);
-        skipIndices.add(robustnessIndex + 1);
-    }
-}
-const configPath = args.find((a, i) => !skipIndices.has(i));
-const rawConfigData = configPath ? JSON.parse(readFileSync(configPath, 'utf8')) : DEFAULT_CONFIG_DATA;
-const configData = applyDefaults(rawConfigData);
 
-if (robustnessIndex !== -1) {
-    runRobustness(configData, classes, robustnessTrials);
-} else if (debug) {
-    runDebug(configData, classes);
-} else {
-    const results = new Optimizer().runAll(configData, classes, OPTIMIZE_VARIABLES);
-    console.log(new OptimizerReport().report(results));
+// The same sequence src/ui/app.js runs on Optimize, printed instead of
+// drawn: search for the best plan, then stress-test the plan it chose.
+// Nothing here decides anything the browser would decide differently --
+// that is the point of the CLI and the browser sharing one format.
+const configData = buildConfigData(input);
+const optimizer = new Optimizer();
+const results = optimizer.runAll(configData, CLASSES, OPTIMIZE_VARIABLES);
+console.log(new OptimizerReport().report(results));
+
+const winning = optimizer.winningConfigData(configData, results, OPTIMIZE_VARIABLES);
+// A plan that already fails on one steady return has nothing to learn from
+// two hundred worse ones -- the browser skips the robustness check for the
+// same reason.
+if (results[results.length - 1].netWorthByYear) {
+    const validator = new RobustnessValidator();
+    console.log('');
+    console.log(validator.report(validator.run(winning, CLASSES)));
+}
+
+if (debug) {
+    console.log('');
+    reportEachYear(winning);
 }

@@ -230,6 +230,45 @@ test('Mortgage balance is stored negative (a liability), and rate/endYear pass t
     assert.equal(mortgage.endYear, 2045);
 });
 
+// Blank means "keeping it", so the key is absent rather than present and
+// undefined: Mortgage.js compares year >= cfg.sellYear, and a key that
+// exists reads to any later Object.keys()/`in` check as a decision made.
+test('a Mortgage sell year passes through when given, and leaves no key behind when not', () => {
+    const selling = buildConfigData({
+        ...MINIMAL_INPUT,
+        accounts: [{ type: 'Mortgage', name: 'Mortgage', balance: 300000, rate: 0.05, endYear: 2045, sellYear: 2032 }],
+    });
+    const keeping = buildConfigData({
+        ...MINIMAL_INPUT,
+        accounts: [{ type: 'Mortgage', name: 'Mortgage', balance: 300000, rate: 0.05, endYear: 2045 }],
+    });
+
+    assert.equal(selling.Cash.spendingOrder.find((e) => e.name === 'Mortgage').sellYear, 2032);
+    assert.ok(!('sellYear' in keeping.Cash.spendingOrder.find((e) => e.name === 'Mortgage')));
+});
+
+test('a TaxableAccount cost basis passes through when given, so gains are taxed from what was actually paid', () => {
+    const data = buildConfigData({
+        ...MINIMAL_INPUT,
+        accounts: [{ type: 'TaxableAccount', name: 'TaxableAccount', balance: 500000, basis: 200000 }],
+    });
+
+    const taxable = data.Cash.withdrawalOrder.find((e) => e.name === 'TaxableAccount');
+    assert.equal(taxable.balance, 500000);
+    assert.equal(taxable.basis, 200000);
+});
+
+// Zero is a real answer -- an account entirely made of gain -- and has to
+// survive the defaulting that a blank field triggers.
+test('a cost basis of zero is kept rather than defaulted to the balance', () => {
+    const data = buildConfigData({
+        ...MINIMAL_INPUT,
+        accounts: [{ type: 'TaxableAccount', name: 'TaxableAccount', balance: 500000, basis: 0 }],
+    });
+
+    assert.equal(data.Cash.withdrawalOrder.find((e) => e.name === 'TaxableAccount').basis, 0);
+});
+
 test('TaxableAccount defaults basis to the full entered balance -- no unrealized gain assumed', () => {
     const data = buildConfigData({
         ...MINIMAL_INPUT,

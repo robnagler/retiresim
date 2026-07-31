@@ -15,7 +15,13 @@ export const ACCOUNT_TYPES = {
     TaxableAccount: {
         label: 'Taxable account',
         help: 'A brokerage or bank account that is not a retirement account. Withdrawals are taxed only on the gain, at long-term capital gains rates.',
-        fields: [],
+        fields: [{
+            key: 'basis',
+            label: 'Cost basis',
+            kind: 'money',
+            optional: true,
+            help: 'What you paid for what the account holds. Selling is taxed on the difference between the balance and this, so a lower basis means more tax. Leave it blank to assume you paid the full balance, which taxes nothing until the account grows beyond it -- simple, but it understates the tax on money you spend early.',
+        }],
     },
     TraditionalIra: {
         label: 'Traditional IRA',
@@ -40,7 +46,13 @@ export const ACCOUNT_TYPES = {
     HsaAccount: {
         label: 'HSA',
         help: 'Health savings account money. It is spent down on a schedule for medical costs over your lifetime, and is never used to cover ordinary shortfalls.',
-        fields: [],
+        fields: [{
+            key: 'zeroBalanceYear',
+            label: 'Empty by year',
+            kind: 'year',
+            optional: true,
+            help: 'The year the account should reach zero. A level amount is withdrawn each year to get there. Leave it blank to spread it over your whole life expectancy; set it earlier to spend the money sooner, which is worth doing if you expect the medical costs earlier.',
+        }],
     },
     Mortgage: {
         label: 'Mortgage',
@@ -57,6 +69,13 @@ export const ACCOUNT_TYPES = {
                 label: 'Payoff year',
                 kind: 'year',
                 help: 'The year the loan is scheduled to be paid off. The payment is sized so the balance reaches zero exactly then.',
+            },
+            {
+                key: 'sellYear',
+                label: 'Sell year',
+                kind: 'year',
+                optional: true,
+                help: 'The year you sell, if you plan to. Payments stop and what is left of the loan goes away. What the sale brings in is not counted, so the gain shows up only as the payments you no longer make. Leave it blank to keep the property.',
             },
         ],
     },

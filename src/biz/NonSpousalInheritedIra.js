@@ -3,6 +3,10 @@ import { TraditionalIra } from './TraditionalIra.js';
 const SECURE_ACT_DISTRIBUTION_PERIOD = 10;
 const SECURE_ACT_YEAR = 2020; // 10-year rule applies to inheritances in this year or later
 
+// What counts as emptied past the deadline -- half a cent, the same
+// tolerance Bookkeeper._reconcile() holds the whole ledger to.
+const EMPTY_TOLERANCE = 0.005;
+
 // IRS Single Life Expectancy Table (Table I), in effect for distribution
 // calendar years 2022-2026 (26 CFR 1.401(a)(9)-9(b)). Also applies, per
 // the transition ("reset") rule, to pre-2022 stretch beneficiaries: look
@@ -74,7 +78,26 @@ export class NonSpousalInheritedIra extends TraditionalIra {
         }
         const deadline = this.cfg.inheritedYear + SECURE_ACT_DISTRIBUTION_PERIOD;
         const yearsRemaining = deadline - year + 1;
+        // Past the deadline with nothing left is the schedule having worked:
+        // the straight-line distribution empties the account exactly on the
+        // deadline, so every later year has nothing to do. Only real money
+        // still sitting here is an error -- the law required it out, so it
+        // means the simulation failed to distribute rather than that the
+        // horizon simply outlived the account.
+        //
+        // Emptied to a tolerance rather than to exactly zero. The last
+        // year's withdrawal is the whole balance, which lands on zero in
+        // binary floating point, but that holds only as long as nothing
+        // else ever touches this balance -- and a residue of a fraction of
+        // a cent is not money anyone failed to distribute. Same half-cent
+        // the ledger reconciles to in Bookkeeper._reconcile(), and it
+        // catches a small negative too, which no distribution should
+        // produce but which an exact test would report as undistributed
+        // money while printing a balance below zero.
         if (yearsRemaining <= 0) {
+            if (Math.abs(this.balance) <= EMPTY_TOLERANCE) {
+                return null;
+            }
             throw new Error(`balance=${this.balance} not fully distributed by deadline=${deadline} ${this}`);
         }
         return this.distribute(this.balance / yearsRemaining, bookkeeper, year);
