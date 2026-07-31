@@ -2,6 +2,9 @@
 
 ## 2026-07-31
 
+* 14:20:15 **Update**: Replaced the disclaimer with the user's own wording, which names the kinds of advice this is not -- financial, investment, tax, legal -- and says outright that the results are estimates. Applied to the wiki's assumptions page too, so the two do not diverge.
+* 14:20:00 **Prompt**: (disclaimer wording supplied verbatim)
+
 * 14:12:30 **Update**: Moved the "Not financial advice" line out of the intro popover and onto the page in bold, directly above the Optimize button. It belongs where someone is about to act on a number rather than behind a [?] they have to go looking in, and the popover was the only place it appeared.
 * 14:12:00 **Prompt**: "add the disclaimer in bold above the optimize button"
 
