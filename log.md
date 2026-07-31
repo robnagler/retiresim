@@ -2,10 +2,6 @@
 
 ## 2026-07-31
 
-(The entries below timestamped 17:00-17:49 were written on 2026-07-30
-against a clock reading several hours behind; they are left as recorded
-rather than restated. Entries from here down to that point are today's.)
-
 * 10:42:11 **Update**: Folded Cash into the account it is swept into for issue #16, so the chart has one band per account someone recognises. Reported under the swept-to account rather than dropped, since dropping it would let the breakdown total less than the net worth computed from it. "Where idle cash ends up" is now one method on Cash used by both the sweep and the breakdown, and a household with no taxable account keeps its Cash entry -- the fold depends on the configuration, not on the year, so no band appears and disappears from year to year. Renamed the export prefix to `retiresim-` in the same issue.
 * 10:36:00 **Prompt**: "do the cash issue"
 * 10:34:22 **Update**: Opened issue #18 on making import upgrade older files rather than refuse them: a chain of one-step upgrades applied from the file's version forward, with version 1 as the floor and the refusal inverted to cover a file newer than the running build. Argued for building it before the next version bump, while the chain is still a no-op and cheap to test.
@@ -16,6 +12,7 @@ rather than restated. Entries from here down to that point are today's.)
 * 10:30:00 **Prompt**: "add to 16 that retirement-planning-<ts>.json becomes retiresim-<ts>.json"
 * 10:28:30 **Answer**: Reported the open queue after the wiki merged, recommending the 401(k) work as the one real correctness gap left, since an unmodeled deferral biases the optimizer's own search and not just the ending number.
 * 10:28:00 **Prompt**: "next?"
+* 10:27:30 **Note**: Everything below this line, timestamped 17:00 to 17:49, was written on 2026-07-30 against a clock reading several hours behind, which is why those times sit above rather than below the ones from this morning. Left as recorded rather than restated, since a log rewritten to look consistent is worth less than one that admits where its clock was wrong.
 * 17:49:49 **Update**: Wrote the wiki for issue #9 -- eight pages covering the simulated year and its reconciliation, the accounts, taxes and Medicare, what the optimizer searches and what it can miss, how to read the robustness check, the assumptions stated plainly, the reference data, and a plans page. Moved the reference tables out of the README rather than duplicating them, and repointed every mention of them.
 * 17:41:29 **Update**: Opened issue #16 on not showing Cash as its own band, since it is swept into the taxable account and the band says almost nothing -- noting that simply omitting it would break the stack summing to net worth, so folding it into the account it is swept into is the likelier answer.
 * 17:38:00 **Prompt**: "9. create an issue that you probably shouldn't show cash. we sweep it"
