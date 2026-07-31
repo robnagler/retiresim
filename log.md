@@ -2,6 +2,9 @@
 
 ## 2026-07-31
 
+* 14:26:40 **Update**: Put the disclaimer in the README as its own paragraph above "What it does not do", and dropped "It is not financial advice" from that paragraph -- the disclaimer above now says it in full, and the sentence beneath is about the model's scope, which is a different point that reads better without the legal one folded into it. All three places now carry the same wording.
+* 14:26:00 **Prompt**: "put it in the readme."
+
 * 14:20:15 **Update**: Replaced the disclaimer with the user's own wording, which names the kinds of advice this is not -- financial, investment, tax, legal -- and says outright that the results are estimates. Applied to the wiki's assumptions page too, so the two do not diverge.
 * 14:20:00 **Prompt**: (disclaimer wording supplied verbatim)
 

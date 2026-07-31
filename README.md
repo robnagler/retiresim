@@ -28,10 +28,14 @@ good it looks up to that year; among the plans that survive, it prefers the
 one with the most left over. Finally, it can stress-test the winning plan against sampled
 real market history to show how often it survives.
 
-**What it does not do.** It is not financial advice, it models a single
-filer in one state, and it cannot tell you what markets will do. A plan
-that looks good under a steady 7% return is a plan under one assumption,
-which is exactly why the robustness check exists.
+**Disclaimer:** This calculator is for informational purposes only and
+does not constitute financial, investment, tax, or legal advice. Results
+are estimates only and may differ from actual outcomes.
+
+**What it does not do.** It models a single filer in one state, and it
+cannot tell you what markets will do. A plan that looks good under a
+steady 7% return is a plan under one assumption, which is exactly why the
+robustness check exists.
 
 Financial correctness takes priority over optimization -- every simulated
 year has to reconcile exactly before any optimizer result is trusted.
