@@ -30,11 +30,19 @@ const FEDERAL_BRACKETS = [
     { rate: 0.37, upTo: null },
 ];
 
-// 2025 single-filer long-term capital gains brackets -- same figures
-// already verified in config/cfg.json/main.js's DEFAULT_CONFIG_DATA.
+// 2025 single-filer long-term capital gains brackets. These were rounded
+// to 49,000/545,000 while the ordinary brackets above were exact, which
+// mattered more than a 1% error normally would: the optimizer's ceiling
+// candidates ARE these boundaries, so a boundary that is too high means a
+// strategy chosen to stay inside the 0% band overshoots it by exactly the
+// rounding.
+//
+// These are thresholds on total taxable income, not on gains alone -- see
+// Cash.categoryRoom(), which has to stack gains on ordinary income to work
+// out how much of a band is really left.
 const LTCG_BRACKETS = [
-    { rate: 0.00, upTo: 49000 },
-    { rate: 0.15, upTo: 545000 },
+    { rate: 0.00, upTo: 48350 },
+    { rate: 0.15, upTo: 533400 },
     { rate: 0.20, upTo: null },
 ];
 

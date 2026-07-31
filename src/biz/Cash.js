@@ -175,8 +175,28 @@ export class Cash extends Account {
             if (this.cfg.ltcgCeilingBracket == null) {
                 return Infinity;
             }
-            const ceiling = bookkeeper.taxCalculator.ltcgBrackets[this.cfg.ltcgCeilingBracket].upTo;
-            const gainRoom = Math.max(0, ceiling - bookkeeper.balanceChange('LtcgIncome', year));
+            // A capital-gains bracket is a threshold on TOTAL taxable
+            // income, not on gains alone -- gains stack on top of ordinary
+            // income and are taxed at the rate of the band they land in.
+            // So the room left is what remains of the bracket above this
+            // year's taxable ordinary income, less the gains already
+            // realized, and the floor comes from TaxCalculator rather than
+            // being derived here a second time.
+            //
+            // This used to subtract only the gains, as though the household
+            // had no ordinary income at all. In the early years of a plan
+            // that is often true and the two agree exactly. Once Social
+            // Security and required distributions arrive, ordinary income
+            // alone can exceed the top of the 0% bracket, so the real room
+            // is nothing -- while the old expression went on offering the
+            // whole bracket every year for the rest of the horizon. The
+            // ceiling then stopped limiting anything, and a strategy chosen
+            // to keep gains inside the 0% band spent the plan's later
+            // decades realizing gains taxed at 15%.
+            const tax = bookkeeper.taxCalculator;
+            const inputs = tax.yearInputs(year, bookkeeper);
+            const ceiling = tax.ltcgBrackets[this.cfg.ltcgCeilingBracket].upTo;
+            const gainRoom = Math.max(0, ceiling - tax.taxableOrdinary(inputs) - inputs.gains);
             const gainFraction = source.balance > 0 ? 1 - source.basis / source.balance : 0;
             return gainFraction > 0 ? gainRoom / gainFraction : Infinity;
         }

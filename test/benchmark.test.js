@@ -75,24 +75,24 @@ function runBenchmark() {
 // makes the last cent meaningless, not to leave slack -- a change of a few
 // dollars is still a change worth seeing.
 test('benchmark: the whole pipeline produces the same net worth at 90', () => {
-    assert.equal(Math.round(runBenchmark().netWorth), 4269124);
+    assert.equal(Math.round(runBenchmark().netWorth), 4414853);
 });
 
 // The chosen strategy, which is the part that actually changes behaviour --
 // a net worth can drift for many reasons, but a different order means the
 // optimizer reached a different conclusion about what to do.
 //
-// This order is currently wrong, and known to be. Issue #27: the capital-
-// gains ceiling ignores ordinary income, so from the year required
-// distributions start, the model believes the whole 0% bracket is available
-// when in truth none of it is. Fixing that makes this scenario choose
-// income > ltcg > taxFree and end at 4,414,450 -- 145,326 more. Both
-// numbers here should change to those when #27 lands, and this comment
-// should go with them.
+// This scenario chose income > taxFree > ltcg until #27 was fixed, and
+// scored 4,269,124 doing it. The capital-gains ceiling ignored ordinary
+// income, so from the year required distributions began the model believed
+// the whole 0% bracket was free when in truth none of it was, and drawing
+// from the taxable account early meant realizing gains taxed at 15%. With
+// the ceiling honest, that order wins instead and keeps 145,729 more --
+// most of it tax never paid, the rest what the unpaid tax went on earning.
 test('benchmark: the whole pipeline chooses the same strategy', () => {
     const { withdrawal, claimAge } = runBenchmark();
 
-    assert.deepEqual(withdrawal.categoryOrder, ['income', 'taxFree', 'ltcg']);
+    assert.deepEqual(withdrawal.categoryOrder, ['income', 'ltcg', 'taxFree']);
     assert.equal(withdrawal.ltcgCeilingBracket, 0);
     assert.equal(withdrawal.incomeCeilingBracket, 0);
     assert.equal(claimAge, 69);

@@ -490,3 +490,77 @@ test('runYear sweeps whatever\'s left of the starting Cash balance into TaxableA
     assert.equal(taxable.balance, 10000 + 700);
     assert.equal(taxable.basis, 6000 + 700);
 });
+
+// A capital-gains bracket is a threshold on total taxable income, so
+// ordinary income already posted this year consumes the band before any
+// gain reaches it. Same 6000/10000 basis fraction as above: a 2500 bracket
+// with 1000 of taxable ordinary income leaves 1500 of gain room, which is
+// a 3750 withdrawal rather than the 6250 an empty bracket would allow.
+test('produce measures ltcg room down from the top of the bracket past ordinary income, not up from zero', () => {
+    const config = testConfig({
+        ltcgCeilingBracket: 0,
+        withdrawalOrder: [
+            { name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 },
+            { name: 'Account', balance: 5000 },
+        ],
+        spendingOrder: [taxSpender({ ltcgBrackets: [{ rate: 0.00, upTo: 2500 }, { rate: 0.15, upTo: null }] })],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, Account, TaxCalculator, Cash } });
+    bookkeeper.taxCalculator.postAmount('OrdinaryIncome', 1000, 2026, bookkeeper);
+
+    const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 8000, year: 2026, bookkeeper });
+
+    assert.deepEqual(rv, [
+        { account: 'Taxable', amount: 3750 },
+        { account: 'Account', amount: 4250 },
+    ]);
+    assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 1500);
+});
+
+// The case that made this worth fixing: once ordinary income alone clears
+// the top of the band there is no room at all, and the ceiling has to say
+// so. It used to offer the whole bracket in exactly these years -- from
+// the arrival of Social Security and required distributions onward -- so a
+// strategy picked to keep gains untaxed spent the rest of the plan
+// realizing gains at the next rate up.
+test('produce takes nothing from the taxable account when ordinary income has already filled the ltcg bracket', () => {
+    const config = testConfig({
+        ltcgCeilingBracket: 0,
+        withdrawalOrder: [
+            { name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 },
+            { name: 'Account', balance: 5000 },
+        ],
+        spendingOrder: [taxSpender({ ltcgBrackets: [{ rate: 0.00, upTo: 2500 }, { rate: 0.15, upTo: null }] })],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, Account, TaxCalculator, Cash } });
+    bookkeeper.taxCalculator.postAmount('OrdinaryIncome', 3000, 2026, bookkeeper);
+
+    const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 4000, year: 2026, bookkeeper });
+
+    assert.deepEqual(rv, [{ account: 'Account', amount: 4000 }]);
+    assert.equal(bookkeeper.balanceChange('LtcgIncome', 2026), 0);
+});
+
+// The ceiling is a preference, not a limit on what is spendable: with the
+// room genuinely at zero, a shortfall the other accounts cannot cover
+// still comes out of the taxable account on produce()'s uncapped second
+// pass rather than throwing.
+test('produce still falls back to the taxable account when ordinary income leaves no ltcg room and nothing else can cover it', () => {
+    const config = testConfig({
+        ltcgCeilingBracket: 0,
+        withdrawalOrder: [
+            { name: 'Taxable', class: 'TaxableAccount', balance: 10000, basis: 6000 },
+            { name: 'Account', balance: 1000 },
+        ],
+        spendingOrder: [taxSpender({ ltcgBrackets: [{ rate: 0.00, upTo: 2500 }, { rate: 0.15, upTo: null }] })],
+    });
+    const bookkeeper = new Bookkeeper({ config, classes: { TaxableAccount, Account, TaxCalculator, Cash } });
+    bookkeeper.taxCalculator.postAmount('OrdinaryIncome', 3000, 2026, bookkeeper);
+
+    const rv = bookkeeper.accounts.find((a) => a.name === 'Cash').produce({ amount: 4000, year: 2026, bookkeeper });
+
+    assert.deepEqual(rv, [
+        { account: 'Account', amount: 1000 },
+        { account: 'Taxable', amount: 3000 },
+    ]);
+});

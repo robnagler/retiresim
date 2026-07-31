@@ -88,18 +88,41 @@ export class TaxCalculator extends Account {
     // standardDeduction is a plain positive magnitude (never posted
     // through the ledger), so it's negated for comparison. Only itemize
     // if it beats the standard deduction (more negative = bigger benefit)
-    // -- matches how a real return chooses between the two. Colorado has
-    // no preferential capital-gains rate, so gains join ordinary income in
-    // the flat state base; federal keeps them separate via ltcg()'s
-    // stacking. Colorado excludes Social Security benefits from state tax
-    // entirely (current CO law for taxpayers 65+, the common case here)
-    // -- so taxable SS only widens the federal base, never the state one.
-    // Both bases are net of the deduction, floored at 0, since CO starts
-    // from federal taxable income.
+    // -- matches how a real return chooses between the two.
+    //
+    // The federal ordinary base is also the floor capital gains stack on,
+    // so it is its own method: Cash.categoryRoom() needs that same floor to
+    // know how much of a gains bracket is genuinely left, and two places
+    // deriving it separately is exactly how they came to disagree.
+    taxableOrdinary({ ordinaryIncome, mortgageInterest = 0, ssBenefit = 0 }) {
+        const taxableSS = this.taxableSocialSecurity(ordinaryIncome, ssBenefit);
+        return Math.max(0, ordinaryIncome + taxableSS + Math.min(mortgageInterest, -this.standardDeduction));
+    }
+
+    // Everything this year's tax is computed from, read off the ledger in
+    // one place. categoryRoom() asks the same question mid-year, while
+    // produce() is still deciding what to withdraw, and has to be reading
+    // the same postings for its answer to mean anything.
+    yearInputs(year, bookkeeper) {
+        return {
+            ordinaryIncome: bookkeeper.balanceChange('OrdinaryIncome', year),
+            gains: bookkeeper.balanceChange('LtcgIncome', year),
+            mortgageInterest: bookkeeper.balanceChange('MortgageInterestDeduction', year),
+            ssBenefit: bookkeeper.balanceChange('SocialSecurityBenefit', year),
+        };
+    }
+
+    // Colorado has no preferential capital-gains rate, so gains join
+    // ordinary income in the flat state base; federal keeps them separate
+    // via ltcg()'s stacking. Colorado excludes Social Security benefits
+    // from state tax entirely (current CO law for taxpayers 65+, the common
+    // case here) -- so taxable SS only widens the federal base, never the
+    // state one. Both bases are net of the deduction, floored at 0, since
+    // CO starts from federal taxable income.
     calculate({ ordinaryIncome, gains = 0, mortgageInterest = 0, ssBenefit = 0 }) {
         const taxableSS = this.taxableSocialSecurity(ordinaryIncome, ssBenefit);
         const deduction = Math.min(mortgageInterest, -this.standardDeduction);
-        const taxableFederalOrdinary = Math.max(0, ordinaryIncome + taxableSS + deduction);
+        const taxableFederalOrdinary = this.taxableOrdinary({ ordinaryIncome, mortgageInterest, ssBenefit });
         const taxableStateOrdinary = Math.max(0, ordinaryIncome + deduction);
         const rv = {
             federal: this.federal(taxableFederalOrdinary) + this.ltcg(taxableFederalOrdinary, gains),
@@ -151,12 +174,8 @@ export class TaxCalculator extends Account {
         this.federalBrackets = this._growBrackets(this.federalBrackets, rate);
         this.ltcgBrackets = this._growBrackets(this.ltcgBrackets, rate);
         this.standardDeduction *= rate;
-        const ordinaryIncome = bookkeeper.balanceChange('OrdinaryIncome', year);
-        const gains = bookkeeper.balanceChange('LtcgIncome', year);
-        const mortgageInterest = bookkeeper.balanceChange('MortgageInterestDeduction', year);
-        const ssBenefit = bookkeeper.balanceChange('SocialSecurityBenefit', year);
         const a = this.balance;
-        const calc = this.calculate({ ordinaryIncome, gains, mortgageInterest, ssBenefit });
+        const calc = this.calculate(this.yearInputs(year, bookkeeper));
         this.balance = -calc.total;
         bookkeeper.simplePost(year, 'taxAccrued', 'TaxAccrued', this.name, this.balance - a);
         this.magi = calc.magi;
