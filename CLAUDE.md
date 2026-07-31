@@ -352,7 +352,31 @@ back to walking `withdrawalOrder` literally with no cap (today's original
 drain-fully behavior), so every pre-category config/test is unaffected.
 Deliberately ignores the knock-on effect of ordinary income on Social
 Security's taxability (the "tax torpedo") -- a real refinement, not
-needed for this cut.
+needed for this cut (issue #23).
+
+The `ltcg` ceiling had a second, larger version of the same fault, fixed
+since (issue #27): a capital-gains bracket is a threshold on **total
+taxable income**, not on gains alone, so `categoryRoom()` has to measure
+down from the bracket top past this year's taxable ordinary income rather
+than up from zero. It subtracted only the gains realized so far, as though
+the household had no other income. Early in a plan that is often true and
+the two agree exactly; once Social Security and RMDs arrive, ordinary
+income alone can exceed the top of the 0% bracket, so the real room is
+nothing at all while the old expression went on offering the whole bracket
+every year for the rest of the horizon. The ceiling then limited nothing,
+and a strategy chosen to keep gains inside the 0% band spent the plan's
+later decades realizing gains taxed at 15%. Measured on the benchmark
+scenario (`test/benchmark.test.js`): the fix is worth 145,729 (3.4%) and,
+more tellingly, changes which withdrawal order wins -- so it was not a
+scoring error but a broken ceiling making the better strategy genuinely
+worse to execute, which the optimizer then correctly avoided. `TaxCalculator`
+gained `taxableOrdinary()` and `yearInputs()` so the floor comes from the
+one place that already computes it for the tax itself; two derivations of
+the same figure is how they came to disagree. The `LTCG_BRACKETS`
+boundaries were rounded (49,000/545,000) while the ordinary ones were
+exact -- corrected to the real 48,350/533,400, which matters more than a
+1% error usually would because the ceiling candidates *are* those
+boundaries.
 
 The first working version capped each category at a static dollar amount
 picked once at `Simulator.startYear`. Real usage against the full config
