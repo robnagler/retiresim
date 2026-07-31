@@ -91,7 +91,12 @@ nothing real is ever committed.
 - `src/ui/` -- the browser form, chart, and config-building glue.
 - `src/ext/` -- vendored third-party code, the only such code in the repo:
   Chart.js (MIT), so the UI loads no CDN and works offline.
-- `test/` -- one test file per `src/` module, mirroring that same layout.
+- `test/` -- one test file per `src/` module, mirroring that same layout,
+  plus `test/benchmark.test.js`, which is not per-module: it runs one
+  scenario through the whole pipeline and asserts the exact answer, so any
+  change to any part of the model has to be looked at rather than absorbed
+  silently. When it fails, read the diff and decide whether the new number
+  is better before touching the expected one.
 
 The [wiki](https://github.com/robnagler/retiresim/wiki) explains how the
 model works, what the optimizer searches, how to read the robustness
