@@ -10,7 +10,7 @@ export class TaxCalculator extends Account {
         // Per-instance copies, grown every year in prepareNextYear() --
         // real IRS brackets/standard deduction are inflation-indexed
         // annually (same mechanism IRMAA has used since 2020, see
-        // README.md's Reference data), so a fixed-forever value would have
+        // the wiki's Reference data page), so a fixed-forever value would have
         // the same "gets easier to cross over decades" issue IRMAA had.
         // ssProvisionalIncomeThresholds is deliberately NOT grown here --
         // those have never been inflation-adjusted in real law since
