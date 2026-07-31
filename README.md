@@ -55,14 +55,17 @@ bash test.sh
 **Command line**, from the repo root:
 
 ```
-node src/cli/main.js                      # illustrative example scenario
-node src/cli/main.js config/cfg.json       # your real config (see below)
-node src/cli/main.js --debug [config.json] # one scenario, full year-by-year detail, no optimizing
-node src/cli/main.js --robustness [N] [config.json]  # stress-test against N random historical-return sequences
+node src/cli/main.js                            # illustrative example scenario
+node src/cli/main.js config/cfg.json            # your own plan (see below)
+node src/cli/main.js --debug config/cfg.json    # the same, plus the winner year by year
 ```
 
-With no `--debug`/`--robustness` flag, `main.js` always runs the optimizer
-and prints a candidate/net-worth table per search variable.
+Every run does the same thing: search for the best plan, print a
+candidate/net-worth table per search variable, then stress-test the plan it
+chose against 200 sampled market histories. `--debug` adds that plan's full
+year-by-year accounting at the end. The stress test is skipped when the
+best plan already runs out of money on one steady return -- there is
+nothing to learn from two hundred worse ones.
 
 **Browser UI**, from the repo root:
 
@@ -74,10 +77,11 @@ then open `http://localhost:8000/index.html`. Fill in the form and click
 Optimize. Export/Import buttons save and reload just the form's fields as
 JSON.
 
-**Your real data**: create `config/cfg.json` (gitignored, never
-committed) with your actual balances, income, and spending -- see any
-`src/biz/*.js` class for the fields it reads, or just use the browser UI,
-which builds this shape for you automatically.
+**Your real data**: fill in the form in the browser and click **Export**.
+That file is the one the command line reads -- one format for both, so a
+plan moves between them without being retyped. Keep it wherever you like;
+`config/cfg.json` is the conventional spot, and `config/` is gitignored so
+nothing real is ever committed.
 
 ## How it's organized
 

@@ -1,22 +1,25 @@
 import { Base } from './Base.js';
-import { Config } from './Config.js';
-import { Bookkeeper } from './Bookkeeper.js';
 import { Simulator } from './Simulator.js';
+import { buildPipeline } from './pipeline.js';
 import { InsufficientFundsError } from './InsufficientFundsError.js';
 import { buildReturnSequence } from './HistoricalReturns.js';
 
 const DEFAULT_TRIALS = 200;
 
-// Runs as a separate step AFTER the optimizer, not as part of it --
-// main.js's --robustness mode takes configData exactly as given (same
-// "no candidate substitution" contract as --debug: whatever categoryOrder/
-// ceilings/claimAge are already sitting in cfg.json, presumably the
-// optimizer's own winning values copied in by hand) and stress-tests THAT
-// one plan against many different random historical-return sequences,
-// instead of searching for a better plan. It answers "how fragile is the
-// plan we already picked," not "what's the best plan." Unlike every other
-// input in this project, the historical-return data itself is NOT
-// configurable via cfg.json (see HistoricalReturns.js) -- it's a fact
+// Runs as a separate step AFTER the optimizer, not as part of it: it takes
+// one plan -- in practice Optimizer.winningConfigData()'s output, handed
+// straight over by both the CLI and the browser -- and stress-tests THAT
+// plan against many different sampled historical-return sequences instead
+// of searching for a better one. It answers "how fragile is the plan we
+// picked," not "what's the best plan."
+//
+// The plan used to be whatever categoryOrder/ceilings/claimAge were
+// sitting in cfg.json, copied there by hand from an earlier optimizer run,
+// which meant it could quietly be stress-testing a plan that went stale the
+// moment a better one was found. Nothing hand-copies anything now.
+//
+// Unlike every other input in this project, the historical-return data
+// itself is NOT configurable (see HistoricalReturns.js) -- it's a fact
 // about market history, not a per-user assumption.
 export class RobustnessValidator extends Base {
     // One Bookkeeper/Simulator per trial, each with its own sampled
@@ -29,8 +32,7 @@ export class RobustnessValidator extends Base {
         const { startYear, endYear } = configData.Simulator;
         const results = [];
         for (let trial = 0; trial < trials; trial++) {
-            const config = new Config(structuredClone(configData));
-            const bookkeeper = new Bookkeeper({ config, classes });
+            const { config, bookkeeper } = buildPipeline(configData, classes);
             bookkeeper.economy.setHistoricalReturns(buildReturnSequence({ startYear, endYear, trial }));
             try {
                 new Simulator({ bookkeeper, config }).run();

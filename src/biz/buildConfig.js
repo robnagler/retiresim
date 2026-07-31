@@ -46,6 +46,15 @@ const STANDARD_DEDUCTION = 15750;
 
 const MONTHS_PER_YEAR = 12;
 
+// Bumped whenever the input shape below changes incompatibly, and written
+// into every exported file. Lives here rather than in the browser because
+// the CLI reads the same files: one program, one format, one version.
+// Import refuses a file it does not recognise rather than filling in from
+// fields that may no longer mean what they did -- the failure the rename
+// to monthly amounts escaped only because the old keys happened not to
+// match the new ones.
+export const INPUT_VERSION = 1;
+
 // Social Security taxability thresholds -- never inflation-indexed in
 // real law since enacted in the 1980s/90s, so these stay fixed (see
 // CLAUDE.md's TaxCalculator.js note).
@@ -104,17 +113,23 @@ function currentYear() {
 // The per-type fields each account needs beyond name and balance. Mortgage
 // is absent because it is a spender, handled separately below.
 const ACCOUNT_FIELDS = {
-    // The form doesn't collect basis separately -- assuming the whole
-    // entered balance is basis (no unrealized gain yet) is the
-    // conservative, simple default: early withdrawals realize no gain until
-    // the account grows past this starting value.
-    TaxableAccount: (account) => ({ basis: account.balance }),
+    // Basis left blank means "I paid the whole balance", so nothing is
+    // taxed until the account grows past the entered figure. That is the
+    // simple answer rather than the accurate one -- a real account almost
+    // always holds gain already, and pretending otherwise under-taxes
+    // whatever is spent early, when the whole of that gain is invisible to
+    // the model. The field exists so someone who knows their basis can say
+    // so; the default is what the form assumed before it existed.
+    TaxableAccount: (account) => ({ basis: account.basis ?? account.balance }),
     TraditionalIra: (account, { birthYear }) => ({ birthYear }),
     RothIra: () => ({ withdraw: 0 }),
     NonSpousalInheritedIra: (account, { birthYear }) => ({ birthYear, inheritedYear: account.inheritedYear }),
-    // Spend the HSA down over life, matching CLAUDE.md's "medical expenses
-    // over life" framing -- the same horizon as the simulation itself.
-    HsaAccount: (account, { endYear }) => ({ zeroBalanceYear: endYear }),
+    // Spend the HSA down over life by default, matching CLAUDE.md's
+    // "medical expenses over life" framing -- the same horizon as the
+    // simulation itself. An earlier year is a real plan choice rather than
+    // a detail: it draws the money out faster, which suits someone
+    // expecting the medical costs sooner than the end of the horizon.
+    HsaAccount: (account, { endYear }) => ({ zeroBalanceYear: account.zeroBalanceYear ?? endYear }),
 };
 
 function accountName(account) {
@@ -179,7 +194,16 @@ export function buildConfigData(input) {
             // A liability, stored negative, and a spender rather than a
             // source to withdraw from -- but still a box in the form, since
             // "a balance you open to edit" is what that means to a user.
-            spendingOrder.push({ ...entry, balance: -account.balance, rate: account.rate, endYear: account.endYear });
+            //
+            // sellYear is omitted rather than passed as undefined when it
+            // is blank: Mortgage.js reads cfg.sellYear, and a key that is
+            // present but undefined is the sort of thing a later `in` or
+            // Object.keys() check reads as "they chose to sell".
+            const mortgage = { ...entry, balance: -account.balance, rate: account.rate, endYear: account.endYear };
+            if (account.sellYear) {
+                mortgage.sellYear = account.sellYear;
+            }
+            spendingOrder.push(mortgage);
             continue;
         }
         withdrawalOrder.push({ ...entry, ...ACCOUNT_FIELDS[account.type](account, { birthYear, endYear }) });
