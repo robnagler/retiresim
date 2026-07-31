@@ -103,13 +103,26 @@ export class Bookkeeper extends Base {
     // lists would eventually disagree. NonSpousalInheritedIra and
     // HsaAccount need no mention of their own: they extend TraditionalIra
     // and RothIra respectively, so instanceof already covers them.
+    //
+    // Cash is reported under the account Cash.sweepTarget() names rather
+    // than on its own, because that is where the money is: every year's
+    // surplus is swept there before the year ends, so a separate Cash
+    // entry is a line item for an account that holds nothing by design.
+    // Folded rather than dropped -- dropping it would let the breakdown
+    // total less than the netWorth() computed from it, quietly, which is
+    // a worse fault than an uninteresting entry. A household with no
+    // TaxableAccount has nowhere to sweep to, so there Cash really does
+    // hold the money and keeps its own entry.
     assetBalances() {
         const isAsset = (a) => a instanceof TaxableAccount || a instanceof TraditionalIra || a instanceof RothIra || a instanceof Cash;
+        const sweep = this.cash.sweepTarget();
         const rv = {};
         for (const a of this.accounts) {
-            if (isAsset(a)) {
-                rv[a.name] = a.balance;
+            if (!isAsset(a)) {
+                continue;
             }
+            const name = a === this.cash && sweep ? sweep.name : a.name;
+            rv[name] = (rv[name] ?? 0) + a.balance;
         }
         return rv;
     }

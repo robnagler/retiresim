@@ -434,7 +434,7 @@ function populateForm(input) {
 // shape, not buildConfigData()'s expanded simulation config.
 //
 // The name carries a timestamp (see fileName.js) so each export is its own
-// file. Without one every export is retirement-plan.json and the browser
+// file. Without one every export is retiresim.json and the browser
 // disambiguates them as "(1)", "(2)", numbered by the order they were
 // saved and saying nothing about which is which.
 function exportFields() {

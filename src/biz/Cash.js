@@ -77,11 +77,21 @@ export class Cash extends Account {
     // NOT throw) when no TaxableAccount is configured -- unlike
     // bookkeeper/taxCalculator, a household legitimately might not have
     // one.
+    // Where idle cash ends up, or undefined when the household has no
+    // TaxableAccount at all. Its own method rather than a line inside
+    // sweepSurplus() because Bookkeeper.assetBalances() has to answer the
+    // same question to report the balance where the money actually is --
+    // two independent copies of "the first TaxableAccount in
+    // withdrawalOrder" would eventually name different accounts.
+    sweepTarget() {
+        return this.accounts.find((account) => account instanceof TaxableAccount);
+    }
+
     sweepSurplus(year, bookkeeper) {
         if (this.balance <= 0) {
             return;
         }
-        const taxable = this.accounts.find((account) => account instanceof TaxableAccount);
+        const taxable = this.sweepTarget();
         if (!taxable) {
             return;
         }

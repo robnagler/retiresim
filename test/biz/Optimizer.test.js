@@ -189,7 +189,9 @@ test('runAll captures the winner\'s per-account balances each year, adding up to
         .runAll(baseData, { TaxableAccount, LivingExpense, Cash }, [variable])[0];
 
     assert.deepEqual(balancesByYear.map((p) => p.year), [2026, 2027]);
-    assert.deepEqual(Object.keys(balancesByYear[0].balances), ['TaxableAccount', 'Cash']);
+    // No Cash key: it is swept into TaxableAccount and reported there, so
+    // the chart drawn from this has one band per account someone recognises.
+    assert.deepEqual(Object.keys(balancesByYear[0].balances), ['TaxableAccount']);
     balancesByYear.forEach((point, i) => {
         const total = Object.values(point.balances).reduce((a, b) => a + b, 0);
         assert.ok(Math.abs(total - netWorthByYear[i].netWorth) < 1e-9);

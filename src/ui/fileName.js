@@ -1,5 +1,11 @@
 // The name Export suggests for the downloaded file.
 //
+// Named for the program rather than the subject: "retirement-plan" reads
+// like a document any of a dozen tools could have written, while
+// "retiresim" says which one wrote it and which one reads it back. Nothing
+// depends on the name on the way in -- importFields() checks the version
+// inside the file -- so files saved under the old name still import.
+//
 // Local time, not UTC: the name exists so it matches when the person
 // remembers making the file, and one several hours off from that is worse
 // than no timestamp at all. Every getter below reads local time already,
@@ -18,5 +24,5 @@ function pad(value) {
 export function exportFileName(now) {
     const date = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
     const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-    return `retirement-plan-${date}T${time}.json`;
+    return `retiresim-${date}T${time}.json`;
 }
