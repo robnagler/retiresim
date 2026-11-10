@@ -7,6 +7,7 @@ import { buildConfigData, INPUT_VERSION } from '../biz/buildConfig.js';
 import { buildPipeline } from '../biz/pipeline.js';
 import { InsufficientFundsError } from '../biz/InsufficientFundsError.js';
 import { OptimizerReport } from './OptimizerReport.js';
+import { YearTable } from './YearTable.js';
 
 // node src/cli/main.js [--debug] [path/to/plan.json]
 //
@@ -86,6 +87,10 @@ if (results[results.length - 1].netWorthByYear) {
     console.log('');
     console.log(validator.report(validator.run(winning, CLASSES)));
 }
+
+const yearTable = new YearTable();
+console.log('');
+console.log(yearTable.report(yearTable.run(winning, CLASSES)));
 
 if (debug) {
     console.log('');
